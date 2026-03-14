@@ -1,0 +1,51 @@
+{
+  "name": "casa-mx-backend",
+  "version": "1.0.0",
+  "description": "CASA MX Backend API - Phase 4",
+  "type": "module",
+  "engines": {
+    "node": ">=18 <=20"
+  },
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "node scripts/check-node-version.js && tsx watch src/server.ts",
+    "build": "node scripts/check-node-version.js && tsc",
+    "start": "node scripts/check-node-version.js && node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check-env": "tsx scripts/check-env.ts",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:studio": "prisma studio"
+  },
+  "keywords": [
+    "fastify",
+    "typescript",
+    "prisma",
+    "postgresql"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@fastify/jwt": "^8.0.1",
+    "@fastify/rate-limit": "^9.1.0",
+    "@prisma/client": "^5.19.0",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1",
+    "ioredis": "^5.9.3",
+    "pino": "^9.3.2",
+    "pino-pretty": "^11.2.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^22.5.0",
+    "prisma": "^5.19.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

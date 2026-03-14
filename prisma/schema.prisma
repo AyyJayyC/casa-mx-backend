@@ -1,0 +1,351 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String   // bcrypt hash
+  roles     UserRole[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+model Role {
+  id    String   @id @default(uuid())
+  name  String   @unique // buyer, seller, wholesaler, admin
+  createdAt DateTime @default(now())
+
+  userRoles UserRole[]
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  status    String   @default("pending") // pending, approved, denied
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([status])
+}
+
+model Property {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  address     String?
+  price       Float?   // Optional now - required only for sales
+  lat         Float?
+  lng         Float?
+  status      String   @default("available") // available, sold, pending, rented
+  estado      String   @default("Ciudad de México") // Mexican state (required)
+  ciudad      String?  // City/Municipality (e.g., Guadalajara, Monterrey)
+  colonia     String?  // Neighborhood (e.g., Roma Norte, Polanco)
+  codigoPostal String? // ZIP code (e.g., 06700, 44100)
+  sellerId    String
+  
+  // Rental system fields
+  listingType       String   @default("for_sale") // for_sale, for_rent
+  monthlyRent       Float?   // Required for rentals
+  securityDeposit   Float?   // Typically 1-2 months rent
+  leaseTermMonths   Int?     // 6, 12, 24 months
+  availableFrom     DateTime?
+  furnished         Boolean  @default(false)
+  utilitiesIncluded Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  propertyRequests  PropertyRequest[]
+  rentalApplications RentalApplication[]
+
+  @@index([sellerId])
+  @@index([status])
+  @@index([price])
+  @@index([estado])
+  @@index([ciudad])
+  @@index([colonia])
+  @@index([codigoPostal])
+  @@index([listingType])
+}
+
+model PropertyRequest {
+  id         String   @id @default(uuid())
+  propertyId String
+  buyerId    String
+  message    String?
+  status     String   @default("pending") // pending, contacted
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([propertyId, buyerId])
+  @@index([propertyId])
+  @@index([buyerId])
+  @@index([status])
+}
+
+model RentalApplication {
+  id          String   @id @default(uuid())
+  propertyId  String
+  applicantId String
+  status      String   @default("pending") // pending, under_review, approved, rejected, withdrawn, expired
+  
+  // Personal Information
+  fullName    String
+  email       String
+  phone       String
+  
+  // Employment Information
+  employer           String
+  jobTitle           String
+  monthlyIncome      Float
+  employmentDuration String
+  
+  // Rental Preferences
+  desiredMoveInDate  DateTime
+  desiredLeaseTerm   Int      // 6, 12, 24 months
+  numberOfOccupants  Int
+  
+  // References
+  reference1Name     String
+  reference1Phone    String
+  reference2Name     String?
+  reference2Phone    String?
+  
+  // Additional
+  messageToLandlord  String?  @db.Text
+  landlordNote       String?  @db.Text
+  
+  // Document URLs (structure for Phase 6)
+  idDocumentUrl      String?
+  incomeProofUrl     String?
+  additionalDocsUrls String[]
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  @@index([propertyId])
+  @@index([applicantId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String
+  type       String   // rental_application_received, application_status_changed, etc.
+  title      String
+  message    String   @db.Text
+  entityType String?  // property, application, etc.
+  entityId   String?
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  eventName  String
+  userId     String?
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([eventName])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  actorUserId    String
+  targetUserId   String?
+  action         String   // APPROVE_ROLE, DENY_ROLE, CREATE_PROPERTY, etc.
+  previousState  Json?
+  newState       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([targetUserId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// Debug/Logging Models - Checkpoint 1
+
+model DebugSession {
+  id                String   @id @default(uuid())
+  userId            String?
+  userEmail         String?
+  sessionStartTime  DateTime @default(now())
+  sessionEndTime    DateTime?
+  initialRoute      String
+  userAgent         String?
+  ipAddress         String?
+  hasErrors         Boolean  @default(false)
+  exported          Boolean  @default(false)
+  exportedAt        DateTime?
+  createdAt         DateTime @default(now())
+
+  actionLogs        ActionLog[]
+  errorLogs         ErrorLog[]
+  apiLogs           ApiLog[]
+
+  @@index([userId])
+  @@index([userEmail])
+  @@index([hasErrors])
+  @@index([exported])
+  @@index([sessionStartTime])
+  @@index([createdAt])
+}
+
+model ActionLog {
+  id                String   @id @default(uuid())
+  sessionId         String
+  userId            String?
+  userEmail         String?
+  actionType        String   // button_click, form_submit, navigation, api_call, etc.
+  actionName        String   // upload_property_submit, login_button_click, etc.
+  componentName     String?
+  currentRoute      String
+  metadata          Json?
+  userAgent         String?
+  timestamp         DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  session           DebugSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([actionType])
+  @@index([timestamp])
+  @@index([createdAt])
+}
+
+model ErrorLog {
+  id                String   @id @default(uuid())
+  sessionId         String
+  userId            String?
+  userEmail         String?
+  errorType         String   // frontend, backend, api, database, validation
+  errorMessage      String   @db.Text
+  errorStackTrace   String?  @db.Text
+  errorCode         String?
+  severity          String   // low, medium, high, critical
+  componentName     String?
+  currentRoute      String
+  contextData       Json?
+  resolved          Boolean  @default(false)
+  resolvedAt        DateTime?
+  resolvedById      String?
+  resolvedNote      String?  @db.Text
+  timestamp         DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  session           DebugSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([errorType])
+  @@index([severity])
+  @@index([resolved])
+  @@index([timestamp])
+  @@index([createdAt])
+}
+
+model ApiLog {
+  id                String   @id @default(uuid())
+  sessionId         String
+  userId            String?
+  httpMethod        String   // GET, POST, PATCH, DELETE, etc.
+  apiEndpoint       String
+  requestHeaders    Json?
+  requestBody       Json?
+  responseStatus    Int
+  responseBody      Json?
+  responseTimeMs    Int
+  errorMessage      String?  @db.Text
+  timestamp         DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  session           DebugSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([apiEndpoint])
+  @@index([responseStatus])
+  @@index([timestamp])
+  @@index([createdAt])
+}
+
+// Maps usage tracking models (Checkpoint 2)
+
+model ApiUsageLog {
+  id              String   @id @default(uuid())
+  provider        String   // e.g., "google_maps", "nominatim"
+  serviceType     String   // e.g., "tile_request", "geocoding", "places_autocomplete", "directions"
+  requestTimestamp DateTime @default(now())
+  userId          String?
+  requestDetails  Json?
+  responseStatus  String   // success, rate_limited, error
+  responseTimeMs  Int?
+  cost            Float?   // estimated cost for the request
+  errorMessage    String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  @@index([serviceType])
+  @@index([requestTimestamp])
+  @@index([userId])
+  @@index([responseStatus])
+}
+
+model UsageLimit {
+  id           String   @id @default(uuid())
+  serviceType  String   @unique
+  limitType    String   // monthly, daily, rate
+  limitValue   Int
+  currentUsage Int      @default(0)
+  resetAt      DateTime?
+  alertThreshold Int    @default(80)
+  hardStop     Boolean  @default(false)
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+
+  @@index([serviceType])
+  @@index([status])
+}
+
+model LimitAlert {
+  id               String   @id @default(uuid())
+  serviceType      String
+  alertType        String   // threshold, limit_exceeded, hard_stop
+  thresholdPercent Int
+  usageAtAlert     Int
+  limitValue       Int
+  adminNotified    Boolean  @default(false)
+  alertTimestamp   DateTime @default(now())
+  resolved         Boolean  @default(false)
+
+  @@index([serviceType])
+  @@index([alertType])
+  @@index([resolved])
+}
