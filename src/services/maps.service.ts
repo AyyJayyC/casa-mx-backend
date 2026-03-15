@@ -88,21 +88,34 @@ export class MapsService {
       const key = this.apiKey || process.env.MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
       // Prefer Google if key present, else use Nominatim
       if (key) {
-        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${key}`;
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&components=country:MX&region=mx&language=es&key=${key}`;
         const res = await fetch(url);
         const data = (await res.json()) as any;
         const took = Date.now() - start;
         const status = data.status || (res.ok ? 'OK' : 'ERROR');
         await this.logRequest({ provider: 'google_maps', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address, url }, responseStatus: status.toLowerCase(), responseTimeMs: took });
         if (status === 'OK' && Array.isArray(data.results) && data.results.length > 0) {
-          await this.incrementUsage('geocoding', 1);
-          const out = data.results[0];
-          this.setCache(cacheKey, out, 1000 * 60 * 60 * 24 * 30); // 30 days
-          return out;
+          const mxResult = data.results.find((r: any) =>
+            Array.isArray(r?.address_components) &&
+            r.address_components.some((c: any) =>
+              c?.types?.includes('country') &&
+              (String(c?.short_name || '').toUpperCase() === 'MX' ||
+               String(c?.long_name || '').toLowerCase().includes('méxico') ||
+               String(c?.long_name || '').toLowerCase().includes('mexico'))
+            )
+          );
+          if (mxResult) {
+            await this.incrementUsage('geocoding', 1);
+            const out = mxResult;
+            this.setCache(cacheKey, out, 1000 * 60 * 60 * 24 * 30); // 30 days
+            return out;
+          }
+
+          // Google returned results but none in Mexico; continue to MX-restricted fallback
         }
 
-        // Fallback to Nominatim if Google does not return results
-        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
+        // Fallback to Nominatim if Google does not return MX results
+        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&addressdetails=1&q=${encodeURIComponent(address)}`;
         const fallbackRes = await fetch(fallbackUrl, { headers: { 'User-Agent': 'casa-mx/1.0' } });
         const fallbackData = await fallbackRes.json();
         const fallbackTook = Date.now() - start;
@@ -117,22 +130,24 @@ export class MapsService {
         });
 
         if (Array.isArray(fallbackData) && fallbackData.length > 0) {
+          const mxFallback = fallbackData.find((d: any) => String(d?.address?.country_code || '').toLowerCase() === 'mx') || fallbackData[0];
           await this.incrementUsage('geocoding', 1);
-          const out = fallbackData[0];
+          const out = mxFallback;
           this.setCache(cacheKey, out, 1000 * 60 * 60 * 24 * 30); // 30 days
           return out;
         }
 
         throw new Error(data.error_message || data.status || 'Geocode failed');
       } else {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&addressdetails=1&q=${encodeURIComponent(address)}`;
         const res = await fetch(url, { headers: { 'User-Agent': 'casa-mx/1.0' } });
         const data = await res.json();
         const took = Date.now() - start;
         await this.logRequest({ provider: 'nominatim', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address, url }, responseStatus: res.ok ? 'success' : 'error', responseTimeMs: took });
         if (Array.isArray(data) && data.length > 0) {
+          const mxData = data.find((d: any) => String(d?.address?.country_code || '').toLowerCase() === 'mx') || data[0];
           await this.incrementUsage('geocoding', 1);
-          const out = data[0];
+          const out = mxData;
           this.setCache(cacheKey, out, 1000 * 60 * 60 * 24 * 30); // 30 days
           return out;
         }
@@ -173,7 +188,7 @@ export class MapsService {
     try {
       const key = this.apiKey || process.env.MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
       if (key) {
-        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=address&components=country:mx&key=${key}`;
+        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=address&components=country:mx&language=es&region=mx&key=${key}`;
         const res = await fetch(url);
         const data = (await res.json()) as any;
         const took = Date.now() - start;
@@ -185,7 +200,7 @@ export class MapsService {
         }
 
         // Fallback to Nominatim if Google does not return predictions
-        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=10&countrycodes=mx&q=${encodeURIComponent(input)}`;
+        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=10&countrycodes=mx&addressdetails=1&q=${encodeURIComponent(input)}`;
         const fallbackRes = await fetch(fallbackUrl, { headers: { 'User-Agent': 'casa-mx/1.0' } });
         const fallbackData = (await fallbackRes.json()) as any[];
         const fallbackTook = Date.now() - start;
@@ -199,7 +214,9 @@ export class MapsService {
           errorMessage: data.error_message || data.status || null,
         });
 
-        const mapped = (fallbackData || []).map((d: any) => {
+        const mapped = (fallbackData || [])
+          .filter((d: any) => String(d?.address?.country_code || 'mx').toLowerCase() === 'mx')
+          .map((d: any) => {
           const parts = (d.display_name || '').split(',').map((p: string) => p.trim());
           return {
             description: d.display_name,
@@ -221,12 +238,14 @@ export class MapsService {
         }
         return mapped;
       } else {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=10&countrycodes=mx&q=${encodeURIComponent(input)}`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=10&countrycodes=mx&addressdetails=1&q=${encodeURIComponent(input)}`;
         const res = await fetch(url, { headers: { 'User-Agent': 'casa-mx/1.0' } });
         const data = (await res.json()) as any[];
         const took = Date.now() - start;
         await this.logRequest({ provider: 'nominatim', serviceType: 'places_autocomplete', userId: opts?.userId, requestDetails: { input, url }, responseStatus: res.ok ? 'success' : 'error', responseTimeMs: took });
-        const mapped = (data || []).map((d: any) => {
+        const mapped = (data || [])
+          .filter((d: any) => String(d?.address?.country_code || 'mx').toLowerCase() === 'mx')
+          .map((d: any) => {
           // Extract address components from Nominatim response
           const parts = (d.display_name || '').split(',').map((p: string) => p.trim());
           return {
