@@ -100,6 +100,29 @@ export class MapsService {
           this.setCache(cacheKey, out, 1000 * 60 * 60 * 24 * 30); // 30 days
           return out;
         }
+
+        // Fallback to Nominatim if Google does not return results
+        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
+        const fallbackRes = await fetch(fallbackUrl, { headers: { 'User-Agent': 'casa-mx/1.0' } });
+        const fallbackData = await fallbackRes.json();
+        const fallbackTook = Date.now() - start;
+        await this.logRequest({
+          provider: 'nominatim',
+          serviceType: 'geocoding',
+          userId: opts?.userId,
+          requestDetails: { address, url: fallbackUrl, fallbackFrom: 'google_maps' },
+          responseStatus: fallbackRes.ok ? 'success' : 'error',
+          responseTimeMs: fallbackTook,
+          errorMessage: data.error_message || data.status || null,
+        });
+
+        if (Array.isArray(fallbackData) && fallbackData.length > 0) {
+          await this.incrementUsage('geocoding', 1);
+          const out = fallbackData[0];
+          this.setCache(cacheKey, out, 1000 * 60 * 60 * 24 * 30); // 30 days
+          return out;
+        }
+
         throw new Error(data.error_message || data.status || 'Geocode failed');
       } else {
         const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
@@ -155,12 +178,48 @@ export class MapsService {
         const data = (await res.json()) as any;
         const took = Date.now() - start;
         await this.logRequest({ provider: 'google_maps', serviceType: 'places_autocomplete', userId: opts?.userId, requestDetails: { input, url }, responseStatus: (data.status || (res.ok ? 'OK' : 'ERROR')).toLowerCase(), responseTimeMs: took });
-        if (data.predictions) {
+        if (Array.isArray(data.predictions) && data.predictions.length > 0) {
           await this.incrementUsage('places_autocomplete', 1);
           this.setCache(cacheKey, data.predictions, 1000 * 60 * 60 * 24 * 7); // 7 days
           return data.predictions;
         }
-        return [];
+
+        // Fallback to Nominatim if Google does not return predictions
+        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=10&countrycodes=mx&q=${encodeURIComponent(input)}`;
+        const fallbackRes = await fetch(fallbackUrl, { headers: { 'User-Agent': 'casa-mx/1.0' } });
+        const fallbackData = (await fallbackRes.json()) as any[];
+        const fallbackTook = Date.now() - start;
+        await this.logRequest({
+          provider: 'nominatim',
+          serviceType: 'places_autocomplete',
+          userId: opts?.userId,
+          requestDetails: { input, url: fallbackUrl, fallbackFrom: 'google_maps' },
+          responseStatus: fallbackRes.ok ? 'success' : 'error',
+          responseTimeMs: fallbackTook,
+          errorMessage: data.error_message || data.status || null,
+        });
+
+        const mapped = (fallbackData || []).map((d: any) => {
+          const parts = (d.display_name || '').split(',').map((p: string) => p.trim());
+          return {
+            description: d.display_name,
+            place_id: d.osm_id,
+            _nominatim: true,
+            lat: d.lat,
+            lon: d.lon,
+            address_components: {
+              address: parts[0] || '',
+              colonia: d.address?.neighbourhood || parts[1] || '',
+              ciudad: d.address?.city || d.address?.town || parts[2] || '',
+              estado: d.address?.state || d.address?.province || parts[parts.length - 2] || ''
+            }
+          };
+        });
+        if (mapped.length > 0) {
+          await this.incrementUsage('places_autocomplete', 1);
+          this.setCache(cacheKey, mapped, 1000 * 60 * 60 * 24 * 7);
+        }
+        return mapped;
       } else {
         const url = `https://nominatim.openstreetmap.org/search?format=json&limit=10&countrycodes=mx&q=${encodeURIComponent(input)}`;
         const res = await fetch(url, { headers: { 'User-Agent': 'casa-mx/1.0' } });
