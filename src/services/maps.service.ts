@@ -6,6 +6,7 @@ export type ServiceType = 'geocoding' | 'places_autocomplete' | 'place_details' 
 
 export class MapsService {
   apiKey: string | undefined;
+  billableProvidersEnabled: boolean;
   // Simple in-memory cache: key -> { value, expires }
   cache: Map<string, { value: any; expiresAt: number }> = new Map();
 
@@ -24,7 +25,24 @@ export class MapsService {
   }
 
   constructor(apiKey?: string) {
-    this.apiKey = apiKey || process.env.MAPS_API_KEY || process.env.MAPS_API_KEY;
+    this.apiKey = apiKey || process.env.MAPS_API_KEY;
+    this.billableProvidersEnabled = String(process.env.ENABLE_BILLABLE_MAPS || 'false').toLowerCase() === 'true';
+  }
+
+  canUseGoogleMapsProvider() {
+    return Boolean(this.apiKey) && this.billableProvidersEnabled;
+  }
+
+  sanitizeUrlForLogs(url: string) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.searchParams.has('key')) {
+        parsed.searchParams.set('key', 'REDACTED');
+      }
+      return parsed.toString();
+    } catch {
+      return url.replace(/([?&]key=)[^&]+/i, '$1REDACTED');
+    }
   }
 
   async checkLimit(serviceType: ServiceType) {
@@ -85,15 +103,15 @@ export class MapsService {
       const cacheKey = `geocode:${address}`;
       const cached = this.getFromCache(cacheKey);
       if (cached) return cached;
-      const key = this.apiKey || process.env.MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      const key = this.apiKey || process.env.MAPS_API_KEY;
       // Prefer Google if key present, else use Nominatim
-      if (key) {
+      if (key && this.canUseGoogleMapsProvider()) {
         const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&components=country:MX&region=mx&language=es&key=${key}`;
         const res = await fetch(url);
         const data = (await res.json()) as any;
         const took = Date.now() - start;
         const status = data.status || (res.ok ? 'OK' : 'ERROR');
-        await this.logRequest({ provider: 'google_maps', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address, url }, responseStatus: status.toLowerCase(), responseTimeMs: took });
+        await this.logRequest({ provider: 'google_maps', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address, url: this.sanitizeUrlForLogs(url) }, responseStatus: status.toLowerCase(), responseTimeMs: took });
         if (status === 'OK' && Array.isArray(data.results) && data.results.length > 0) {
           const mxResult = data.results.find((r: any) =>
             Array.isArray(r?.address_components) &&
@@ -156,7 +174,7 @@ export class MapsService {
     } catch (err: any) {
       const took = Date.now() - start;
       console.error('Geocode error:', err);
-      await this.logRequest({ provider: this.apiKey ? 'google_maps' : 'nominatim', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address }, responseStatus: 'error', responseTimeMs: took, errorMessage: err.message });
+      await this.logRequest({ provider: this.canUseGoogleMapsProvider() ? 'google_maps' : 'nominatim', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address }, responseStatus: 'error', responseTimeMs: took, errorMessage: err.message });
       throw err;
     }
   }
@@ -186,13 +204,13 @@ export class MapsService {
 
     const start = Date.now();
     try {
-      const key = this.apiKey || process.env.MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-      if (key) {
+      const key = this.apiKey || process.env.MAPS_API_KEY;
+      if (key && this.canUseGoogleMapsProvider()) {
         const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=address&components=country:mx&language=es&region=mx&key=${key}`;
         const res = await fetch(url);
         const data = (await res.json()) as any;
         const took = Date.now() - start;
-        await this.logRequest({ provider: 'google_maps', serviceType: 'places_autocomplete', userId: opts?.userId, requestDetails: { input, url }, responseStatus: (data.status || (res.ok ? 'OK' : 'ERROR')).toLowerCase(), responseTimeMs: took });
+        await this.logRequest({ provider: 'google_maps', serviceType: 'places_autocomplete', userId: opts?.userId, requestDetails: { input, url: this.sanitizeUrlForLogs(url) }, responseStatus: (data.status || (res.ok ? 'OK' : 'ERROR')).toLowerCase(), responseTimeMs: took });
         if (Array.isArray(data.predictions) && data.predictions.length > 0) {
           await this.incrementUsage('places_autocomplete', 1);
           this.setCache(cacheKey, data.predictions, 1000 * 60 * 60 * 24 * 7); // 7 days
@@ -270,7 +288,7 @@ export class MapsService {
       }
     } catch (err: any) {
       const took = Date.now() - start;
-      await this.logRequest({ provider: this.apiKey ? 'google_maps' : 'nominatim', serviceType: 'places_autocomplete', userId: opts?.userId, requestDetails: { input }, responseStatus: 'error', responseTimeMs: took, errorMessage: err.message });
+      await this.logRequest({ provider: this.canUseGoogleMapsProvider() ? 'google_maps' : 'nominatim', serviceType: 'places_autocomplete', userId: opts?.userId, requestDetails: { input }, responseStatus: 'error', responseTimeMs: took, errorMessage: err.message });
       return [];
     }
   }
@@ -292,4 +310,4 @@ export class MapsService {
   }
 }
 
-export const mapsService = new MapsService(process.env.MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
+export const mapsService = new MapsService(process.env.MAPS_API_KEY);

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
+import { signRoleToken } from './utils/authHelpers.js';
 
 let app: FastifyInstance;
 let testSellerId: string;
@@ -38,10 +39,11 @@ describe('Checkpoint 2 - Backend API Filters', () => {
     testBuyerId = buyer.id;
 
     // Generate auth token for seller
-    authToken = app.jwt.sign(
-      { id: testSellerId, email: seller.email },
-      { expiresIn: '1h' }
-    );
+    authToken = signRoleToken(app, {
+      id: testSellerId,
+      email: seller.email,
+      roles: ['seller'],
+    });
   });
 
   describe('GET /properties', () => {

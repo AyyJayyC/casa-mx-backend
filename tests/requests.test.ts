@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
+import { registerUser, loginAndGetToken } from './utils/authHelpers.js';
 
 describe('Requests API', () => {
   let app: FastifyInstance;
@@ -19,55 +20,21 @@ describe('Requests API', () => {
     app = await buildApp();
     await app.ready();
 
-    const buyerRegister = await app.inject({
-      method: 'POST',
-      url: '/auth/register',
-      payload: {
-        name: 'Requests Buyer',
-        email: buyerEmail,
-        password: 'TestPassword123!',
-      },
+    const buyerUser = await registerUser(app, {
+      name: 'Requests Buyer',
+      email: buyerEmail,
+      password: 'TestPassword123!',
     });
+    buyerId = buyerUser.id;
+    buyerToken = await loginAndGetToken(app, buyerEmail, 'TestPassword123!');
 
-    expect(buyerRegister.statusCode).toBe(201);
-    buyerId = JSON.parse(buyerRegister.body).user.id;
-
-    const buyerLogin = await app.inject({
-      method: 'POST',
-      url: '/auth/login',
-      payload: {
-        email: buyerEmail,
-        password: 'TestPassword123!',
-      },
+    const otherBuyerUser = await registerUser(app, {
+      name: 'Requests Buyer 2',
+      email: otherBuyerEmail,
+      password: 'TestPassword123!',
     });
-
-    expect(buyerLogin.statusCode).toBe(200);
-    buyerToken = JSON.parse(buyerLogin.body).token;
-
-    const otherBuyerRegister = await app.inject({
-      method: 'POST',
-      url: '/auth/register',
-      payload: {
-        name: 'Requests Buyer 2',
-        email: otherBuyerEmail,
-        password: 'TestPassword123!',
-      },
-    });
-
-    expect(otherBuyerRegister.statusCode).toBe(201);
-    otherBuyerId = JSON.parse(otherBuyerRegister.body).user.id;
-
-    const otherBuyerLogin = await app.inject({
-      method: 'POST',
-      url: '/auth/login',
-      payload: {
-        email: otherBuyerEmail,
-        password: 'TestPassword123!',
-      },
-    });
-
-    expect(otherBuyerLogin.statusCode).toBe(200);
-    otherBuyerToken = JSON.parse(otherBuyerLogin.body).token;
+    otherBuyerId = otherBuyerUser.id;
+    otherBuyerToken = await loginAndGetToken(app, otherBuyerEmail, 'TestPassword123!');
 
     const propertyA = await app.prisma.property.create({
       data: {

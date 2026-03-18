@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
+import { approveUserRole, loginAndGetToken } from './utils/authHelpers.js';
 
 /**
  * Checkpoint 2: Backend API - Rental Listings & Filtering
@@ -38,16 +39,8 @@ describe('Checkpoint 2 - Rental Properties API', () => {
     const registerData = registerRes.json();
     userId = registerData.user.id;
 
-    const loginRes = await app.inject({
-      method: 'POST',
-      url: '/auth/login',
-      payload: {
-        email: registerData.user.email,
-        password: 'TestPassword123!',
-      },
-    });
-
-    authToken = loginRes.json().token;
+    await approveUserRole(app, userId, 'seller');
+    authToken = await loginAndGetToken(app, registerData.user.email, 'TestPassword123!');
   });
 
   afterAll(async () => {
@@ -320,16 +313,12 @@ describe('Checkpoint 2 - Rental Properties API', () => {
         },
       });
 
-      const otherLoginRes = await app.inject({
-        method: 'POST',
-        url: '/auth/login',
-        payload: {
-          email: otherUserRes.json().user.email,
-          password: 'TestPassword123!',
-        },
-      });
-
-      const otherToken = otherLoginRes.json().token;
+      await approveUserRole(app, otherUserRes.json().user.id, 'seller');
+      const otherToken = await loginAndGetToken(
+        app,
+        otherUserRes.json().user.email,
+        'TestPassword123!'
+      );
 
       const response = await app.inject({
         method: 'PATCH',
@@ -439,11 +428,18 @@ describe('Checkpoint 2 - Rental Properties API', () => {
 
       const otherToken = otherLoginRes.json().token;
 
+      await approveUserRole(app, otherUserRes.json().user.id, 'seller');
+      const approvedOtherToken = await loginAndGetToken(
+        app,
+        otherUserRes.json().user.email,
+        'TestPassword123!'
+      );
+
       const propertyRes = await app.inject({
         method: 'POST',
         url: '/properties',
         headers: {
-          authorization: `Bearer ${otherToken}`,
+          authorization: `Bearer ${approvedOtherToken}`,
         },
         payload: {
           title: 'Someone Else Property',

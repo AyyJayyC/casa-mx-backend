@@ -12,6 +12,22 @@ import pino from 'pino';
 const logger = pino();
 
 export async function setupDebugRoutes(fastify: FastifyInstance) {
+  const truncateString = (value: unknown, maxLength: number) => {
+    if (typeof value !== 'string') return value;
+    return value.length > maxLength ? value.slice(0, maxLength) : value;
+  };
+
+  const sanitizeObjectField = (value: unknown, maxLength = 8000) => {
+    if (value === undefined || value === null) return value;
+    try {
+      const serialized = JSON.stringify(value);
+      const truncated = serialized.length > maxLength ? serialized.slice(0, maxLength) : serialized;
+      return JSON.parse(truncated);
+    } catch {
+      return undefined;
+    }
+  };
+
   /**
    * POST /debug/session
    * Create a new debug session (public endpoint, no auth required)
@@ -19,6 +35,12 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
   fastify.post<{ Body: any }>(
     '/debug/session',
     {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute'
+        }
+      },
       schema: {
         description: 'Create a new debug session',
         tags: ['debug'],
@@ -43,8 +65,8 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
       const session = await loggingService.createDebugSession({
         userId: request.user?.id,
         userEmail: request.user?.email,
-        initialRoute: request.body?.initialRoute || request.url,
-        userAgent: request.body?.userAgent || request.headers['user-agent'],
+        initialRoute: truncateString(request.body?.initialRoute, 500) || request.url,
+        userAgent: truncateString(request.body?.userAgent, 500) || truncateString(request.headers['user-agent'], 500),
         ipAddress: request.ip
       });
 
@@ -59,6 +81,12 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
   fastify.post<{ Body: any }>(
     '/debug/action',
     {
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute'
+        }
+      },
       schema: {
         description: 'Log a user action',
         tags: ['debug'],
@@ -84,15 +112,15 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
       }
 
       const action = await loggingService.logAction({
-        sessionId,
+        sessionId: truncateString(sessionId, 128),
         userId: request.user?.id,
         userEmail: request.user?.email,
-        actionType,
-        actionName,
-        componentName,
-        currentRoute: currentRoute || request.url,
-        metadata,
-        userAgent: request.headers['user-agent']
+        actionType: truncateString(actionType, 128),
+        actionName: truncateString(actionName, 256),
+        componentName: truncateString(componentName, 256),
+        currentRoute: truncateString(currentRoute, 500) || request.url,
+        metadata: sanitizeObjectField(metadata),
+        userAgent: truncateString(request.headers['user-agent'], 500)
       });
 
       return reply.send({ success: !!action, id: action?.id });
@@ -106,6 +134,12 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
   fastify.post<{ Body: any }>(
     '/debug/error',
     {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      },
       schema: {
         description: 'Log an error',
         tags: ['debug'],
@@ -142,16 +176,16 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
       }
 
       const error = await loggingService.logError({
-        sessionId,
+        sessionId: truncateString(sessionId, 128),
         userId: request.user?.id,
         userEmail: request.user?.email,
-        errorType: errorType || 'frontend',
-        errorMessage,
-        errorStackTrace,
-        severity: severity || 'medium',
-        componentName,
-        currentRoute: currentRoute || request.url,
-        contextData
+        errorType: truncateString(errorType, 128) || 'frontend',
+        errorMessage: truncateString(errorMessage, 4000),
+        errorStackTrace: truncateString(errorStackTrace, 8000),
+        severity: truncateString(severity, 32) || 'medium',
+        componentName: truncateString(componentName, 256),
+        currentRoute: truncateString(currentRoute, 500) || request.url,
+        contextData: sanitizeObjectField(contextData)
       });
 
       return reply.send({ success: !!error, id: error?.id });
