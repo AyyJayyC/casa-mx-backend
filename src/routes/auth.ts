@@ -1,17 +1,31 @@
 import { FastifyPluginAsync } from 'fastify';
-import { RegisterSchema, LoginSchema } from '../schemas/auth.js';
+import { randomUUID } from 'node:crypto';
+import { RegisterSchema, LoginSchema, RefreshSchema } from '../schemas/auth.js';
 import { AuthService } from '../services/auth.service.js';
 import { env } from '../config/env.js';
 
+const activeRefreshTokenByUserId = new Map<string, string>();
+const revokedRefreshTokenJti = new Set<string>();
+
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authService = new AuthService(fastify.prisma);
+  const cookieOptions = {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: env.NODE_ENV === 'production',
+    path: '/',
+  };
+  const isLocalFrontend =
+    env.FRONTEND_URL.includes('localhost') ||
+    env.FRONTEND_URL.includes('127.0.0.1') ||
+    env.FRONTEND_URL.includes('0.0.0.0');
 
   fastify.post<{ Body: Record<string, any> }>(
     '/auth/register',
     {
       config: {
         rateLimit: {
-          max: env.NODE_ENV === 'test' ? 50 : 5,
+          max: env.NODE_ENV === 'test' ? 50 : isLocalFrontend ? 500 : 5,
           timeWindow: '15 minutes'
         }
       }
@@ -56,7 +70,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     {
       config: {
         rateLimit: {
-          max: env.NODE_ENV === 'test' ? 100 : 10,
+          max: env.NODE_ENV === 'test' ? 100 : isLocalFrontend ? 1000 : 10,
           timeWindow: '15 minutes'
         }
       }
@@ -83,9 +97,25 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           {
             id: user.id,
             type: 'refresh',
+            jti: randomUUID(),
           },
-          { expiresIn: '7d' }
+          { expiresIn: env.JWT_REFRESH_EXPIRY }
         );
+
+        const decodedRefreshToken = fastify.jwt.decode(refreshToken) as any;
+        if (decodedRefreshToken?.jti) {
+          activeRefreshTokenByUserId.set(user.id, decodedRefreshToken.jti);
+        }
+
+        reply
+          .setCookie('accessToken', token, {
+            ...cookieOptions,
+            maxAge: 60 * 15,
+          })
+          .setCookie('refreshToken', refreshToken, {
+            ...cookieOptions,
+            maxAge: 60 * 60 * 24 * 7,
+          });
 
         return reply.code(200).send({
           success: true,
@@ -114,7 +144,10 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     '/auth/refresh',
     async (request, reply) => {
       try {
-        const { refreshToken } = request.body;
+        const parsedBody = RefreshSchema.safeParse(request.body ?? {});
+        const refreshToken = parsedBody.success
+          ? parsedBody.data.refreshToken
+          : (request as any).cookies?.refreshToken;
 
         if (!refreshToken) {
           return reply.code(400).send({
@@ -129,6 +162,15 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
           if (decoded.type !== 'refresh') {
             throw new Error('Invalid token type');
+          }
+
+          if (!decoded.jti || revokedRefreshTokenJti.has(decoded.jti)) {
+            throw new Error('Revoked refresh token');
+          }
+
+          const activeJti = activeRefreshTokenByUserId.get(decoded.id);
+          if (!activeJti || activeJti !== decoded.jti) {
+            throw new Error('Stale refresh token');
           }
 
           const user = await authService.getUserById(decoded.id);
@@ -152,9 +194,36 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             { expiresIn: '15m' }
           );
 
+          revokedRefreshTokenJti.add(decoded.jti);
+
+          const newRefreshToken = fastify.jwt.sign(
+            {
+              id: user.id,
+              type: 'refresh',
+              jti: randomUUID(),
+            },
+            { expiresIn: env.JWT_REFRESH_EXPIRY }
+          );
+
+          const decodedNewRefreshToken = fastify.jwt.decode(newRefreshToken) as any;
+          if (decodedNewRefreshToken?.jti) {
+            activeRefreshTokenByUserId.set(user.id, decodedNewRefreshToken.jti);
+          }
+
+          reply
+            .setCookie('accessToken', newToken, {
+              ...cookieOptions,
+              maxAge: 60 * 15,
+            })
+            .setCookie('refreshToken', newRefreshToken, {
+              ...cookieOptions,
+              maxAge: 60 * 60 * 24 * 7,
+            });
+
           return reply.code(200).send({
             success: true,
             token: newToken,
+            refreshToken: newRefreshToken,
           });
         } catch (verifyError) {
           return reply.code(401).send({
@@ -172,9 +241,28 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.post('/auth/logout', async (request, reply) => {
-    // For now, JWT logout is handled client-side (token deletion)
-    // In production, implement token blacklist/revocation
+  fastify.post<{ Body: Record<string, any> }>('/auth/logout', async (request, reply) => {
+    const maybeRefreshToken =
+      request.body?.refreshToken ||
+      (request as any).cookies?.refreshToken;
+
+    if (typeof maybeRefreshToken === 'string' && maybeRefreshToken.length > 0) {
+      try {
+        const decoded = fastify.jwt.verify(maybeRefreshToken) as any;
+        if (decoded?.id) {
+          activeRefreshTokenByUserId.delete(decoded.id);
+        }
+        if (decoded?.jti) {
+          revokedRefreshTokenJti.add(decoded.jti);
+        }
+      } catch {
+      }
+    }
+
+    reply
+      .clearCookie('accessToken', { path: '/' })
+      .clearCookie('refreshToken', { path: '/' });
+
     return reply.code(200).send({
       success: true,
       message: 'Logged out successfully',
@@ -183,7 +271,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get('/auth/me', async (request, reply) => {
     try {
-      await request.jwtVerify();
+      const hasAuthorizationHeader = Boolean(request.headers?.authorization);
+      const hasAccessCookie = Boolean((request as any).cookies?.accessToken);
+      if (hasAccessCookie && !hasAuthorizationHeader) {
+        await request.jwtVerify({ onlyCookie: true });
+      } else {
+        await request.jwtVerify();
+      }
 
       const user = await authService.getUserById(request.user?.id || '');
 

@@ -1,5 +1,7 @@
 import Fastify from 'fastify';
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import bcrypt from 'bcrypt';
 import { env } from './config/env.js';
@@ -12,6 +14,7 @@ import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import adminMapsRoutes from './routes/admin/maps.js';
 import mapsRoutes from './routes/maps.js';
+import locationsRoutes from './routes/locations.js';
 import analyticsRoutes from './routes/analytics.js';
 import propertiesRoutes from './routes/properties.js';
 import applicationsRoutes from './routes/applications.js';
@@ -41,21 +44,33 @@ export async function buildApp() {
     },
   });
 
-  // Register CORS - allow both localhost:3000 and 127.0.0.1:3000
+  const allowedOrigins = new Set<string>([env.FRONTEND_URL]);
+  if (env.NODE_ENV !== 'production') {
+    allowedOrigins.add('http://localhost:3000');
+    allowedOrigins.add('http://127.0.0.1:3000');
+    allowedOrigins.add('http://0.0.0.0:3000');
+  }
+
+  // Register CORS
   await app.register(cors, {
     origin: (origin, callback) => {
-      // Allow requests from localhost:3000, 127.0.0.1:3000, or any localhost variant
-      if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0')) {
+      if (!origin) {
         callback(null, true);
-      } else if (env.NODE_ENV === 'production') {
-        // In production, only allow the configured FRONTEND_URL
-        callback(null, origin === env.FRONTEND_URL);
+        return;
+      }
+
+      if (allowedOrigins.has(origin)) {
+        callback(null, true);
       } else {
-        // In development, allow all
-        callback(null, true);
+        callback(null, false);
       }
     },
     credentials: true,
+  });
+
+  await app.register(helmet, {
+    contentSecurityPolicy: false,
+    global: true,
   });
 
   // Register rate limiting
@@ -68,6 +83,7 @@ export async function buildApp() {
 
   // Register plugins
   await app.register(prismaPlugin);
+  await app.register(cookie);
   await app.register(jwtPlugin);
 
   if (env.NODE_ENV === 'test') {
@@ -171,6 +187,7 @@ export async function buildApp() {
   await app.register(adminRoutes);
   await app.register(adminMapsRoutes);
   await app.register(mapsRoutes);
+  await app.register(locationsRoutes);
   await app.register(analyticsRoutes);
   await app.register(propertiesRoutes);
   await app.register(applicationsRoutes);
@@ -205,11 +222,12 @@ export async function buildApp() {
       // - LogRocket: LogRocket.captureException(error, { tags: errorLog })
     }
 
-    // Send error response
+      // Send error response
+      const isProduction = env.NODE_ENV === 'production';
     return reply.code(statusCode).send({
       success: false,
-      error: error.message || 'Internal server error',
-      ...(env.NODE_ENV !== 'production' && { stack: error.stack }),
+        error: isProduction ? 'Internal server error' : (error.message || 'Internal server error'),
+        ...(!isProduction && { stack: error.stack }),
     });
   });
 

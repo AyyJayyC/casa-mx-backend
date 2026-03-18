@@ -6,10 +6,21 @@ import { z } from 'zod';
  */
 
 // Base property schema with common fields
+const imageUrlSchema = z
+  .string()
+  .max(2_000_000, 'Each image payload must be <= 2MB of text data')
+  .refine(
+    (value) => value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:image/'),
+    'Image must be an http(s) URL or data:image payload'
+  );
+
+const imageUrlsSchema = z.array(imageUrlSchema).max(10, 'Maximum 10 images allowed');
+
 const basePropertySchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   address: z.string().optional(),
+  imageUrls: imageUrlsSchema.optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),
   estado: z.string().min(1, 'Estado is required'),
@@ -55,6 +66,7 @@ export const updatePropertySchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   address: z.string().optional(),
+  imageUrls: imageUrlsSchema.optional(),
   price: z.number().positive().optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),

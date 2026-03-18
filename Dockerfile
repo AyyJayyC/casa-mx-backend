@@ -44,6 +44,7 @@ RUN npx prisma generate
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src/data ./dist/data
 
 # Expose port
 EXPOSE 3001

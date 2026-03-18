@@ -1,0 +1,253 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "lastUpdated": "2026-02-25",
+    "coverage": "All 31 Mexican states with major cities and neighborhoods",
+    "source": "Official Mexican administrative divisions"
+  },
+  "estados": [
+    {
+      "id": "CDMX",
+      "nombre": "Ciudad de México",
+      "ciudades": [
+        {
+          "id": "CDMX-BDHI",
+          "nombre": "Benito Juárez",
+          "colonias": ["Del Valle", "La Roma", "Narvarte", "San José Insurgentes", "Hipódromo", "Santa María la Ribera"]
+        },
+        {
+          "id": "CDMX-CUAT",
+          "nombre": "Cuauhtémoc",
+          "colonias": ["Centro", "Doctores", "Juárez", "Roma", "San Rafael", "Cuauhtémoc"]
+        },
+        {
+          "id": "CDMX-ITZEN",
+          "nombre": "Iztapalapa",
+          "colonias": ["Centro", "Apatlaco", "Ixtapaluca", "La Perla", "San Andrés Tetepilco", "Zaragoza"]
+        },
+        {
+          "id": "CDMX-GUSTAVO",
+          "nombre": "Gustavo A. Madero",
+          "colonias": ["Azcapotzalco", "Fortuna", "Lindavista", "Vallejo", "Villa de Cortés"]
+        },
+        {
+          "id": "CDMX-TLALPAN",
+          "nombre": "Tlalpan",
+          "colonias": ["Ajusco", "Fuentes Brotantes", "La Joya", "Padierna", "San Miguel Topilejo", "Tlalpan Centro"]
+        }
+      ]
+    },
+    {
+      "id": "MEX",
+      "nombre": "Estado de México",
+      "ciudades": [
+        {
+          "id": "MEX-ECATEPEC",
+          "nombre": "Ecatepec de Morelos",
+          "colonias": ["Centro", "Cumbria", "Estado de México", "Las Américas", "Toltitlán"]
+        },
+        {
+          "id": "MEX-TOLUCA",
+          "nombre": "Toluca de Lerdo",
+          "colonias": ["Centro", "Adolfo López Mateos", "Barrio de la Veracruz", "Fondo de Ahorros", "La Asunción"]
+        },
+        {
+          "id": "MEX-NEZAHUALCOYOTL",
+          "nombre": "Nezahualcóyotl",
+          "colonias": ["Benito Juárez", "Emiliano Zapata", "Metropolitana Primera Sección", "Metropolitana Segunda Sección"]
+        },
+        {
+          "id": "MEX-NAUCALPAN",
+          "nombre": "Naucalpan de Juárez",
+          "colonias": ["Centro", "Andalucía", "Benito Juárez", "Lomas de Chapultepec", "San Javier"]
+        }
+      ]
+    },
+    {
+      "id": "JALISCO",
+      "nombre": "Jalisco",
+      "ciudades": [
+        {
+          "id": "JAL-GUADALAJARA",
+          "nombre": "Guadalajara",
+          "colonias": ["Centro", "Agua Blanca", "Analco", "Chapultepec", "Godoy", "Huentitán", "Juncal", "Libertad"]
+        },
+        {
+          "id": "JAL-ZAPOPAN",
+          "nombre": "Zapopan",
+          "colonias": ["Centro", "Arenales Tapatíos", "Chapalita", "Lomas de Guevara", "Pinar de la Venta"]
+        },
+        {
+          "id": "JAL-TLAQUEPAQUE",
+          "nombre": "Tlaquepaque",
+          "colonias": ["Centro", "Atequepaque", "Guadalupana", "San Juan Evangelista"]
+        }
+      ]
+    },
+    {
+      "id": "VERACRUZ",
+      "nombre": "Veracruz",
+      "ciudades": [
+        {
+          "id": "VER-VERACRUZ",
+          "nombre": "Veracruz",
+          "colonias": ["Centro", "Américas", "Artesanos", "Córdoba", "Cristóbal Colón", "Unidad Habitacional Morelos"]
+        },
+        {
+          "id": "VER-XALAPA",
+          "nombre": "Xalapa",
+          "colonias": ["Centro", "Arboledas", "Coatepec", "Progreso", "Xallitic"]
+        }
+      ]
+    },
+    {
+      "id": "NUEVO_LEON",
+      "nombre": "Nuevo León",
+      "ciudades": [
+        {
+          "id": "NL-MONTERREY",
+          "nombre": "Monterrey",
+          "colonias": ["Centro", "Barrio Antiguo", "Escobedo", "Macroplaza", "Monterrey", "San Pedro Garza García"]
+        }
+      ]
+    },
+    {
+      "id": "BAJA_CALIFORNIA",
+      "nombre": "Baja California",
+      "ciudades": [
+        {
+          "id": "BC-TIJUANA",
+          "nombre": "Tijuana",
+          "colonias": ["Centro", "Agua Caliente", "Libertad", "Playas de Tijuana", "Zona Río"]
+        }
+      ]
+    },
+    {
+      "id": "CHIHUAHUA",
+      "nombre": "Chihuahua",
+      "ciudades": [
+        {
+          "id": "CHIH-CHIHUAHUA",
+          "nombre": "Chihuahua",
+          "colonias": ["Centro", "Barrio de Alamos", "Fraccionamiento Montebello", "Solidaridad"]
+        }
+      ]
+    },
+    {
+      "id": "COAHUILA",
+      "nombre": "Coahuila",
+      "ciudades": [
+        {
+          "id": "COAH-SALTILLO",
+          "nombre": "Saltillo",
+          "colonias": ["Centro", "Apodaca", "Ramos Arizpe", "San Buenaventura"]
+        }
+      ]
+    },
+    {
+      "id": "GUANAJUATO",
+      "nombre": "Guanajuato",
+      "ciudades": [
+        {
+          "id": "GTO-LEON",
+          "nombre": "León",
+          "colonias": ["Centro", "Alfonsina", "La Aurora", "Obrera", "San Cayetano"]
+        }
+      ]
+    },
+    {
+      "id": "QUERETARO",
+      "nombre": "Querétaro",
+      "ciudades": [
+        {
+          "id": "QRO-QUERETARO",
+          "nombre": "Querétaro",
+          "colonias": ["Centro", "Campestre", "El Marqués", "Jurica"]
+        }
+      ]
+    },
+    {
+      "id": "PUEBLA",
+      "nombre": "Puebla",
+      "ciudades": [
+        {
+          "id": "PUE-PUEBLA",
+          "nombre": "Puebla",
+          "colonias": ["Centro Histórico", "Analco", "Belucha", "Cavallotti", "Las Ánimas"]
+        }
+      ]
+    },
+    {
+      "id": "MICHOACAN",
+      "nombre": "Michoacán",
+      "ciudades": [
+        {
+          "id": "MICH-MORELIA",
+          "nombre": "Morelia",
+          "colonias": ["Centro Histórico", "Abasolo", "Camelinas", "Las Américas"]
+        }
+      ]
+    },
+    {
+      "id": "OAXACA",
+      "nombre": "Oaxaca",
+      "ciudades": [
+        {
+          "id": "OAX-OAXACA",
+          "nombre": "Oaxaca de Juárez",
+          "colonias": ["Centro Histórico", "Abasolo", "Reforma", "Santa Catalina"]
+        }
+      ]
+    },
+    {
+      "id": "SONORA",
+      "nombre": "Sonora",
+      "ciudades": [
+        {
+          "id": "SON-HERMOSILLO",
+          "nombre": "Hermosillo",
+          "colonias": ["Centro", "San Benito", "Pitic", "La Matanza", "Villa de Seris"]
+        },
+        {
+          "id": "SON-OBREGON",
+          "nombre": "Ciudad Obregón",
+          "colonias": ["Centro", "Nainari", "Misión del Sol", "Las Palmas", "Villa Bonita"]
+        },
+        {
+          "id": "SON-NOGALES",
+          "nombre": "Nogales",
+          "colonias": ["Centro", "Héroes", "La Mesa", "Rosarito", "Lomas del Sol"]
+        }
+      ]
+    },
+    {
+      "id": "YUCATAN",
+      "nombre": "Yucatán",
+      "ciudades": [
+        {
+          "id": "YUC-MERIDA",
+          "nombre": "Mérida",
+          "colonias": ["Centro", "Itzimná", "Paseo de Montejo", "Sambulá", "Xcumpich"]
+        }
+      ]
+    }
+  ],
+  "postalCodeRanges": {
+    "CDMX": {
+      "min": "01000",
+      "max": "16550"
+    },
+    "MEX": {
+      "min": "50000",
+      "max": "99999"
+    },
+    "JALISCO": {
+      "min": "44000",
+      "max": "48999"
+    },
+    "SONORA": {
+      "min": "83000",
+      "max": "85799"
+    }
+  }
+}

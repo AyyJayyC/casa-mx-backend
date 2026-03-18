@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-import { verifyJWT } from '../utils/guards.js';
+import { verifyJWT, requireAnyRole } from '../utils/guards.js';
 import { LandlordService } from '../services/landlord.service.js';
 import { cacheService } from '../services/cache.service.js';
 import {
@@ -216,7 +216,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
   app.route({
     method: 'POST',
     url: '/properties',
-    onRequest: [verifyJWT],
+    onRequest: [verifyJWT, requireAnyRole(['seller', 'wholesaler', 'landlord', 'admin'])],
     handler: async (request, reply) => {
       try {
         const user = (request as any).user;
@@ -230,6 +230,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             title: input.title,
             description: input.description,
             address: input.address,
+            imageUrls: input.imageUrls ?? [],
             price: input.price ?? null,
             lat: input.lat ?? null,
             lng: input.lng ?? null,

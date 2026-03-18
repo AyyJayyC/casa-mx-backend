@@ -1,11 +1,16 @@
 import { FastifyPluginAsync } from 'fastify';
 import fp from 'fastify-plugin';
+import { env } from '../config/env.js';
 
 const jwtPlugin: FastifyPluginAsync = async (fastify) => {
   await fastify.register(import('@fastify/jwt'), {
-    secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+    secret: env.JWT_SECRET,
     sign: {
-      expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m',
+      expiresIn: env.JWT_ACCESS_EXPIRY,
+    },
+    cookie: {
+      cookieName: 'accessToken',
+      signed: false,
     },
   });
 };
