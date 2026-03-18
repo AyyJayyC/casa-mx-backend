@@ -48,6 +48,7 @@ model Property {
   title       String
   description String?
   address     String?
+  imageUrls   String[] @default([])
   price       Float?   // Optional now - required only for sales
   lat         Float?
   lng         Float?
