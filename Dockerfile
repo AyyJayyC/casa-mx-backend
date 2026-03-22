@@ -31,9 +31,6 @@ FROM node:18-slim
 
 WORKDIR /app
 
-# ARG only (not ENV) so build steps can use it but Railway injects real DATABASE_URL at runtime
-ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public"
-
 # Install curl and libssl for Prisma
 RUN apt-get update && apt-get install -y curl libssl3 && rm -rf /var/lib/apt/lists/*
 
@@ -46,8 +43,8 @@ RUN npm ci --only=production
 # Copy Prisma schema and migrations
 COPY prisma ./prisma
 
-# Generate Prisma Client
-RUN npx prisma generate
+# Copy pre-generated Prisma client from builder (avoids needing DATABASE_URL at build time)
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
