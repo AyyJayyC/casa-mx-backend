@@ -31,9 +31,8 @@ FROM node:18-slim
 
 WORKDIR /app
 
-# Build-time placeholder for Prisma schema parsing in production image stage
+# ARG only (not ENV) so build steps can use it but Railway injects real DATABASE_URL at runtime
 ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public"
-ENV DATABASE_URL=${DATABASE_URL}
 
 # Install curl and libssl for Prisma
 RUN apt-get update && apt-get install -y curl libssl3 && rm -rf /var/lib/apt/lists/*
