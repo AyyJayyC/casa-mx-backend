@@ -10,6 +10,23 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 const logger = pino();
 
+type ErrorWithStatusCode = Error & { statusCode?: number };
+
+function normalizeError(error: unknown): { errorObj: Error; statusCode: number } {
+  if (error instanceof Error) {
+    const errorWithStatus = error as ErrorWithStatusCode;
+    return {
+      errorObj: error,
+      statusCode: typeof errorWithStatus.statusCode === 'number' ? errorWithStatus.statusCode : 500,
+    };
+  }
+
+  return {
+    errorObj: new Error('Internal server error'),
+    statusCode: 500,
+  };
+}
+
 // Skip logging for health checks and static assets
 const SKIP_ENDPOINTS = ['/health', '/metrics', '/.well-known', '/static'];
 
@@ -107,10 +124,12 @@ export async function setupLoggingMiddleware(fastify: FastifyInstance) {
 
   /**
    * onError Hook - Runs when an error occurs
+   * Log only here; response shaping is handled by the app-level error handler.
    */
-  fastify.setErrorHandler(async (error, request, reply) => {
+  fastify.addHook('onError', async (request, reply, error) => {
     const sessionId = request.sessionId;
     const responseTime = Date.now() - (request.startTime || 0);
+    const { errorObj, statusCode } = normalizeError(error);
 
     // Log the error
     await loggingService.logError({
@@ -118,29 +137,21 @@ export async function setupLoggingMiddleware(fastify: FastifyInstance) {
       userId: request.user?.id,
       userEmail: request.user?.email,
       errorType: 'backend',
-      errorMessage: error.message,
-      errorStackTrace: error.stack,
-      errorCode: error.statusCode || 500,
-      severity: (error as any)?.statusCode >= 500 ? 'critical' : 'medium',
+      errorMessage: errorObj.message,
+      errorStackTrace: errorObj.stack,
+      errorCode: statusCode,
+      severity: statusCode >= 500 ? 'critical' : 'medium',
       componentName: 'Fastify Error Handler',
       currentRoute: request.url,
       contextData: {
         method: request.method,
         endpoint: request.url,
-        statusCode: error.statusCode || 500,
+        statusCode,
         responseTime
       }
     }).catch(err =>
       logger.error({ err }, 'Failed to log unhandled error')
     );
-
-    // Return error response (Fastify handles this automatically)
-    reply.statusCode = error.statusCode || 500;
-    return {
-      statusCode: error.statusCode || 500,
-      error: error.name,
-      message: error.message
-    };
   });
 }
 

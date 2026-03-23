@@ -10,6 +10,7 @@ import jwtPlugin from './plugins/jwt.js';
 import setupLoggingMiddleware from './plugins/logging.js';
 import mapsMonitor from './plugins/mapsMonitor.js';
 import healthRoutes from './routes/health.js';
+import versionRoutes from './routes/version.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import adminMapsRoutes from './routes/admin/maps.js';
@@ -21,6 +22,23 @@ import applicationsRoutes from './routes/applications.js';
 import requestsRoutes from './routes/requests.js';
 import usersRoutes from './routes/users.js';
 import setupDebugRoutes from './routes/debug.js';
+
+type ErrorWithStatusCode = Error & { statusCode?: number };
+
+function normalizeError(error: unknown): { errorObj: Error; statusCode: number } {
+  if (error instanceof Error) {
+    const errorWithStatus = error as ErrorWithStatusCode;
+    return {
+      errorObj: error,
+      statusCode: typeof errorWithStatus.statusCode === 'number' ? errorWithStatus.statusCode : 500,
+    };
+  }
+
+  return {
+    errorObj: new Error('Internal server error'),
+    statusCode: 500,
+  };
+}
 
 export async function buildApp() {
   const isLocalFrontend =
@@ -183,6 +201,7 @@ export async function buildApp() {
 
   // Register routes
   await app.register(healthRoutes);
+  await app.register(versionRoutes);
   await app.register(authRoutes);
   await app.register(adminRoutes);
   await app.register(adminMapsRoutes);
@@ -196,7 +215,7 @@ export async function buildApp() {
 
   // Global error handler for production logging
   app.setErrorHandler(async (error, request, reply) => {
-    const statusCode = error.statusCode || 500;
+    const { errorObj, statusCode } = normalizeError(error);
     
     // For 500 errors, log in structured JSON format (ready for Sentry/LogRocket)
     if (statusCode === 500) {
@@ -207,8 +226,8 @@ export async function buildApp() {
         method: request.method,
         url: request.url,
         statusCode,
-        message: error.message,
-        stack: error.stack,
+        message: errorObj.message,
+        stack: errorObj.stack,
         // Placeholder for production logger integration
         // TODO: Send to Sentry/Winston/LogRocket in production
         service: 'casa-mx-backend',
@@ -226,8 +245,8 @@ export async function buildApp() {
       const isProduction = env.NODE_ENV === 'production';
     return reply.code(statusCode).send({
       success: false,
-        error: isProduction ? 'Internal server error' : (error.message || 'Internal server error'),
-        ...(!isProduction && { stack: error.stack }),
+        error: isProduction ? 'Internal server error' : (errorObj.message || 'Internal server error'),
+        ...(!isProduction && { stack: errorObj.stack }),
     });
   });
 
