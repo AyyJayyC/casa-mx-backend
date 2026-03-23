@@ -19,6 +19,12 @@ async function main() {
     create: { name: 'seller' }
   });
 
+  const tenantRole = await prisma.role.upsert({
+    where: { name: 'tenant' },
+    update: {},
+    create: { name: 'tenant' }
+  });
+
   const wholesalerRole = await prisma.role.upsert({
     where: { name: 'wholesaler' },
     update: {},
@@ -101,6 +107,27 @@ async function main() {
   });
 
   console.log('✅ Buyer user created:', { email: buyerUser.email, id: buyerUser.id });
+
+  // Create test tenant user
+  const tenantPassword = await bcrypt.hash('tenant123', 10);
+
+  const tenantUser = await prisma.user.upsert({
+    where: { email: 'tenant@casamx.local' },
+    update: {},
+    create: {
+      email: 'tenant@casamx.local',
+      name: 'Test Tenant',
+      password: tenantPassword,
+      roles: {
+        create: {
+          roleId: tenantRole.id,
+          status: 'approved'
+        }
+      }
+    }
+  });
+
+  console.log('✅ Tenant user created:', { email: tenantUser.email, id: tenantUser.id });
 
   // Create sample properties for SALE with Mexican locations
   const saleProperties = [

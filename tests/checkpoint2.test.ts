@@ -2,12 +2,14 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcrypt';
+import { refreshTokenStoreService } from '../src/services/refreshTokenStore.service.js';
 
 let app: FastifyInstance;
 
 describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
   beforeAll(async () => {
     app = await buildApp();
+    await refreshTokenStoreService.clearMemoryStateForTests();
     // Clean up test users before running tests
     await app.prisma.user.deleteMany({
       where: { email: { startsWith: 'test-' } }
@@ -22,7 +24,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
     await app.close();
   });
 
-  it('should allow user registration with default roles', async () => {
+  it('should allow user registration with selected roles and auto-approve tenant', async () => {
     const email = `test-${Date.now()}@example.com`;
 
     const response = await app.inject({
@@ -32,6 +34,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
         email,
         name: 'Test User',
         password: 'password123',
+        roles: ['tenant'],
       },
     });
 
@@ -48,8 +51,8 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
     });
 
     expect(user).toBeDefined();
-    expect(user?.roles.some(r => r.role.name === 'buyer')).toBe(true);
-    expect(user?.roles.some(r => r.role.name === 'seller')).toBe(true);
+    expect(user?.roles.some(r => r.role.name === 'tenant')).toBe(true);
+    expect(user?.roles.find(r => r.role.name === 'tenant')?.status).toBe('approved');
   });
 
   it('should prevent duplicate email registration', async () => {
@@ -260,6 +263,84 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
     expect(refreshResponse.statusCode).toBe(200);
     const refreshBody = refreshResponse.json() as any;
     expect(refreshBody.token).toBeDefined();
+  });
+
+  it('should persist active refresh token jti in token store', async () => {
+    const email = `test-refresh-store-${Date.now()}@example.com`;
+
+    await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        email,
+        name: 'Refresh Store User',
+        password: 'password123',
+      },
+    });
+
+    const loginResponse = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        email,
+        password: 'password123',
+      },
+    });
+
+    const loginBody = loginResponse.json() as any;
+    const decodedRefresh = app.jwt.decode(loginBody.refreshToken) as any;
+
+    const activeJti = await refreshTokenStoreService.getActiveJtiForUser(loginBody.user.id);
+
+    expect(decodedRefresh?.jti).toBeDefined();
+    expect(activeJti).toBe(decodedRefresh.jti);
+  });
+
+  it('should revoke old refresh jti and rotate active jti on refresh', async () => {
+    const email = `test-refresh-rotate-${Date.now()}@example.com`;
+
+    await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        email,
+        name: 'Refresh Rotate User',
+        password: 'password123',
+      },
+    });
+
+    const loginResponse = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        email,
+        password: 'password123',
+      },
+    });
+
+    const loginBody = loginResponse.json() as any;
+    const firstRefreshToken = loginBody.refreshToken;
+    const firstDecoded = app.jwt.decode(firstRefreshToken) as any;
+
+    const refreshResponse = await app.inject({
+      method: 'POST',
+      url: '/auth/refresh',
+      payload: {
+        refreshToken: firstRefreshToken,
+      },
+    });
+
+    expect(refreshResponse.statusCode).toBe(200);
+    const refreshBody = refreshResponse.json() as any;
+    const secondDecoded = app.jwt.decode(refreshBody.refreshToken) as any;
+
+    const wasRevoked = await refreshTokenStoreService.isJtiRevoked(firstDecoded.jti);
+    const activeJti = await refreshTokenStoreService.getActiveJtiForUser(loginBody.user.id);
+
+    expect(secondDecoded?.jti).toBeDefined();
+    expect(secondDecoded.jti).not.toBe(firstDecoded.jti);
+    expect(wasRevoked).toBe(true);
+    expect(activeJti).toBe(secondDecoded.jti);
   });
 
   it('should reject invalid refresh token', async () => {

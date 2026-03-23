@@ -2,24 +2,28 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { RegisterInput, LoginInput } from '../schemas/auth.js';
 
+const AUTO_APPROVED_ROLES = new Set(['buyer', 'tenant']);
+
 export class AuthService {
   constructor(private prisma: PrismaClient) {}
 
   async register(data: RegisterInput) {
     // Hash password
     const hashedPassword = await bcrypt.hash(data.password, 10);
+    const requestedRoles = [...new Set(data.roles ?? ['buyer'])];
 
-    // Create user with default roles (buyer, seller)
     const user = await this.prisma.user.create({
       data: {
         email: data.email,
         name: data.name,
         password: hashedPassword,
         roles: {
-          create: [
-            { roleId: await this.getRoleId('buyer') },
-            { roleId: await this.getRoleId('seller') },
-          ],
+          create: await Promise.all(
+            requestedRoles.map(async (roleName) => ({
+              roleId: await this.getRoleId(roleName),
+              status: this.getInitialRoleStatus(roleName),
+            }))
+          ),
         },
       },
       include: { roles: { include: { role: true } } },
@@ -83,5 +87,9 @@ export class AuthService {
     }
 
     return role.id;
+  }
+
+  private getInitialRoleStatus(roleName: string): string {
+    return AUTO_APPROVED_ROLES.has(roleName) ? 'approved' : 'pending';
   }
 }

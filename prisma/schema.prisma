@@ -13,6 +13,8 @@ model User {
   name      String
   password  String   // bcrypt hash
   roles     UserRole[]
+  reviewsWritten  Review[] @relation("ReviewAuthor")
+  reviewsReceived Review[] @relation("ReviewTarget")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -73,6 +75,7 @@ model Property {
 
   propertyRequests  PropertyRequest[]
   rentalApplications RentalApplication[]
+  reviews Review[]
 
   @@index([sellerId])
   @@index([status])
@@ -141,11 +144,52 @@ model RentalApplication {
   updatedAt  DateTime @updatedAt
   
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  reviews Review[]
   
   @@index([propertyId])
   @@index([applicantId])
   @@index([status])
   @@index([createdAt])
+}
+
+model Review {
+  id                  String   @id @default(uuid())
+  reviewerUserId      String
+  revieweeUserId      String
+  reviewerRole        String
+  revieweeRole        String
+  propertyId          String
+  rentalApplicationId String
+  overallRating       Int
+  comment             String?  @db.Text
+  status              String   @default("published") // published, flagged, hidden
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  reviewer          User              @relation("ReviewAuthor", fields: [reviewerUserId], references: [id], onDelete: Cascade)
+  reviewee          User              @relation("ReviewTarget", fields: [revieweeUserId], references: [id], onDelete: Cascade)
+  property          Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  rentalApplication RentalApplication @relation(fields: [rentalApplicationId], references: [id], onDelete: Cascade)
+  categoryScores    ReviewCategoryScore[]
+
+  @@unique([reviewerUserId, revieweeUserId, rentalApplicationId])
+  @@index([revieweeUserId, revieweeRole, status])
+  @@index([reviewerUserId, reviewerRole])
+  @@index([propertyId])
+  @@index([rentalApplicationId])
+}
+
+model ReviewCategoryScore {
+  id        String   @id @default(uuid())
+  reviewId  String
+  category  String
+  score     Int
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, category])
+  @@index([category])
 }
 
 model Notification {
