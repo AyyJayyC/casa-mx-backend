@@ -46,6 +46,36 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
+  fastify.get(
+    '/reviews/mine',
+    { onRequest: [verifyJWT] },
+    async (request, reply) => {
+      try {
+        const query = reviewSummaryQuerySchema.parse(request.query);
+        const reviews = await reviewsService.getAuthoredReviews(request.user.id, query.role);
+
+        return reply.send({
+          success: true,
+          data: reviews,
+        });
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            success: false,
+            error: 'Validation error',
+            details: error.errors,
+          });
+        }
+
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Failed to fetch authored reviews',
+        });
+      }
+    }
+  );
+
   fastify.get('/reviews/user/:userId', async (request, reply) => {
     try {
       const params = reviewUserParamsSchema.parse(request.params);

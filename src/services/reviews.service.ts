@@ -95,6 +95,31 @@ export class ReviewsService {
     });
   }
 
+  async getAuthoredReviews(userId: string, role?: 'tenant' | 'landlord') {
+    return this.prisma.review.findMany({
+      where: {
+        reviewerUserId: userId,
+        ...(role ? { reviewerRole: role } : {}),
+      },
+      include: {
+        categoryScores: true,
+        reviewee: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        property: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async getReviewSummary(userId: string, role?: 'tenant' | 'landlord') {
     const reviews = await this.getUserReviews(userId, role);
 

@@ -129,6 +129,60 @@ class PropertyService {
 
     return { properties, total };
   }
+
+  async getOwnedProperties(ownerId: string, filters: PropertyFilter) {
+    const {
+      estado,
+      ciudad,
+      colonia,
+      codigoPostal,
+      listingType,
+      minPrice,
+      maxPrice,
+      minRent,
+      maxRent,
+      furnished,
+      limit,
+      offset,
+    } = filters;
+
+    const where: any = {
+      sellerId: ownerId,
+    };
+
+    if (estado) where.estado = estado;
+    if (ciudad) where.ciudad = ciudad;
+    if (colonia) where.colonia = colonia;
+    if (codigoPostal) where.codigoPostal = codigoPostal;
+    if (listingType) where.listingType = listingType;
+
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      where.price = {};
+      if (minPrice !== undefined) where.price.gte = minPrice;
+      if (maxPrice !== undefined) where.price.lte = maxPrice;
+    }
+
+    if (minRent !== undefined || maxRent !== undefined) {
+      where.monthlyRent = {};
+      if (minRent !== undefined) where.monthlyRent.gte = minRent;
+      if (maxRent !== undefined) where.monthlyRent.lte = maxRent;
+    }
+
+    if (furnished !== undefined) {
+      where.furnished = furnished;
+    }
+
+    const total = await this.prisma.property.count({ where });
+
+    const properties = await this.prisma.property.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
+    });
+
+    return { properties, total };
+  }
 }
 
 const propertiesPlugin: FastifyPluginAsync = async (app) => {
@@ -275,6 +329,40 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         return reply.code(500).send({
           success: false,
           error: 'Failed to create property',
+        });
+      }
+    },
+  });
+
+  // GET /properties/mine - Get current user's owned properties
+  app.route({
+    method: 'GET',
+    url: '/properties/mine',
+    onRequest: [verifyJWT, requireAnyRole(['seller', 'wholesaler', 'landlord', 'admin'])],
+    handler: async (request, reply) => {
+      try {
+        const user = (request as any).user;
+        const filters = propertyFilterSchema.parse(request.query);
+        const { properties, total } = await propertyService.getOwnedProperties(user.id, filters);
+
+        return reply.code(200).send({
+          success: true,
+          data: properties,
+          total,
+        });
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            success: false,
+            error: 'Invalid query parameters',
+            details: error.errors,
+          });
+        }
+
+        app.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Failed to fetch owned properties',
         });
       }
     },

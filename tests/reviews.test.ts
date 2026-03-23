@@ -25,7 +25,7 @@ describe('Reviews API', () => {
   const suffix = Date.now();
 
   beforeAll(async () => {
-    app = await buildApp({ logger: false } as any);
+    app = await buildApp();
     await app.ready();
 
     const landlordEmail = `landlord-review-${suffix}@test.com`;
@@ -206,5 +206,22 @@ describe('Reviews API', () => {
     expect(body.success).toBe(true);
     expect(body.data.totalReviews).toBe(1);
     expect(body.data.averageRating).toBe(5);
+  });
+
+  it('returns authored reviews for the current reviewer', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/reviews/mine?role=tenant',
+      headers: {
+        authorization: `Bearer ${tenantToken}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as any;
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].reviewerRole).toBe('tenant');
+    expect(body.data[0].rentalApplicationId).toBe(applicationId);
   });
 });
