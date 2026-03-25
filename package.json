@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "node scripts/check-node-version.js && tsx watch src/server.ts",
     "build": "node scripts/check-node-version.js && tsc && node scripts/copy-static-assets.js",
-    "start": "node scripts/check-node-version.js && node dist/server.js",
+    "start": "node scripts/check-node-version.js && node scripts/start-production.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "check-env": "tsx scripts/check-env.ts",
