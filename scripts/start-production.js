@@ -26,13 +26,8 @@ function runCommand(command, args, env) {
 async function main() {
   const runtimeEnv = { ...process.env };
 
-  const prismaDatabaseUrl = runtimeEnv.PRISMA_DATABASE_URL;
-  if (isPostgresUrl(prismaDatabaseUrl)) {
-    runtimeEnv.DATABASE_URL = prismaDatabaseUrl;
-  }
-
   if (!isPostgresUrl(runtimeEnv.DATABASE_URL)) {
-    console.error('Invalid database configuration. Set PRISMA_DATABASE_URL (or DATABASE_URL) to a postgres:// URL.');
+    console.error('Invalid database configuration. Set DATABASE_URL to a postgres:// URL.');
     process.exit(1);
   }
 
