@@ -2,7 +2,28 @@ node_modules/
 dist/
 .env
 .env.local
+.env.*
+!.env.example
 *.log
 .DS_Store
 coverage/
 .vscode/
+
+# Secrets and key material
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+
+# Build and cache
+.next/
+out/
+.cache/
+.turbo/
+
+# Audit and package-manager logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*

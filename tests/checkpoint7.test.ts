@@ -110,6 +110,60 @@ describe('CHECKPOINT 7 — Hardening & Production Readiness (Core Tests)', () =>
       const data = JSON.parse(response.body);
       expect(data.success).toBe(false);
     });
+
+    it('should reject invalid geocode payload', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/maps/geocode',
+        payload: {
+          address: 'a',
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.error).toBe('invalid_request');
+    });
+
+    it('should reject invalid autocomplete query payload', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/maps/autocomplete?input=ab',
+      });
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.error).toBe('invalid_request');
+    });
+
+    it('should reject invalid admin maps service type', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/admin/maps/service/not-real/enable',
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.error).toBe('invalid_request');
+    });
+
+    it('should reject empty admin maps limits patch body', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/admin/maps/limits/geocoding',
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+        },
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.error).toBe('invalid_request');
+    });
   });
 
   describe('Token Security', () => {

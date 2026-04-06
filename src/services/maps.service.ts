@@ -104,77 +104,41 @@ export class MapsService {
       const cached = this.getFromCache(cacheKey);
       if (cached) return cached;
       const key = this.apiKey || process.env.MAPS_API_KEY;
-      // Prefer Google if key present, else use Nominatim
-      if (key && this.canUseGoogleMapsProvider()) {
-        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&components=country:MX&region=mx&language=es&key=${key}`;
-        const res = await fetch(url);
-        const data = (await res.json()) as any;
-        const took = Date.now() - start;
-        const status = data.status || (res.ok ? 'OK' : 'ERROR');
-        await this.logRequest({ provider: 'google_maps', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address, url: this.sanitizeUrlForLogs(url) }, responseStatus: status.toLowerCase(), responseTimeMs: took });
-        if (status === 'OK' && Array.isArray(data.results) && data.results.length > 0) {
-          const mxResult = data.results.find((r: any) =>
-            Array.isArray(r?.address_components) &&
-            r.address_components.some((c: any) =>
-              c?.types?.includes('country') &&
-              (String(c?.short_name || '').toUpperCase() === 'MX' ||
-               String(c?.long_name || '').toLowerCase().includes('méxico') ||
-               String(c?.long_name || '').toLowerCase().includes('mexico'))
-            )
-          );
-          if (mxResult) {
-            await this.incrementUsage('geocoding', 1);
-            const out = mxResult;
-            this.setCache(cacheKey, out, 1000 * 60 * 60 * 24 * 30); // 30 days
-            return out;
-          }
-
-          // Google returned results but none in Mexico; continue to MX-restricted fallback
-        }
-
-        // Fallback to Nominatim if Google does not return MX results
-        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&addressdetails=1&q=${encodeURIComponent(address)}`;
-        const fallbackRes = await fetch(fallbackUrl, { headers: { 'User-Agent': 'casa-mx/1.0' } });
-        const fallbackData = await fallbackRes.json();
-        const fallbackTook = Date.now() - start;
-        await this.logRequest({
-          provider: 'nominatim',
-          serviceType: 'geocoding',
-          userId: opts?.userId,
-          requestDetails: { address, url: fallbackUrl, fallbackFrom: 'google_maps' },
-          responseStatus: fallbackRes.ok ? 'success' : 'error',
-          responseTimeMs: fallbackTook,
-          errorMessage: data.error_message || data.status || null,
-        });
-
-        if (Array.isArray(fallbackData) && fallbackData.length > 0) {
-          const mxFallback = fallbackData.find((d: any) => String(d?.address?.country_code || '').toLowerCase() === 'mx') || fallbackData[0];
-          await this.incrementUsage('geocoding', 1);
-          const out = mxFallback;
-          this.setCache(cacheKey, out, 1000 * 60 * 60 * 24 * 30); // 30 days
-          return out;
-        }
-
-        throw new Error(data.error_message || data.status || 'Geocode failed');
-      } else {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&addressdetails=1&q=${encodeURIComponent(address)}`;
-        const res = await fetch(url, { headers: { 'User-Agent': 'casa-mx/1.0' } });
-        const data = await res.json();
-        const took = Date.now() - start;
-        await this.logRequest({ provider: 'nominatim', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address, url }, responseStatus: res.ok ? 'success' : 'error', responseTimeMs: took });
-        if (Array.isArray(data) && data.length > 0) {
-          const mxData = data.find((d: any) => String(d?.address?.country_code || '').toLowerCase() === 'mx') || data[0];
-          await this.incrementUsage('geocoding', 1);
-          const out = mxData;
-          this.setCache(cacheKey, out, 1000 * 60 * 60 * 24 * 30); // 30 days
-          return out;
-        }
-        throw new Error('Nominatim geocode failed');
+      if (!key || !this.canUseGoogleMapsProvider()) {
+        throw new Error('Google Maps provider unavailable. Set MAPS_API_KEY and ENABLE_BILLABLE_MAPS=true.');
       }
+
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&components=country:MX&region=mx&language=es&key=${key}`;
+      const res = await fetch(url);
+      const data = (await res.json()) as any;
+      const took = Date.now() - start;
+      const status = data.status || (res.ok ? 'OK' : 'ERROR');
+      await this.logRequest({ provider: 'google_maps', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address, url: this.sanitizeUrlForLogs(url) }, responseStatus: status.toLowerCase(), responseTimeMs: took });
+
+      if (status === 'OK' && Array.isArray(data.results) && data.results.length > 0) {
+        const mxResult = data.results.find((r: any) =>
+          Array.isArray(r?.address_components) &&
+          r.address_components.some((c: any) =>
+            c?.types?.includes('country') &&
+            (String(c?.short_name || '').toUpperCase() === 'MX' ||
+              String(c?.long_name || '').toLowerCase().includes('méxico') ||
+              String(c?.long_name || '').toLowerCase().includes('mexico'))
+          )
+        );
+        if (mxResult) {
+          await this.incrementUsage('geocoding', 1);
+          const out = mxResult;
+          this.setCache(cacheKey, out, 1000 * 60 * 60 * 24 * 30); // 30 days
+          return out;
+        }
+        throw new Error('Google Geocoding returned no Mexico results for the requested address.');
+      }
+
+      throw new Error(data.error_message || data.status || 'Google Geocoding failed');
     } catch (err: any) {
       const took = Date.now() - start;
       console.error('Geocode error:', err);
-      await this.logRequest({ provider: this.canUseGoogleMapsProvider() ? 'google_maps' : 'nominatim', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address }, responseStatus: 'error', responseTimeMs: took, errorMessage: err.message });
+      await this.logRequest({ provider: 'google_maps', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address }, responseStatus: 'error', responseTimeMs: took, errorMessage: err.message });
       throw err;
     }
   }
@@ -195,7 +159,7 @@ export class MapsService {
     return { serviceType, used, limit: limit?.limitValue ?? null, remaining: limit ? Math.max(limit.limitValue - used, 0) : null };
   }
 
-  // Autocomplete wrapper: prefer Google Places Autocomplete, fallback to Nominatim search
+  // Autocomplete wrapper: Google Places Autocomplete only
   async autocomplete(input: string, opts?: { userId?: string }) {
     if (!input || input.length < 3) return [];
     const cacheKey = `autocomplete:${input}`;
@@ -205,90 +169,26 @@ export class MapsService {
     const start = Date.now();
     try {
       const key = this.apiKey || process.env.MAPS_API_KEY;
-      if (key && this.canUseGoogleMapsProvider()) {
-        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=address&components=country:mx&language=es&region=mx&key=${key}`;
-        const res = await fetch(url);
-        const data = (await res.json()) as any;
-        const took = Date.now() - start;
-        await this.logRequest({ provider: 'google_maps', serviceType: 'places_autocomplete', userId: opts?.userId, requestDetails: { input, url: this.sanitizeUrlForLogs(url) }, responseStatus: (data.status || (res.ok ? 'OK' : 'ERROR')).toLowerCase(), responseTimeMs: took });
-        if (Array.isArray(data.predictions) && data.predictions.length > 0) {
-          await this.incrementUsage('places_autocomplete', 1);
-          this.setCache(cacheKey, data.predictions, 1000 * 60 * 60 * 24 * 7); // 7 days
-          return data.predictions;
-        }
-
-        // Fallback to Nominatim if Google does not return predictions
-        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=10&countrycodes=mx&addressdetails=1&q=${encodeURIComponent(input)}`;
-        const fallbackRes = await fetch(fallbackUrl, { headers: { 'User-Agent': 'casa-mx/1.0' } });
-        const fallbackData = (await fallbackRes.json()) as any[];
-        const fallbackTook = Date.now() - start;
-        await this.logRequest({
-          provider: 'nominatim',
-          serviceType: 'places_autocomplete',
-          userId: opts?.userId,
-          requestDetails: { input, url: fallbackUrl, fallbackFrom: 'google_maps' },
-          responseStatus: fallbackRes.ok ? 'success' : 'error',
-          responseTimeMs: fallbackTook,
-          errorMessage: data.error_message || data.status || null,
-        });
-
-        const mapped = (fallbackData || [])
-          .filter((d: any) => String(d?.address?.country_code || 'mx').toLowerCase() === 'mx')
-          .map((d: any) => {
-          const parts = (d.display_name || '').split(',').map((p: string) => p.trim());
-          return {
-            description: d.display_name,
-            place_id: d.osm_id,
-            _nominatim: true,
-            lat: d.lat,
-            lon: d.lon,
-            address_components: {
-              address: parts[0] || '',
-              colonia: d.address?.neighbourhood || parts[1] || '',
-              ciudad: d.address?.city || d.address?.town || parts[2] || '',
-              estado: d.address?.state || d.address?.province || parts[parts.length - 2] || ''
-            }
-          };
-        });
-        if (mapped.length > 0) {
-          await this.incrementUsage('places_autocomplete', 1);
-          this.setCache(cacheKey, mapped, 1000 * 60 * 60 * 24 * 7);
-        }
-        return mapped;
-      } else {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=10&countrycodes=mx&addressdetails=1&q=${encodeURIComponent(input)}`;
-        const res = await fetch(url, { headers: { 'User-Agent': 'casa-mx/1.0' } });
-        const data = (await res.json()) as any[];
-        const took = Date.now() - start;
-        await this.logRequest({ provider: 'nominatim', serviceType: 'places_autocomplete', userId: opts?.userId, requestDetails: { input, url }, responseStatus: res.ok ? 'success' : 'error', responseTimeMs: took });
-        const mapped = (data || [])
-          .filter((d: any) => String(d?.address?.country_code || 'mx').toLowerCase() === 'mx')
-          .map((d: any) => {
-          // Extract address components from Nominatim response
-          const parts = (d.display_name || '').split(',').map((p: string) => p.trim());
-          return {
-            description: d.display_name,
-            place_id: d.osm_id,
-            _nominatim: true,
-            lat: d.lat,
-            lon: d.lon,
-            address_components: {
-              address: parts[0] || '',
-              colonia: d.address?.neighbourhood || parts[1] || '',
-              ciudad: d.address?.city || d.address?.town || parts[2] || '',
-              estado: d.address?.state || d.address?.province || parts[parts.length - 2] || ''
-            }
-          };
-        });
-        if (mapped.length > 0) {
-          await this.incrementUsage('places_autocomplete', 1);
-          this.setCache(cacheKey, mapped, 1000 * 60 * 60 * 24 * 7);
-        }
-        return mapped;
+      if (!key || !this.canUseGoogleMapsProvider()) {
+        throw new Error('Google Maps provider unavailable. Set MAPS_API_KEY and ENABLE_BILLABLE_MAPS=true.');
       }
+
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=address&components=country:mx&language=es&region=mx&key=${key}`;
+      const res = await fetch(url);
+      const data = (await res.json()) as any;
+      const took = Date.now() - start;
+      await this.logRequest({ provider: 'google_maps', serviceType: 'places_autocomplete', userId: opts?.userId, requestDetails: { input, url: this.sanitizeUrlForLogs(url) }, responseStatus: (data.status || (res.ok ? 'OK' : 'ERROR')).toLowerCase(), responseTimeMs: took });
+
+      if (Array.isArray(data.predictions) && data.predictions.length > 0) {
+        await this.incrementUsage('places_autocomplete', 1);
+        this.setCache(cacheKey, data.predictions, 1000 * 60 * 60 * 24 * 7); // 7 days
+        return data.predictions;
+      }
+
+      throw new Error(data.error_message || data.status || 'Google Places Autocomplete failed');
     } catch (err: any) {
       const took = Date.now() - start;
-      await this.logRequest({ provider: this.canUseGoogleMapsProvider() ? 'google_maps' : 'nominatim', serviceType: 'places_autocomplete', userId: opts?.userId, requestDetails: { input }, responseStatus: 'error', responseTimeMs: took, errorMessage: err.message });
+      await this.logRequest({ provider: 'google_maps', serviceType: 'places_autocomplete', userId: opts?.userId, requestDetails: { input }, responseStatus: 'error', responseTimeMs: took, errorMessage: err.message });
       return [];
     }
   }
