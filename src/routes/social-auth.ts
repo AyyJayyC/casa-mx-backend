@@ -41,7 +41,17 @@ const socialAuthRoutes: FastifyPluginAsync = async (fastify) => {
   };
 
   // GET /auth/social/:provider - Initiate OAuth flow
-  fastify.get('/auth/social/:provider', async (request, reply) => {
+  fastify.get(
+    '/auth/social/:provider',
+    {
+      config: {
+        rateLimit: {
+          max: env.NODE_ENV === 'test' ? 100 : 20,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
     try {
       const rawProvider = (request.params as any).provider;
       const parsed = providerSchema.safeParse(rawProvider);
@@ -245,12 +255,18 @@ async function exchangeCodeForProfile(
         };
       }
       case 'apple': {
-        // Apple provides an id_token (JWT) that we decode without verification here.
-        // In production you should verify the JWT against Apple's public keys.
+        // SECURITY WARNING: Apple provides an id_token (JWT) that is decoded here WITHOUT
+        // cryptographic signature verification. This is intentionally stubbed for initial
+        // development. Before enabling Apple Sign-In in production you MUST verify the JWT
+        // signature against Apple's public keys fetched from:
+        //   https://appleid.apple.com/auth/keys
+        // Failure to do so allows an attacker to forge any Apple identity token.
         const token = idToken ?? code;
         if (!token) return null;
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
         const payload = JSON.parse(
-          Buffer.from(token.split('.')[1], 'base64url').toString('utf-8'),
+          Buffer.from(parts[1], 'base64url').toString('utf-8'),
         );
         return {
           providerAccountId: payload.sub,

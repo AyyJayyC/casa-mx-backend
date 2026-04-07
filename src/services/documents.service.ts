@@ -1,9 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { createReadStream, createWriteStream, existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import { join, extname } from 'node:path';
-import { pipeline } from 'node:stream/promises';
 import { env } from '../config/env.js';
 
 export const ALLOWED_MIME_TYPES = [
