@@ -43,6 +43,7 @@ JWT_SECRET=<32+ characters>
 FRONTEND_URL=https://casa-mx.com
 MAPS_API_KEY=<google maps api key>
 ENABLE_BILLABLE_MAPS=true
+DOCUMENT_ENCRYPTION_KEY=<64-char hex string — generate with: openssl rand -hex 32>
 ```
 
 Optional but expected in production:

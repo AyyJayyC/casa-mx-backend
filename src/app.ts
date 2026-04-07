@@ -23,6 +23,7 @@ import requestsRoutes from './routes/requests.js';
 import usersRoutes from './routes/users.js';
 import reviewsRoutes from './routes/reviews.js';
 import setupDebugRoutes from './routes/debug.js';
+import documentsRoutes from './routes/documents.js';
 
 type ErrorWithStatusCode = Error & { statusCode?: number };
 
@@ -214,6 +215,7 @@ export async function buildApp() {
   await app.register(requestsRoutes);
   await app.register(usersRoutes);
   await app.register(reviewsRoutes);
+  await app.register(documentsRoutes);
 
   // Global error handler for production logging
   app.setErrorHandler(async (error, request, reply) => {

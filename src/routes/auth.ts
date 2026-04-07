@@ -1,11 +1,18 @@
 import { FastifyPluginAsync } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import { RegisterSchema, LoginSchema, RefreshSchema } from '../schemas/auth.js';
+import { z } from 'zod';
+import {
+  RegisterSchema,
+  LoginSchema,
+  RefreshSchema,
+  ChangePasswordSchema,
+  RequestVerificationSchema,
+  VerifyEmailSchema,
+} from '../schemas/auth.js';
 import { AuthService } from '../services/auth.service.js';
 import { env } from '../config/env.js';
-
-const activeRefreshTokenByUserId = new Map<string, string>();
-const revokedRefreshTokenJti = new Set<string>();
+import { verifyJWT } from '../utils/guards.js';
+import { refreshTokenStoreService } from '../services/refreshTokenStore.service.js';
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authService = new AuthService(fastify.prisma);
@@ -41,11 +48,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           message: 'User registered successfully',
         });
       } catch (error: any) {
-        if (error instanceof Error && error.constructor.name === 'ZodError') {
+        if (error instanceof z.ZodError) {
           return reply.code(400).send({
             success: false,
             error: 'Validation error',
-          details: (error as any).errors || error.message,
+            details: error.errors,
           });
         }
 
@@ -104,7 +111,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
         const decodedRefreshToken = fastify.jwt.decode(refreshToken) as any;
         if (decodedRefreshToken?.jti) {
-          activeRefreshTokenByUserId.set(user.id, decodedRefreshToken.jti);
+          refreshTokenStoreService.setActiveJti(user.id, decodedRefreshToken.jti);
         }
 
         reply
@@ -164,11 +171,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             throw new Error('Invalid token type');
           }
 
-          if (!decoded.jti || revokedRefreshTokenJti.has(decoded.jti)) {
+          if (!decoded.jti || refreshTokenStoreService.isJtiRevoked(decoded.jti)) {
             throw new Error('Revoked refresh token');
           }
 
-          const activeJti = activeRefreshTokenByUserId.get(decoded.id);
+          const activeJti = refreshTokenStoreService.getActiveJtiForUser(decoded.id);
           if (!activeJti || activeJti !== decoded.jti) {
             throw new Error('Stale refresh token');
           }
@@ -194,7 +201,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             { expiresIn: '15m' }
           );
 
-          revokedRefreshTokenJti.add(decoded.jti);
+          refreshTokenStoreService.revokeJti(decoded.jti);
 
           const newRefreshToken = fastify.jwt.sign(
             {
@@ -207,7 +214,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
           const decodedNewRefreshToken = fastify.jwt.decode(newRefreshToken) as any;
           if (decodedNewRefreshToken?.jti) {
-            activeRefreshTokenByUserId.set(user.id, decodedNewRefreshToken.jti);
+            refreshTokenStoreService.setActiveJti(user.id, decodedNewRefreshToken.jti);
           }
 
           reply
@@ -250,10 +257,10 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const decoded = fastify.jwt.verify(maybeRefreshToken) as any;
         if (decoded?.id) {
-          activeRefreshTokenByUserId.delete(decoded.id);
+          refreshTokenStoreService.deleteActiveJti(decoded.id);
         }
         if (decoded?.jti) {
-          revokedRefreshTokenJti.add(decoded.jti);
+          refreshTokenStoreService.revokeJti(decoded.jti);
         }
       } catch {
       }
@@ -294,6 +301,10 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           id: user.id,
           email: user.email,
           name: user.name,
+          phone: user.phone,
+          bio: user.bio,
+          profilePictureUrl: user.profilePictureUrl,
+          isEmailVerified: user.isEmailVerified,
           roles: user.roles.map((ur) => ({
             roleId: ur.roleId,
             roleName: ur.role.name,
@@ -316,6 +327,176 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
   });
+
+  /**
+   * POST /auth/change-password
+   * Allows an authenticated user to change their password.
+   */
+  fastify.post<{ Body: Record<string, any> }>(
+    '/auth/change-password',
+    {
+      onRequest: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: env.NODE_ENV === 'test' ? 50 : isLocalFrontend ? 200 : 5,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const input = ChangePasswordSchema.parse(request.body);
+        await authService.changePassword(request.user.id, input.currentPassword, input.newPassword);
+
+        return reply.code(200).send({
+          success: true,
+          message: 'Password changed successfully',
+        });
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            success: false,
+            error: 'Validation error',
+            details: error.errors,
+          });
+        }
+
+        if (error.message === 'Current password is incorrect') {
+          return reply.code(400).send({
+            success: false,
+            error: 'Current password is incorrect',
+          });
+        }
+
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Failed to change password',
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /auth/request-verification
+   * Requests an email verification token (token returned in response for dev;
+   * in production this would be emailed via SendGrid/SES).
+   */
+  fastify.post<{ Body: Record<string, any> }>(
+    '/auth/request-verification',
+    {
+      config: {
+        rateLimit: {
+          max: env.NODE_ENV === 'test' ? 50 : isLocalFrontend ? 200 : 5,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const input = RequestVerificationSchema.parse(request.body);
+
+        const user = await fastify.prisma.user.findUnique({ where: { email: input.email } });
+        if (!user) {
+          // Return 200 regardless to avoid email enumeration
+          return reply.code(200).send({
+            success: true,
+            message: 'If the email exists, a verification link has been sent',
+          });
+        }
+
+        if (user.isEmailVerified) {
+          return reply.code(409).send({
+            success: false,
+            error: 'Email is already verified',
+          });
+        }
+
+        const token = await authService.createEmailVerificationToken(user.id);
+
+        // In production: send email with verification link containing `token`
+        // For development/test: return the token in the response
+        const responseData: Record<string, any> = {
+          success: true,
+          message: 'Verification email sent',
+        };
+
+        if (env.NODE_ENV !== 'production') {
+          responseData.verificationToken = token;
+        }
+
+        return reply.code(200).send(responseData);
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            success: false,
+            error: 'Validation error',
+            details: error.errors,
+          });
+        }
+
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Failed to send verification email',
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /auth/verify-email
+   * Verifies the email address using a token.
+   */
+  fastify.post<{ Body: Record<string, any> }>(
+    '/auth/verify-email',
+    {
+      config: {
+        rateLimit: {
+          max: env.NODE_ENV === 'test' ? 50 : isLocalFrontend ? 200 : 10,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const input = VerifyEmailSchema.parse(request.body);
+        await authService.verifyEmail(input.token);
+
+        return reply.code(200).send({
+          success: true,
+          message: 'Email verified successfully',
+        });
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            success: false,
+            error: 'Validation error',
+            details: error.errors,
+          });
+        }
+
+        const knownErrors = [
+          'Invalid verification token',
+          'Verification token already used',
+          'Verification token has expired',
+        ];
+
+        if (knownErrors.includes(error.message)) {
+          return reply.code(400).send({
+            success: false,
+            error: error.message,
+          });
+        }
+
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Failed to verify email',
+        });
+      }
+    }
+  );
 };
 
 export default authRoutes;
