@@ -22,6 +22,8 @@ import applicationsRoutes from './routes/applications.js';
 import requestsRoutes from './routes/requests.js';
 import usersRoutes from './routes/users.js';
 import reviewsRoutes from './routes/reviews.js';
+import creditsRoutes from './routes/credits.js';
+import whatsAppRoutes from './routes/whatsapp.js';
 import setupDebugRoutes from './routes/debug.js';
 
 type ErrorWithStatusCode = Error & { statusCode?: number };
@@ -214,6 +216,8 @@ export async function buildApp() {
   await app.register(requestsRoutes);
   await app.register(usersRoutes);
   await app.register(reviewsRoutes);
+  await app.register(creditsRoutes);
+  await app.register(whatsAppRoutes);
 
   // Global error handler for production logging
   app.setErrorHandler(async (error, request, reply) => {

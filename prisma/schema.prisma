@@ -394,3 +394,40 @@ model LimitAlert {
   @@index([alertType])
   @@index([resolved])
 }
+
+// WhatsApp Credits System
+
+model CreditBalance {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model CreditTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String   // purchase, whatsapp_unlock
+  credits     Int      // positive = purchase, negative = usage
+  description String
+  referenceId String?  // stripe payment ID or application ID
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model WhatsAppUnlock {
+  id            String   @id @default(uuid())
+  landlordId    String
+  applicationId String
+  createdAt     DateTime @default(now())
+
+  @@unique([landlordId, applicationId])
+  @@index([landlordId])
+  @@index([applicationId])
+}
