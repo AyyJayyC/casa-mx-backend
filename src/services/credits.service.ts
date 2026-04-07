@@ -73,7 +73,7 @@ export async function createCreditCheckoutSession(
     },
   });
 
-  return { sessionId: session.id, url: session.url };
+  return { sessionId: session.id, url: session.url ?? '' };
 }
 
 /**

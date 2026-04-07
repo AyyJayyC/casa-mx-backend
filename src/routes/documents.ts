@@ -93,11 +93,11 @@ const documentsRoutes: FastifyPluginAsync = async (fastify) => {
       // Encrypt document
       const { encryptedData, encryptedKey, fileHash } = encryptDocument(fileBuffer);
 
-      // Build a unique S3 key
+      // Build a unique S3 key including the original extension for easier identification
       const userId = request.user.id;
       const fileId = randomUUID();
       const ext = data.filename.split('.').pop() ?? 'bin';
-      const s3Key = `documents/${userId}/${fileId}.enc`;
+      const s3Key = `documents/${userId}/${fileId}.${ext}.enc`;
 
       // Upload encrypted data to S3
       await uploadToS3(s3Key, encryptedData, 'application/octet-stream');
@@ -174,7 +174,18 @@ const documentsRoutes: FastifyPluginAsync = async (fastify) => {
    * Download a specific document (decrypted).
    * Only the owner or an admin may download.
    */
-  fastify.get<{ Params: { id: string } }>('/documents/:id', { onRequest: [verifyJWT] }, async (request, reply) => {
+  fastify.get<{ Params: { id: string } }>(
+    '/documents/:id',
+    {
+      onRequest: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
     try {
       const { id } = request.params;
 
