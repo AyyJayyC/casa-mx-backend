@@ -446,6 +446,39 @@ async function main() {
 
     console.log('✅ UsageLimit records seeded');
 
+  // ── Seed Credit Packages ──────────────────────────────────────────────────
+  const creditPackages = [
+    {
+      name: 'Starter',
+      credits: 20,
+      priceUsd: 9.99,
+      description: '20 créditos Casa MX – ideal para empezar a listar propiedades',
+    },
+    {
+      name: 'Pro',
+      credits: 60,
+      priceUsd: 24.99,
+      description: '60 créditos Casa MX – para propietarios activos',
+    },
+    {
+      name: 'Enterprise',
+      credits: 150,
+      priceUsd: 49.99,
+      description: '150 créditos Casa MX – para agentes inmobiliarios',
+    },
+  ];
+
+  for (const pkg of creditPackages) {
+    const existing = await prisma.creditPackage.findFirst({
+      where: { name: pkg.name },
+    });
+    if (!existing) {
+      await prisma.creditPackage.create({ data: pkg });
+    }
+  }
+
+  console.log('✅ Credit packages seeded');
+
     console.log('🌱 Seed completed successfully!');
 }
 

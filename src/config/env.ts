@@ -11,6 +11,20 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+
+  // Stripe (optional - can be configured later)
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
+  // Document encryption (32-byte hex key for AES-256-CBC)
+  DOCUMENT_ENCRYPTION_KEY: z.string().min(64).optional(),
+  UPLOAD_DIR: z.string().default('./uploads'),
+
+  // Social OAuth (optional - can be configured per provider)
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  FACEBOOK_APP_ID: z.string().optional(),
+  FACEBOOK_APP_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -11,10 +11,16 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String
-  password  String   // bcrypt hash
+  password  String?  // bcrypt hash (nullable for social-only accounts)
+  phone     String?
+  creditBalance Int  @default(0)
+  profileComplete Boolean @default(false)
   roles     UserRole[]
   reviewsWritten  Review[] @relation("ReviewAuthor")
   reviewsReceived Review[] @relation("ReviewTarget")
+  socialAccounts  SocialAccount[]
+  documents       UserDocument[]
+  creditTransactions CreditTransaction[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -107,7 +113,7 @@ model RentalApplication {
   id          String   @id @default(uuid())
   propertyId  String
   applicantId String
-  status      String   @default("pending") // pending, under_review, approved, rejected, withdrawn, expired
+  status      String   @default("pending") // pending, under_review, approved, rejected, withdrawn, expired, negotiating
   
   // Personal Information
   fullName    String
@@ -135,6 +141,14 @@ model RentalApplication {
   messageToLandlord  String?  @db.Text
   landlordNote       String?  @db.Text
   
+  // Negotiation - initial proposed terms from applicant
+  proposedRent       Float?   // Proposed monthly rent
+  proposedDeposit    Float?   // Proposed security deposit
+  proposedServices   String[] @default([]) // Proposed included services
+  
+  // WhatsApp unlock tracking
+  whatsappUnlocked   Boolean  @default(false) // Whether landlord has paid credits to unlock
+  
   // Document URLs (structure for Phase 6)
   idDocumentUrl      String?
   incomeProofUrl     String?
@@ -145,6 +159,7 @@ model RentalApplication {
   
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   reviews Review[]
+  negotiations NegotiationOffer[]
   
   @@index([propertyId])
   @@index([applicantId])
@@ -233,6 +248,112 @@ model AuditLog {
   @@index([targetUserId])
   @@index([action])
   @@index([createdAt])
+}
+
+// ── Credits System ───────────────────────────────────────────────────────────
+
+model CreditPackage {
+  id            String   @id @default(uuid())
+  name          String   // e.g., "Starter", "Pro", "Enterprise"
+  credits       Int      // Number of Casa MX credits
+  priceUsd      Float    // Price in USD
+  stripePriceId String?  // Stripe Price ID (set when Stripe is configured)
+  active        Boolean  @default(true)
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([active])
+}
+
+model CreditTransaction {
+  id              String   @id @default(uuid())
+  userId          String
+  type            String   // purchase, debit, refund, bonus
+  amount          Int      // Positive = credit added, negative = credit spent
+  balanceAfter    Int
+  description     String   // Human-readable description
+  referenceId     String?  // e.g., Stripe payment intent ID, application ID, etc.
+  referenceType   String?  // e.g., "stripe_payment", "property_listing", "whatsapp_unlock"
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ── Document Storage ─────────────────────────────────────────────────────────
+
+model UserDocument {
+  id              String   @id @default(uuid())
+  userId          String
+  documentType    String   // government_id, income_proof, residence_proof, aval_id, aval_ine, aval_income_proof, aval_residence_proof, property_ownership
+  fileName        String   // Original file name
+  storedFileName  String   // Encrypted/stored file name
+  filePath        String   // Encrypted path on disk
+  mimeType        String
+  fileSizeBytes   Int
+  encryptionIv    String   // AES-256-CBC IV (hex)
+  verificationStatus String @default("pending") // pending, verified, rejected
+  verificationNote   String? @db.Text
+  verifiedAt         DateTime?
+  verifiedById       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([documentType])
+  @@index([verificationStatus])
+}
+
+// ── Negotiation System ───────────────────────────────────────────────────────
+
+model NegotiationOffer {
+  id                  String   @id @default(uuid())
+  applicationId       String
+  offerByUserId       String   // Who made this offer (landlord or tenant)
+  offerByRole         String   // "landlord" or "tenant"
+  proposedRent        Float
+  proposedDeposit     Float
+  proposedServices    String[] @default([]) // e.g., ["agua", "luz", "internet"]
+  proposedLeaseTerm   Int?     // Optional lease term override in months
+  message             String?  @db.Text
+  status              String   @default("pending") // pending, accepted, rejected, superseded
+  respondedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  application RentalApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([offerByUserId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ── Social Login ─────────────────────────────────────────────────────────────
+
+model SocialAccount {
+  id           String   @id @default(uuid())
+  userId       String
+  provider     String   // google, facebook, apple
+  providerAccountId String // The ID from the provider
+  email        String?  // Email from provider (may differ from user email)
+  accessToken  String?  @db.Text
+  refreshToken String?  @db.Text
+  tokenExpiry  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@index([provider])
 }
 
 // Debug/Logging Models - Checkpoint 1
