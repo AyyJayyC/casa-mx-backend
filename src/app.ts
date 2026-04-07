@@ -3,6 +3,7 @@ import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 import bcrypt from 'bcrypt';
 import { env } from './config/env.js';
 import prismaPlugin from './plugins/prisma.js';
@@ -12,6 +13,7 @@ import mapsMonitor from './plugins/mapsMonitor.js';
 import healthRoutes from './routes/health.js';
 import versionRoutes from './routes/version.js';
 import authRoutes from './routes/auth.js';
+import socialAuthRoutes from './routes/social-auth.js';
 import adminRoutes from './routes/admin.js';
 import adminMapsRoutes from './routes/admin/maps.js';
 import mapsRoutes from './routes/maps.js';
@@ -22,6 +24,10 @@ import applicationsRoutes from './routes/applications.js';
 import requestsRoutes from './routes/requests.js';
 import usersRoutes from './routes/users.js';
 import reviewsRoutes from './routes/reviews.js';
+import creditsRoutes from './routes/credits.js';
+import documentsRoutes from './routes/documents.js';
+import negotiationsRoutes from './routes/negotiations.js';
+import whatsappRoutes from './routes/whatsapp.js';
 import setupDebugRoutes from './routes/debug.js';
 
 type ErrorWithStatusCode = Error & { statusCode?: number };
@@ -104,6 +110,11 @@ export async function buildApp() {
   await app.register(prismaPlugin);
   await app.register(cookie);
   await app.register(jwtPlugin);
+  await app.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10 MB
+    },
+  });
 
   if (env.NODE_ENV === 'test') {
     const requiredRoles = ['admin', 'landlord', 'buyer', 'seller', 'tenant', 'wholesaler'];
@@ -214,6 +225,11 @@ export async function buildApp() {
   await app.register(requestsRoutes);
   await app.register(usersRoutes);
   await app.register(reviewsRoutes);
+  await app.register(creditsRoutes);
+  await app.register(documentsRoutes);
+  await app.register(negotiationsRoutes);
+  await app.register(whatsappRoutes);
+  await app.register(socialAuthRoutes);
 
   // Global error handler for production logging
   app.setErrorHandler(async (error, request, reply) => {
