@@ -121,6 +121,10 @@ prisma/
 tests/               # Test files
 ```
 
+## Documentation
+
+- [`docs/APPLICATION_FLOW.md`](docs/APPLICATION_FLOW.md) — Complete user flow documentation for buyers/renters and sellers/landlords, including API reference, database relationships, and data flow diagrams.
+
 ## Checkpoints
 
 This backend is built incrementally following Phase 4 checkpoints:
