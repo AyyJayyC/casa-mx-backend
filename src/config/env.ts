@@ -11,6 +11,17 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  // Document encryption (64-char hex = 32-byte AES-256 key). Optional: derived from JWT_SECRET in dev/test.
+  DOCUMENT_ENCRYPTION_KEY: z.string().optional(),
+  // AWS S3 (optional for dev/test, required in production)
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  AWS_S3_BUCKET: z.string().optional(),
+  AWS_REGION: z.string().default('us-east-1'),
+  // Stripe (optional for dev/test)
+  STRIPE_SECRET_KEY: z.string().optional(),
+  // SendGrid (optional for dev/test)
+  SENDGRID_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

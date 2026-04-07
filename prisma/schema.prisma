@@ -15,6 +15,8 @@ model User {
   roles     UserRole[]
   reviewsWritten  Review[] @relation("ReviewAuthor")
   reviewsReceived Review[] @relation("ReviewTarget")
+  documents Document[]
+  verifiedDocuments Document[] @relation("DocumentVerifier")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -393,4 +395,33 @@ model LimitAlert {
   @@index([serviceType])
   @@index([alertType])
   @@index([resolved])
+}
+
+// Phase 1 Document Upload & Encryption
+
+model Document {
+  id                String    @id @default(uuid())
+  userId            String
+  documentType      String    // government_id, income_proof, residence_proof, aval_id, aval_income_proof, aval_residence_proof
+  fileName          String
+  filePath          String    // S3 key or local path for encrypted file
+  fileHash          String?   // SHA-256 hash of original file for integrity checks
+  fileSize          Int?
+  encryptedKey      String    // AES-256-CBC key encrypted/stored securely
+  status            String    @default("pending") // pending, approved, rejected
+  verificationNotes String?   @db.Text
+  uploadedAt        DateTime  @default(now())
+  verifiedAt        DateTime?
+  expiresAt         DateTime?
+  verifierId        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifier User? @relation("DocumentVerifier", fields: [verifierId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([documentType])
+  @@index([createdAt])
 }
