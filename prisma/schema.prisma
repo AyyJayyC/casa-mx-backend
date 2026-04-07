@@ -8,17 +8,25 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  password  String   // bcrypt hash
-  roles     UserRole[]
-  reviewsWritten  Review[] @relation("ReviewAuthor")
-  reviewsReceived Review[] @relation("ReviewTarget")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  name                String
+  password            String    // bcrypt hash
+  phone               String?   @unique
+  bio                 String?   @db.Text
+  profilePictureUrl   String?
+  isEmailVerified     Boolean   @default(false)
+  emailVerifiedAt     DateTime?
+  roles               UserRole[]
+  documents           Document[]
+  emailVerifications  EmailVerificationToken[]
+  reviewsWritten      Review[]  @relation("ReviewAuthor")
+  reviewsReceived     Review[]  @relation("ReviewTarget")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([email])
+  @@index([phone])
 }
 
 model Role {
@@ -85,6 +93,50 @@ model Property {
   @@index([colonia])
   @@index([codigoPostal])
   @@index([listingType])
+}
+
+// Document upload & verification (Phase 1)
+
+model Document {
+  id             String    @id @default(uuid())
+  userId         String
+  documentType   String    // government_id, income_proof, residence_proof, aval_id, aval_income, aval_residence, aval_rfc, property_deed
+  fileUrl        String    // encrypted storage path/URL
+  fileHash       String?   // SHA-256 for integrity verification
+  fileName       String
+  fileSize       Int?      // bytes
+  mimeType       String?
+  encryptionIv   String?   // AES-256-CBC initialization vector (hex)
+  status         String    @default("pending") // pending, approved, rejected
+  verifierNotes  String?   @db.Text
+  verifiedAt     DateTime?
+  verifiedById   String?
+  expiresAt      DateTime?
+  uploadedAt     DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([documentType])
+  @@index([status])
+  @@index([uploadedAt])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
 }
 
 model PropertyRequest {
