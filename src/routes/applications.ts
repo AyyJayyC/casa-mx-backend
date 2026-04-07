@@ -7,8 +7,12 @@ import {
   propertyIdParamSchema,
   applicationQuerySchema,
 } from '../schemas/applications.js';
+import { CreditsService } from '../services/credits.service.js';
+
+const MASKED_PHONE = '***-***-****';
 
 const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
+  const creditsService = new CreditsService(fastify.prisma);
   // POST /applications - Create rental application (tenant submits)
   fastify.post(
     '/applications',
@@ -204,9 +208,19 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
           orderBy: { createdAt: 'desc' },
         });
 
+        // Determine which application phone numbers this landlord has unlocked
+        const unlockedIds = await creditsService.getUnlockedApplicationIds(landlordId);
+
+        // Mask phone numbers for applications that have not been unlocked
+        const maskedApplications = applications.map((app) => ({
+          ...app,
+          phone: unlockedIds.has(app.id) ? app.phone : MASKED_PHONE,
+          whatsAppUnlocked: unlockedIds.has(app.id),
+        }));
+
         return reply.send({
           success: true,
-          data: applications,
+          data: maskedApplications,
         });
       } catch (error: any) {
         if (error.name === 'ZodError') {
