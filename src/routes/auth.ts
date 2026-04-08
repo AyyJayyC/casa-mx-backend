@@ -3,9 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { RegisterSchema, LoginSchema, RefreshSchema } from '../schemas/auth.js';
 import { AuthService } from '../services/auth.service.js';
 import { env } from '../config/env.js';
-
-const activeRefreshTokenByUserId = new Map<string, string>();
-const revokedRefreshTokenJti = new Set<string>();
+import { refreshTokenStoreService } from '../services/refreshTokenStore.service.js';
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authService = new AuthService(fastify.prisma);
@@ -104,7 +102,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
         const decodedRefreshToken = fastify.jwt.decode(refreshToken) as any;
         if (decodedRefreshToken?.jti) {
-          activeRefreshTokenByUserId.set(user.id, decodedRefreshToken.jti);
+          refreshTokenStoreService.setActiveJtiForUser(user.id, decodedRefreshToken.jti);
         }
 
         reply
@@ -164,11 +162,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             throw new Error('Invalid token type');
           }
 
-          if (!decoded.jti || revokedRefreshTokenJti.has(decoded.jti)) {
+          if (!decoded.jti || refreshTokenStoreService.isJtiRevoked(decoded.jti)) {
             throw new Error('Revoked refresh token');
           }
 
-          const activeJti = activeRefreshTokenByUserId.get(decoded.id);
+          const activeJti = refreshTokenStoreService.getActiveJtiForUser(decoded.id);
           if (!activeJti || activeJti !== decoded.jti) {
             throw new Error('Stale refresh token');
           }
@@ -194,7 +192,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             { expiresIn: '15m' }
           );
 
-          revokedRefreshTokenJti.add(decoded.jti);
+          refreshTokenStoreService.revokeJti(decoded.jti);
 
           const newRefreshToken = fastify.jwt.sign(
             {
@@ -207,7 +205,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
           const decodedNewRefreshToken = fastify.jwt.decode(newRefreshToken) as any;
           if (decodedNewRefreshToken?.jti) {
-            activeRefreshTokenByUserId.set(user.id, decodedNewRefreshToken.jti);
+            refreshTokenStoreService.setActiveJtiForUser(user.id, decodedNewRefreshToken.jti);
           }
 
           reply
@@ -250,10 +248,10 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const decoded = fastify.jwt.verify(maybeRefreshToken) as any;
         if (decoded?.id) {
-          activeRefreshTokenByUserId.delete(decoded.id);
+          refreshTokenStoreService.deleteActiveJtiForUser(decoded.id);
         }
         if (decoded?.jti) {
-          revokedRefreshTokenJti.add(decoded.jti);
+          refreshTokenStoreService.revokeJti(decoded.jti);
         }
       } catch {
       }

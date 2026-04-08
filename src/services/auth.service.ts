@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { RegisterInput, LoginInput } from '../schemas/auth.js';
 
-const AUTO_APPROVED_ROLES = new Set(['buyer', 'tenant']);
+const AUTO_APPROVED_ROLES = new Set(['tenant']);
 
 export class AuthService {
   constructor(private prisma: PrismaClient) {}
