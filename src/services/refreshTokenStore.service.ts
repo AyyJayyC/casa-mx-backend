@@ -9,7 +9,7 @@
  * For now, in-memory storage is used with graceful test helpers.
  */
 
-class RefreshTokenStoreService {
+export class RefreshTokenStoreService {
   private activeRefreshTokenByUserId = new Map<string, string>();
   private revokedRefreshTokenJti = new Set<string>();
 
