@@ -27,7 +27,7 @@ jobs:
           sudo mv gitleaks /usr/local/bin/gitleaks
 
       - name: Scan for leaked secrets
-        run: gitleaks detect --no-git --source . --redact --exit-code 1
+        run: gitleaks detect --no-git --source . --redact --exit-code 1 --config .gitleaks.toml
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
