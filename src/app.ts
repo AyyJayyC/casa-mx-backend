@@ -3,6 +3,7 @@ import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 import bcrypt from 'bcrypt';
 import { env } from './config/env.js';
 import prismaPlugin from './plugins/prisma.js';
@@ -22,6 +23,13 @@ import applicationsRoutes from './routes/applications.js';
 import requestsRoutes from './routes/requests.js';
 import usersRoutes from './routes/users.js';
 import reviewsRoutes from './routes/reviews.js';
+import creditsRoutes from './routes/credits.js';
+import documentsRoutes from './routes/documents.js';
+import negotiationsRoutes from './routes/negotiations.js';
+import offersRoutes from './routes/offers.js';
+import notificationsRoutes from './routes/notifications.js';
+import contractsRoutes from './routes/contracts.js';
+import verificationRoutes from './routes/verification.js';
 import setupDebugRoutes from './routes/debug.js';
 
 type ErrorWithStatusCode = Error & { statusCode?: number };
@@ -48,6 +56,7 @@ export async function buildApp() {
     env.FRONTEND_URL.includes('0.0.0.0');
 
   const app = Fastify({
+    bodyLimit: 25 * 1024 * 1024,
     logger: {
       level: env.NODE_ENV === 'production' ? 'info' : 'debug',
       transport: env.NODE_ENV !== 'production'
@@ -68,6 +77,11 @@ export async function buildApp() {
     allowedOrigins.add('http://localhost:3000');
     allowedOrigins.add('http://127.0.0.1:3000');
     allowedOrigins.add('http://0.0.0.0:3000');
+    // Allow any localhost port for dev (Next.js may use 3001-3010 if 3000 is taken)
+    for (let port = 3001; port <= 3010; port++) {
+      allowedOrigins.add(`http://localhost:${port}`);
+      allowedOrigins.add(`http://127.0.0.1:${port}`);
+    }
   }
 
   // Register CORS
@@ -85,6 +99,7 @@ export async function buildApp() {
       }
     },
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   await app.register(helmet, {
@@ -101,6 +116,17 @@ export async function buildApp() {
   });
 
   // Register plugins
+  await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } }); // 10 MB max
+
+  // Preserve raw body for Stripe webhook signature verification
+  app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+    (req as any).rawBody = body;
+    try {
+      done(null, body.length ? JSON.parse(body.toString()) : {});
+    } catch (e: any) {
+      done(e, undefined);
+    }
+  });
   await app.register(prismaPlugin);
   await app.register(cookie);
   await app.register(jwtPlugin);
@@ -214,6 +240,13 @@ export async function buildApp() {
   await app.register(requestsRoutes);
   await app.register(usersRoutes);
   await app.register(reviewsRoutes);
+  await app.register(creditsRoutes);
+  await app.register(documentsRoutes);
+  await app.register(negotiationsRoutes);
+  await app.register(offersRoutes);
+  await app.register(notificationsRoutes);
+  await app.register(contractsRoutes);
+  await app.register(verificationRoutes);
 
   // Global error handler for production logging
   app.setErrorHandler(async (error, request, reply) => {

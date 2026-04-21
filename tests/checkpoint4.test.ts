@@ -8,6 +8,22 @@ let testEmail: string;
 let userId: string;
 let userRoleId: string;
 
+async function getPendingRoleIdByEmail(email: string) {
+  const pendingResponse = await app.inject({
+    method: 'GET',
+    url: '/admin/pending-roles',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+  });
+
+  expect(pendingResponse.statusCode).toBe(200);
+  const pendingBody = pendingResponse.json() as any;
+  const pendingRole = pendingBody.data.find((p: any) => p.user.email === email);
+  expect(pendingRole).toBeDefined();
+  return pendingRole.id as string;
+}
+
 describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
   beforeAll(async () => {
     app = await buildApp();
@@ -34,36 +50,16 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
         email: testEmail,
         name: 'Admin Test User',
         password: 'password123',
+        roles: ['seller'],
       },
     });
-
-    // Setup: Get user token
-    const userLoginResponse = await app.inject({
-      method: 'POST',
-      url: '/auth/login',
-      payload: {
-        email: testEmail,
-        password: 'password123',
-      },
+    const createdUser = await app.prisma.user.findUnique({
+      where: { email: testEmail },
+      select: { id: true },
     });
-
-    const userLoginBody = userLoginResponse.json() as any;
-    userId = userLoginBody.user.id;
-
-    // Get pending role IDs
-    const pendingResponse = await app.inject({
-      method: 'GET',
-      url: '/admin/pending-roles',
-      headers: {
-        authorization: `Bearer ${adminToken}`,
-      },
-    });
-
-    const pendingBody = pendingResponse.json() as any;
-    const pendingRole = pendingBody.data.find((p: any) => p.user.id === userId);
-    if (pendingRole) {
-      userRoleId = pendingRole.id;
-    }
+    expect(createdUser).toBeDefined();
+    userId = createdUser!.id;
+    userRoleId = await getPendingRoleIdByEmail(testEmail);
   });
 
   afterAll(async () => {
@@ -130,27 +126,15 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
         email: denyTestEmail,
         name: 'Deny Test User',
         password: 'password123',
+        roles: ['seller'],
       },
     });
-
-    // Get pending roles
-    const pendingResponse = await app.inject({
-      method: 'GET',
-      url: '/admin/pending-roles',
-      headers: {
-        authorization: `Bearer ${adminToken}`,
-      },
-    });
-
-    const pendingBody = pendingResponse.json() as any;
-    const denyTestRole = pendingBody.data.find(
-      (p: any) => p.user.email === denyTestEmail
-    );
+    const denyTestRoleId = await getPendingRoleIdByEmail(denyTestEmail);
 
     // Deny the role
     const denyResponse = await app.inject({
       method: 'POST',
-      url: `/admin/roles/${denyTestRole.id}/deny`,
+      url: `/admin/roles/${denyTestRoleId}/deny`,
       headers: {
         authorization: `Bearer ${adminToken}`,
       },

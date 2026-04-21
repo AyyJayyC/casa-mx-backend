@@ -18,6 +18,11 @@ export const RefreshSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token is required'),
 });
 
+export const OAuthGoogleSchema = z.object({
+  idToken: z.string().min(1, 'Google ID token is required'),
+});
+
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type RefreshInput = z.infer<typeof RefreshSchema>;
+export type OAuthGoogleInput = z.infer<typeof OAuthGoogleSchema>;

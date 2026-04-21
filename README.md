@@ -36,7 +36,7 @@ cp .env.example .env
 ### 3. Start PostgreSQL
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 4. Run Migrations
@@ -101,6 +101,10 @@ npm run build
 npm start
 ```
 
+Production note:
+- The included `docker-compose.yml` is suitable for local validation and smoke testing.
+- Before a real production launch, set `NODE_ENV=production`, use a real `MAPS_API_KEY`, keep `ENABLE_BILLABLE_MAPS=true`, and replace all local/default secrets and hostnames.
+
 ## Project Structure
 
 ```
@@ -142,6 +146,8 @@ Key variables:
 - `DATABASE_URL` - PostgreSQL connection string
 - `JWT_SECRET` - Secret key for JWT signing (min 32 chars)
 - `FRONTEND_URL` - Frontend origin for CORS
+- `MAPS_API_KEY` - Required in production for server-side address search
+- `ENABLE_BILLABLE_MAPS=true` - Required in production for Google-backed autocomplete/geocode
 
 ## License
 

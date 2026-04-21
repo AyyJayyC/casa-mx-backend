@@ -11,14 +11,27 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String
-  password  String   // bcrypt hash
+  password  String?  // null for OAuth-only users
+  provider  String?  // google | facebook | apple | null (email/password)
+  providerId String? // OAuth provider's user ID
+  avatarUrl String?  // profile picture from OAuth provider
+  phone     String?  // contact phone number (optional)
+  whatsapp  String?  // WhatsApp number with country code, e.g. +525512345678
+  emailVerified     Boolean  @default(false)
+  verificationToken String?  @unique
+  verificationTokenExpiresAt DateTime?
   roles     UserRole[]
   reviewsWritten  Review[] @relation("ReviewAuthor")
   reviewsReceived Review[] @relation("ReviewTarget")
+  creditBalance   CreditBalance?
+  creditTransactions CreditTransaction[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([provider, providerId])
   @@index([email])
+  @@index([provider])
+  @@index([verificationToken])
 }
 
 model Role {
@@ -59,6 +72,13 @@ model Property {
   ciudad      String?  // City/Municipality (e.g., Guadalajara, Monterrey)
   colonia     String?  // Neighborhood (e.g., Roma Norte, Polanco)
   codigoPostal String? // ZIP code (e.g., 06700, 44100)
+  propertyType String?
+  bedrooms    Int?
+  bathrooms   Int?
+  squareMeters Int?
+  includedServices String[] @default([])
+  amenities   String[] @default([])
+  financeOptions String[] @default([])  // cash, bankLoan, INFONAVIT, FOVISSSTE, paymentPlan, other
   sellerId    String
   
   // Rental system fields
@@ -76,6 +96,7 @@ model Property {
   propertyRequests  PropertyRequest[]
   rentalApplications RentalApplication[]
   reviews Review[]
+  propertyOffers PropertyOffer[]
 
   @@index([sellerId])
   @@index([status])
@@ -132,8 +153,9 @@ model RentalApplication {
   reference2Phone    String?
   
   // Additional
-  messageToLandlord  String?  @db.Text
-  landlordNote       String?  @db.Text
+  messageToLandlord   String?  @db.Text
+  landlordNote        String?  @db.Text
+  offeredMonthlyRent  Float?
   
   // Document URLs (structure for Phase 6)
   idDocumentUrl      String?
@@ -393,4 +415,123 @@ model LimitAlert {
   @@index([serviceType])
   @@index([alertType])
   @@index([resolved])
+}
+
+// Credits / Payments models
+
+model CreditBalance {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Int      @default(0) // credits available (1 credit = 1 MXN contact unlock)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model CreditTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String   // purchase, spend, refund, bonus
+  amount      Int      // positive = credit added, negative = credit deducted
+  description String
+  referenceId String?  // propertyId, applicationId, stripePaymentIntentId, etc.
+  stripePaymentIntentId String? @unique
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model CreditPackage {
+  id          String   @id @default(uuid())
+  name        String   // e.g., "Starter", "Pro", "Enterprise"
+  credits     Int      // number of credits in package
+  priceMXN    Float    // price in MXN pesos
+  stripePriceId String? // Stripe Price ID (optional, for hosted checkout)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active])
+}
+
+// Rent Negotiation models
+
+model Negotiation {
+  id                  String   @id @default(uuid())
+  rentalApplicationId String   @unique  // one active negotiation per application
+  propertyId          String
+  applicantId         String
+  landlordId          String
+  status              String   @default("open") // open | accepted | rejected | expired
+  originalRent        Float
+  finalRent           Float?   // set when accepted
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  offers NegotiationOffer[]
+
+  @@index([rentalApplicationId])
+  @@index([applicantId])
+  @@index([landlordId])
+  @@index([status])
+}
+
+model NegotiationOffer {
+  id              String   @id @default(uuid())
+  negotiationId   String
+  authorId        String   // userId of the person making the offer
+  authorRole      String   // tenant | landlord
+  proposedRent    Float
+  message         String?  @db.Text
+  status          String   @default("pending") // pending | accepted | rejected | countered
+  createdAt       DateTime @default(now())
+
+  negotiation Negotiation @relation(fields: [negotiationId], references: [id], onDelete: Cascade)
+
+  @@index([negotiationId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+// Purchase offers on sale properties
+model PropertyOffer {
+  id             String   @id @default(uuid())
+  propertyId     String
+  buyerId        String
+  status         String   @default("pending") // pending | accepted | rejected | countered
+  
+  // Offer details
+  offerAmount    Float
+  financing      String   // cash | bankLoan | INFONAVIT | FOVISSSTE | paymentPlan | other
+  closingDate    DateTime?
+  message        String?  @db.Text
+  
+  // Buyer contact
+  buyerName      String
+  buyerEmail     String
+  buyerPhone     String
+
+  // Payment plan details (only when financing = paymentPlan)
+  enganche       Float?   // down payment amount
+  plazoMeses     Int?     // term in months
+  cuotaMensual   Float?   // calculated monthly payment (no interest)
+  
+  // Seller response
+  sellerNote     String?  @db.Text
+  counterAmount  Float?   // set if seller counters
+  
+  property       Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([buyerId])
+  @@index([status])
+  @@index([createdAt])
 }

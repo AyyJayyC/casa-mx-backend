@@ -1,0 +1,7 @@
+ALTER TABLE "Property"
+ADD COLUMN "propertyType" TEXT,
+ADD COLUMN "bedrooms" INTEGER,
+ADD COLUMN "bathrooms" INTEGER,
+ADD COLUMN "squareMeters" INTEGER,
+ADD COLUMN "includedServices" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN "amenities" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

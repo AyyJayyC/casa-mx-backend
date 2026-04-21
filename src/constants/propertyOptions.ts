@@ -1,0 +1,47 @@
+export const PROPERTY_TYPE_OPTIONS = [
+  'Casa',
+  'Departamento',
+  'Terreno',
+  'Local comercial',
+  'Oficina',
+  'Bodega',
+] as const;
+
+export const RENTAL_INCLUDED_SERVICE_OPTIONS = [
+  'Luz',
+  'Agua',
+  'Gas',
+  'Internet',
+  'Estacionamiento',
+  'TV por Cable',
+  'Teléfono',
+  'Vigilancia',
+] as const;
+
+export const RENTAL_AMENITY_OPTIONS = [
+  'Refrigerador',
+  'Estufa',
+  'Microondas',
+  'Cocina integral',
+  'Lavadora',
+  'Secadora',
+  'Aire acondicionado',
+  'Aire central',
+  'Calefacción',
+  'Mini split',
+  'Mini splits',
+  'Terraza',
+  'Jardín',
+  'Piscina',
+  'Gimnasio',
+  'Salón de eventos',
+  'Seguridad 24h',
+  'Acceso controlado',
+  'Elevador',
+  'Closet grande',
+  'Amueblado',
+  'Walk-in closet',
+  'Balcón',
+  'Patio',
+  'Seguridad 24/7',
+] as const;

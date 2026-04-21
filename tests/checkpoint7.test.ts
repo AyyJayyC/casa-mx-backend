@@ -110,6 +110,90 @@ describe('CHECKPOINT 7 — Hardening & Production Readiness (Core Tests)', () =>
       const data = JSON.parse(response.body);
       expect(data.success).toBe(false);
     });
+
+    it('should reject invalid geocode payload', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/maps/geocode',
+        payload: {
+          address: 'a',
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.error).toBe('invalid_request');
+    });
+
+    it('should reject invalid autocomplete query payload', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/maps/autocomplete?input=ab',
+      });
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.error).toBe('invalid_request');
+    });
+
+    it('should provide local autocomplete fallback when Google Maps is unavailable', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/maps/autocomplete?input=Begonia%2010',
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(Array.isArray(data.predictions)).toBe(true);
+      expect(data.predictions.length).toBeGreaterThan(0);
+      expect(data.predictions[0].description).toContain('Begonia 10');
+      expect(data.predictions[0].description).toContain('Hermosillo');
+    });
+
+    it('should provide local geocode fallback when Google Maps is unavailable', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/maps/geocode',
+        payload: {
+          address: 'Begonia 10',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.result.formatted_address).toContain('Begonia 10');
+      expect(data.result.formatted_address).toContain('Hermosillo');
+      expect(Array.isArray(data.result.address_components)).toBe(true);
+    });
+
+    it('should reject invalid admin maps service type', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/admin/maps/service/not-real/enable',
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.error).toBe('invalid_request');
+    });
+
+    it('should reject empty admin maps limits patch body', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/admin/maps/limits/geocoding',
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+        },
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.error).toBe('invalid_request');
+    });
   });
 
   describe('Token Security', () => {

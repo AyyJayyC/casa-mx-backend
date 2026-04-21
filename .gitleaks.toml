@@ -1,0 +1,41 @@
+title = "Casa MX Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+  id = "generic-api-key"
+  # Override the default generic-api-key rule with an allowlist for test values
+  [rules.allowlist]
+    regexes = [
+      "password123",
+      "TestPassword123",
+      "HashedPassword123",
+      "hashedpassword123",
+      "hashed-password",
+      "admin123",
+      "seller123",
+      "buyer123",
+      "tenant123",
+    ]
+
+[allowlist]
+  description = "Global allowlist"
+  paths = [
+    '''node_modules''',
+    '''dist''',
+    '''package-lock\.json''',
+    '''OPERATIONS\.md''',
+    '''tests/checkpoint3\.test\.ts''',
+  ]
+  regexes = [
+    '''password123''',
+    '''TestPassword123''',
+    '''HashedPassword123''',
+    '''hashedpassword123''',
+    '''hashed-password''',
+    '''admin123''',
+    '''seller123''',
+    '''buyer123''',
+    '''tenant123''',
+  ]
