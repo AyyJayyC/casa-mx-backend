@@ -559,6 +559,10 @@ describe('Checkpoint 2 - Backend API Filters', () => {
           ciudad: 'Guadalajara',
           colonia: 'Providencia',
           codigoPostal: '44630',
+          propertyType: 'Casa',
+          bedrooms: 3,
+          bathrooms: 2,
+          squareMeters: 140,
         },
       });
 
@@ -568,6 +572,8 @@ describe('Checkpoint 2 - Backend API Filters', () => {
       expect(body.data.ciudad).toBe('Guadalajara');
       expect(body.data.colonia).toBe('Providencia');
       expect(body.data.codigoPostal).toBe('44630');
+      expect(body.data.propertyType).toBe('Casa');
+      expect(body.data.squareMeters).toBe(140);
     });
 
     it('should reject without auth token', async () => {

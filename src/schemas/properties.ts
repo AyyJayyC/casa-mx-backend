@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  PROPERTY_TYPE_OPTIONS,
+  RENTAL_AMENITY_OPTIONS,
+  RENTAL_INCLUDED_SERVICE_OPTIONS,
+} from '../constants/propertyOptions.js';
 
 /**
  * Schema for creating/updating properties
@@ -15,6 +20,12 @@ const imageUrlSchema = z
   );
 
 const imageUrlsSchema = z.array(imageUrlSchema).max(10, 'Maximum 10 images allowed');
+const propertyTypeSchema = z.enum(PROPERTY_TYPE_OPTIONS);
+const includedServicesSchema = z.array(z.enum(RENTAL_INCLUDED_SERVICE_OPTIONS)).max(RENTAL_INCLUDED_SERVICE_OPTIONS.length);
+const amenitiesSchema = z.array(z.enum(RENTAL_AMENITY_OPTIONS)).max(RENTAL_AMENITY_OPTIONS.length);
+
+const FINANCE_OPTIONS = ['cash', 'bankLoan', 'INFONAVIT', 'FOVISSSTE', 'paymentPlan', 'other'] as const;
+const financeOptionsSchema = z.array(z.enum(FINANCE_OPTIONS)).optional();
 
 const basePropertySchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -27,6 +38,10 @@ const basePropertySchema = z.object({
   ciudad: z.string().optional(),
   colonia: z.string().optional(),
   codigoPostal: z.string().optional(),
+  propertyType: propertyTypeSchema.optional(),
+  bedrooms: z.number().int().min(0).optional(),
+  bathrooms: z.number().int().min(0).optional(),
+  squareMeters: z.number().int().positive('Square meters must be positive').optional(),
   status: z.enum(['available', 'pending', 'sold', 'rented']).default('available'),
   listingType: z.enum(['for_sale', 'for_rent']).default('for_sale'),
 });
@@ -41,6 +56,9 @@ export const createSalePropertySchema = basePropertySchema.extend({
   availableFrom: z.string().optional(),
   furnished: z.boolean().optional(),
   utilitiesIncluded: z.boolean().optional(),
+  includedServices: includedServicesSchema.optional(),
+  amenities: amenitiesSchema.optional(),
+  financeOptions: financeOptionsSchema,
 });
 
 // Schema for rental properties (requires monthlyRent)
@@ -53,6 +71,9 @@ export const createRentalPropertySchema = basePropertySchema.extend({
   availableFrom: z.string().optional(), // ISO date string
   furnished: z.boolean().default(false),
   utilitiesIncluded: z.boolean().default(false),
+  includedServices: includedServicesSchema.optional(),
+  amenities: amenitiesSchema.optional(),
+  financeOptions: financeOptionsSchema,
 });
 
 // Union schema that validates based on listingType
@@ -74,6 +95,10 @@ export const updatePropertySchema = z.object({
   ciudad: z.string().optional(),
   colonia: z.string().optional(),
   codigoPostal: z.string().optional(),
+  propertyType: propertyTypeSchema.optional(),
+  bedrooms: z.number().int().min(0).optional(),
+  bathrooms: z.number().int().min(0).optional(),
+  squareMeters: z.number().int().positive().optional(),
   status: z.enum(['available', 'pending', 'sold', 'rented']).optional(),
   listingType: z.enum(['for_sale', 'for_rent']).optional(),
   monthlyRent: z.number().positive().optional(),
@@ -82,6 +107,9 @@ export const updatePropertySchema = z.object({
   availableFrom: z.string().optional(),
   furnished: z.boolean().optional(),
   utilitiesIncluded: z.boolean().optional(),
+  includedServices: includedServicesSchema.optional(),
+  amenities: amenitiesSchema.optional(),
+  financeOptions: financeOptionsSchema,
 });
 
 // Schema for property filters

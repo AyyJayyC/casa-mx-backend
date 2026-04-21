@@ -51,8 +51,8 @@ export class AuthService {
       throw new Error('Invalid email or password');
     }
 
-    const passwordMatch = await bcrypt.compare(data.password, user.password);
-    if (!passwordMatch) {
+    const passwordMatch = await bcrypt.compare(data.password, user.password ?? '');
+    if (!user.password || !passwordMatch) {
       throw new Error('Invalid email or password');
     }
 
@@ -73,6 +73,71 @@ export class AuthService {
       where: { id: userId },
       include: { roles: { include: { role: true } } },
     });
+  }
+
+  async loginOrCreateOAuthUser(data: {
+    provider: string;
+    providerId: string;
+    email: string;
+    name: string;
+    avatarUrl?: string;
+  }) {
+    // Try find by provider + providerId first (most reliable)
+    let user = await this.prisma.user.findUnique({
+      where: { provider_providerId: { provider: data.provider, providerId: data.providerId } },
+      include: { roles: { include: { role: true } } },
+    });
+
+    if (!user) {
+      // Try find by email (link accounts)
+      user = await this.prisma.user.findUnique({
+        where: { email: data.email },
+        include: { roles: { include: { role: true } } },
+      });
+
+      if (user) {
+        // Link OAuth to existing account
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { provider: data.provider, providerId: data.providerId, avatarUrl: data.avatarUrl },
+          include: { roles: { include: { role: true } } },
+        });
+      } else {
+        // Create new user via OAuth
+        const defaultRoles = ['buyer', 'tenant'];
+        user = await this.prisma.user.create({
+          data: {
+            email: data.email,
+            name: data.name,
+            provider: data.provider,
+            providerId: data.providerId,
+            avatarUrl: data.avatarUrl,
+            roles: {
+              create: await Promise.all(
+                defaultRoles.map(async (roleName) => ({
+                  roleId: await this.getRoleId(roleName),
+                  status: this.getInitialRoleStatus(roleName),
+                }))
+              ),
+            },
+          },
+          include: { roles: { include: { role: true } } },
+        });
+      }
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      provider: user.provider,
+      roles: user.roles.map((ur) => ({
+        roleId: ur.roleId,
+        roleName: ur.role.name,
+        status: ur.status,
+      })),
+    };
   }
 
   private async getRoleId(roleName: string): Promise<string> {

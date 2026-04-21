@@ -1,9 +1,11 @@
 import { FastifyPluginAsync } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import { RegisterSchema, LoginSchema, RefreshSchema } from '../schemas/auth.js';
+import crypto from 'crypto';
+import { RegisterSchema, LoginSchema, RefreshSchema, OAuthGoogleSchema } from '../schemas/auth.js';
 import { AuthService } from '../services/auth.service.js';
 import { refreshTokenStoreService } from '../services/refreshTokenStore.service.js';
 import { env } from '../config/env.js';
+import { sendVerificationEmail } from '../services/email.service.js';
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authService = new AuthService(fastify.prisma);
@@ -32,6 +34,19 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const input = RegisterSchema.parse(request.body);
         const user = await authService.register(input);
+
+        // Send verification email
+        try {
+          const token = crypto.randomBytes(32).toString('hex');
+          const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+          await fastify.prisma.user.update({
+            where: { id: user.id },
+            data: { verificationToken: token, verificationTokenExpiresAt: expiresAt },
+          });
+          await sendVerificationEmail({ userEmail: user.email, userName: user.name, token });
+        } catch (emailErr) {
+          fastify.log.error({ err: emailErr }, 'Failed to send verification email');
+        }
 
         return reply.code(201).send({
           success: true,
@@ -292,6 +307,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           id: user.id,
           email: user.email,
           name: user.name,
+          emailVerified: (user as any).emailVerified ?? false,
           roles: user.roles.map((ur) => ({
             roleId: ur.roleId,
             roleName: ur.role.name,
@@ -314,8 +330,98 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       });
     }
   });
+
+  // ─── Google OAuth ─────────────────────────────────────────────────────────
+  fastify.post<{ Body: Record<string, any> }>(
+    '/auth/oauth/google',
+    {
+      config: {
+        rateLimit: {
+          max: env.NODE_ENV === 'test' ? 100 : isLocalFrontend ? 500 : 20,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { idToken } = OAuthGoogleSchema.parse(request.body);
+
+        // Verify Google ID token via Google tokeninfo endpoint (no extra deps)
+        const res = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
+        );
+
+        if (!res.ok) {
+          return reply.code(401).send({ success: false, error: 'Invalid Google token' });
+        }
+
+        const payload = (await res.json()) as {
+          sub: string;
+          email: string;
+          name: string;
+          picture?: string;
+          aud: string;
+          email_verified?: string;
+        };
+
+        // Verify audience matches our client ID (if configured)
+        if (env.GOOGLE_CLIENT_ID && payload.aud !== env.GOOGLE_CLIENT_ID) {
+          return reply.code(401).send({ success: false, error: 'Token audience mismatch' });
+        }
+
+        if (payload.email_verified !== 'true') {
+          return reply.code(401).send({ success: false, error: 'Email not verified with Google' });
+        }
+
+        const user = await authService.loginOrCreateOAuthUser({
+          provider: 'google',
+          providerId: payload.sub,
+          email: payload.email,
+          name: payload.name,
+          avatarUrl: payload.picture,
+        });
+
+        const token = fastify.jwt.sign(
+          {
+            id: user.id,
+            email: user.email,
+            roles: user.roles
+              .filter((r) => r.status === 'approved')
+              .map((r) => r.roleName),
+          },
+          { expiresIn: '15m' }
+        );
+
+        const refreshToken = fastify.jwt.sign(
+          { id: user.id, type: 'refresh', jti: randomUUID() },
+          { expiresIn: env.JWT_REFRESH_EXPIRY }
+        );
+
+        reply
+          .setCookie('accessToken', token, { ...cookieOptions, maxAge: 15 * 60 })
+          .setCookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 });
+
+        return reply.code(200).send({
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            avatarUrl: user.avatarUrl,
+            provider: user.provider,
+            roles: user.roles,
+          },
+          token,
+        });
+      } catch (error: any) {
+        if (error.constructor?.name === 'ZodError') {
+          return reply.code(400).send({ success: false, error: 'Validation error', details: error.errors });
+        }
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'OAuth login failed' });
+      }
+    }
+  );
 };
 
 export default authRoutes;
-
-

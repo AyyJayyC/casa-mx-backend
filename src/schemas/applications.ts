@@ -29,7 +29,10 @@ export const createApplicationSchema = z.object({
   reference1Phone: z.string().min(10, 'Reference phone must be at least 10 characters'),
   reference2Name: z.string().optional(),
   reference2Phone: z.string().optional(),
-  
+
+  // Optional rent offer from tenant
+  offeredMonthlyRent: z.number().positive().optional(),
+
   // Additional
   messageToLandlord: z.string().optional(),
 });

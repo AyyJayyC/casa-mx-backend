@@ -68,12 +68,18 @@ describe('Checkpoint 2 - Rental Properties API', () => {
           estado: 'Ciudad de México',
           ciudad: 'Ciudad de México',
           colonia: 'Polanco',
+          propertyType: 'Departamento',
+          bedrooms: 2,
+          bathrooms: 2,
+          squareMeters: 95,
           listingType: 'for_rent',
           monthlyRent: 25000,
           securityDeposit: 50000,
           leaseTermMonths: 12,
           furnished: true,
           utilitiesIncluded: false,
+          includedServices: ['Agua', 'Internet'],
+          amenities: ['Refrigerador', 'Mini splits'],
         },
       });
 
@@ -84,6 +90,9 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(data.data.monthlyRent).toBe(25000);
       expect(data.data.securityDeposit).toBe(50000);
       expect(data.data.furnished).toBe(true);
+      expect(data.data.propertyType).toBe('Departamento');
+      expect(data.data.includedServices).toEqual(['Agua', 'Internet']);
+      expect(data.data.amenities).toEqual(['Refrigerador', 'Mini splits']);
       expect(data.data.price).toBeNull(); // Price not required for rentals
 
       rentalPropertyId = data.data.id;
@@ -120,6 +129,10 @@ describe('Checkpoint 2 - Rental Properties API', () => {
           estado: 'Ciudad de México',
           ciudad: 'Ciudad de México',
           colonia: 'Condesa',
+          propertyType: 'Casa',
+          bedrooms: 3,
+          bathrooms: 2,
+          squareMeters: 180,
           listingType: 'for_sale',
           price: 5500000,
         },
@@ -130,6 +143,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(data.success).toBe(true);
       expect(data.data.listingType).toBe('for_sale');
       expect(data.data.price).toBe(5500000);
+      expect(data.data.propertyType).toBe('Casa');
       expect(data.data.monthlyRent).toBeNull(); // Rent not required for sales
 
       salePropertyId = data.data.id;

@@ -7,6 +7,12 @@ import {
   propertyIdParamSchema,
   applicationQuerySchema,
 } from '../schemas/applications.js';
+import { createNotification } from '../services/notification.service.js';
+import {
+  sendApplicationApprovedEmail,
+  sendApplicationRejectedEmail,
+  sendApplicationReceivedEmail,
+} from '../services/email.service.js';
 
 const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /applications - Create rental application (tenant submits)
@@ -78,6 +84,7 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
             reference2Name: input.reference2Name,
             reference2Phone: input.reference2Phone,
             messageToLandlord: input.messageToLandlord,
+            offeredMonthlyRent: (input as any).offeredMonthlyRent,
             applicantId,
             status: 'pending',
           } as any,
@@ -92,6 +99,16 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
         });
+
+        // Notify landlord of new application
+        try {
+          const landlord = await fastify.prisma.user.findUnique({ where: { id: property.sellerId }, select: { email: true, name: true } });
+          const tenant = await fastify.prisma.user.findUnique({ where: { id: applicantId }, select: { name: true } });
+          if (landlord) {
+            await createNotification(fastify.prisma, property.sellerId, 'application_received', 'Nueva solicitud de arrendamiento', `${tenant?.name ?? 'Un inquilino'} envió una solicitud para "${property.title}".`, 'application', application.id);
+            await sendApplicationReceivedEmail({ landlordEmail: landlord.email, landlordName: landlord.name, propertyTitle: property.title, tenantName: tenant?.name ?? 'Un inquilino' });
+          }
+        } catch (e) { fastify.log.error(e); }
 
         return reply.code(201).send({
           success: true,
@@ -204,9 +221,27 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
           orderBy: { createdAt: 'desc' },
         });
 
+        // Find which applications this landlord has already unlocked
+        const appIds = applications.map((a) => a.id);
+        const unlocked = await fastify.prisma.creditTransaction.findMany({
+          where: {
+            userId: landlordId,
+            type: 'spend',
+            referenceId: { in: appIds },
+          },
+          select: { referenceId: true },
+        });
+        const unlockedIds = new Set(unlocked.map((t) => t.referenceId));
+
+        // Redact email/phone for locked applications
+        const redacted = applications.map((app) => {
+          if (unlockedIds.has(app.id)) return app;
+          return { ...app, email: null, phone: null };
+        });
+
         return reply.send({
           success: true,
-          data: applications,
+          data: redacted,
         });
       } catch (error: any) {
         if (error.name === 'ZodError') {
@@ -286,6 +321,43 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
             where: { id: application.propertyId },
             data: { status: 'rented' },
           });
+        }
+
+        // Notify the applicant of the outcome
+        const notifTitles: Record<string, string> = {
+          approved: '¡Tu solicitud fue aprobada!',
+          rejected: 'Tu solicitud fue rechazada',
+          under_review: 'Tu solicitud está en revisión',
+          withdrawn: 'Solicitud retirada',
+          expired: 'Tu solicitud ha expirado',
+        };
+        const notifMessages: Record<string, string> = {
+          approved: `Tu solicitud de renta para "${application.property.title}" ha sido aprobada. El propietario se pondrá en contacto contigo.`,
+          rejected: `Tu solicitud de renta para "${application.property.title}" fue rechazada.${input.landlordNote ? ' Nota: ' + input.landlordNote : ''}`,
+          under_review: `Tu solicitud de renta para "${application.property.title}" está siendo revisada por el propietario.`,
+          withdrawn: `Tu solicitud de renta para "${application.property.title}" fue retirada.`,
+          expired: `Tu solicitud de renta para "${application.property.title}" ha expirado.`,
+        };
+        if (notifTitles[input.status]) {
+          await createNotification(
+            fastify.prisma,
+            application.applicantId,
+            `application_${input.status}` as any,
+            notifTitles[input.status],
+            notifMessages[input.status],
+            'application',
+            params.id
+          );
+
+          // Send email
+          const applicantUser = await fastify.prisma.user.findUnique({ where: { id: application.applicantId }, select: { email: true, name: true } });
+          if (applicantUser) {
+            if (input.status === 'approved') {
+              await sendApplicationApprovedEmail({ tenantEmail: applicantUser.email, tenantName: applicantUser.name, propertyTitle: application.property.title, monthlyRent: Number(application.property.monthlyRent ?? 0) });
+            } else if (input.status === 'rejected') {
+              await sendApplicationRejectedEmail({ tenantEmail: applicantUser.email, tenantName: applicantUser.name, propertyTitle: application.property.title });
+            }
+          }
         }
 
         return reply.send({

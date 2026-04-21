@@ -31,6 +31,8 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
           id: user.id,
           email: user.email,
           name: user.name,
+          phone: user.phone,
+          whatsapp: user.whatsapp,
           roles: user.roles.map((ur) => ({
             roleId: ur.roleId,
             roleName: ur.role.name,
@@ -59,6 +61,8 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
         data: {
           ...(input.name !== undefined ? { name: input.name } : {}),
           ...(input.email !== undefined ? { email: input.email } : {}),
+          ...(input.phone !== undefined ? { phone: input.phone } : {}),
+          ...(input.whatsapp !== undefined ? { whatsapp: input.whatsapp } : {}),
         },
         include: { roles: { include: { role: true } } },
       });
@@ -69,6 +73,8 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
           id: updated.id,
           email: updated.email,
           name: updated.name,
+          phone: updated.phone,
+          whatsapp: updated.whatsapp,
           roles: updated.roles.map((ur) => ({
             roleId: ur.roleId,
             roleName: ur.role.name,
