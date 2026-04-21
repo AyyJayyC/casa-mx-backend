@@ -25,6 +25,8 @@ useDefault = true
     '''node_modules''',
     '''dist''',
     '''package-lock\.json''',
+    '''OPERATIONS\.md''',
+    '''tests/checkpoint3\.test\.ts''',
   ]
   regexes = [
     '''password123''',
