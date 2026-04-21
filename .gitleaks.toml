@@ -1,0 +1,31 @@
+title = "Casa MX Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist for non-sensitive content"
+paths = [
+  "node_modules",
+  "dist",
+  ".next",
+  "coverage",
+  "test-results",
+  "package-lock.json",
+  "prisma/migrations",
+]
+
+# Allow test credentials and placeholder values
+regexes = [
+  "admin123",
+  "seller123",
+  "buyer123",
+  "tenant123",
+  "TestPassword123",
+  "hashed-password",
+  "hashedpassword123",
+  "test-secret-key",
+  "your-.*-key",
+  "your-.*-secret",
+  "change-in-production",
+]
