@@ -20,11 +20,13 @@ model User {
   emailVerified     Boolean  @default(false)
   verificationToken String?  @unique
   verificationTokenExpiresAt DateTime?
-  roles     UserRole[]
-  reviewsWritten  Review[] @relation("ReviewAuthor")
-  reviewsReceived Review[] @relation("ReviewTarget")
-  creditBalance   CreditBalance?
+  roles              UserRole[]
+  reviewsWritten     Review[] @relation("ReviewAuthor")
+  reviewsReceived    Review[] @relation("ReviewTarget")
+  creditBalance      CreditBalance?
   creditTransactions CreditTransaction[]
+  listedProperties   Property[] @relation("PropertySeller")
+  uploadedDocuments  PropertyDocument[] @relation("DocumentUploader")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -80,6 +82,11 @@ model Property {
   amenities   String[] @default([])
   financeOptions String[] @default([])  // cash, bankLoan, INFONAVIT, FOVISSSTE, paymentPlan, other
   sellerId    String
+  seller      User     @relation("PropertySeller", fields: [sellerId], references: [id])
+  
+  // Ownership verification
+  verificationStatus String  @default("unverified") // unverified | docs_uploaded | verified | rejected
+  verificationNote   String? @db.Text
   
   // Rental system fields
   listingType       String   @default("for_sale") // for_sale, for_rent
@@ -93,10 +100,11 @@ model Property {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  propertyRequests  PropertyRequest[]
+  propertyRequests   PropertyRequest[]
   rentalApplications RentalApplication[]
-  reviews Review[]
-  propertyOffers PropertyOffer[]
+  reviews            Review[]
+  propertyOffers     PropertyOffer[]
+  documents          PropertyDocument[]
 
   @@index([sellerId])
   @@index([status])
@@ -106,6 +114,22 @@ model Property {
   @@index([colonia])
   @@index([codigoPostal])
   @@index([listingType])
+}
+
+model PropertyDocument {
+  id           String   @id @default(uuid())
+  propertyId   String
+  uploaderId   String
+  documentType String   // title_deed | official_id | agent_authorization | other
+  fileUrl      String   // S3 key (not public URL)
+  fileName     String
+  fileMimeType String
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  uploader     User     @relation("DocumentUploader", fields: [uploaderId], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([uploaderId])
 }
 
 model PropertyRequest {
