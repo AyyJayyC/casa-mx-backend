@@ -213,6 +213,41 @@ export async function sendVerificationEmail(opts: {
   await sendEmail(opts.userEmail, subject, html, text);
 }
 
+export async function sendVerificationApprovedEmail(opts: {
+  sellerEmail: string; sellerName: string; propertyTitle: string;
+}) {
+  const subject = 'Tu propiedad fue verificada y publicada — CasaMX';
+  const dashboardUrl = `${env.FRONTEND_URL}/dashboard`;
+  const html = wrap(subject, `
+    <h2>¡Tu propiedad fue aprobada! ✅</h2>
+    <p>Hola ${opts.sellerName},</p>
+    <p>Nos complace informarte que hemos verificado tu propiedad <strong>${opts.propertyTitle}</strong> y ha sido publicada.</p>
+    <p>Tu anuncio es ahora visible para compradores e inquilinos interesados. Puedes gestionar tu listado desde tu dashboard.</p>
+    <a class="btn" href="${dashboardUrl}">Ver mi dashboard</a>
+    <p style="margin-top:20px;font-size:13px;color:#6b7280;">Si tienes preguntas, no dudes en contactarnos.</p>
+  `);
+  const text = `Tu propiedad ${opts.propertyTitle} fue aprobada y publicada. Ingresa a tu dashboard: ${dashboardUrl}`;
+  await sendEmail(opts.sellerEmail, subject, html, text);
+}
+
+export async function sendVerificationRejectedEmail(opts: {
+  sellerEmail: string; sellerName: string; propertyTitle: string; note: string;
+}) {
+  const subject = 'Tu propiedad requiere documentación adicional — CasaMX';
+  const dashboardUrl = `${env.FRONTEND_URL}/dashboard`;
+  const html = wrap(subject, `
+    <h2>Documentación insuficiente</h2>
+    <p>Hola ${opts.sellerName},</p>
+    <p>Hemos revisado los documentos de tu propiedad <strong>${opts.propertyTitle}</strong> pero necesitamos información adicional:</p>
+    <p style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px;margin:15px 0;"><strong>Motivo:</strong> ${opts.note || 'Los documentos proporcionados no cumplieron con nuestros requisitos de verificación.'}</p>
+    <p>Por favor, sube documentos adicionales desde tu dashboard para que podamos publicar tu propiedad.</p>
+    <a class="btn" href="${dashboardUrl}">Ir a mi dashboard</a>
+    <p style="margin-top:20px;font-size:13px;color:#6b7280;">Si tienes dudas, contáctanos.</p>
+  `);
+  const text = `Tu propiedad ${opts.propertyTitle} requiere documentación adicional. Motivo: ${opts.note || 'Documentos insuficientes'}\n\nIngresa aquí: ${dashboardUrl}`;
+  await sendEmail(opts.sellerEmail, subject, html, text);
+}
+
 export async function sendPasswordResetEmail(opts: {
   userEmail: string; userName: string; token: string;
 }) {
