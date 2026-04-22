@@ -33,6 +33,10 @@ const envSchema = z
     SENDGRID_API_KEY: z.string().optional(),
     SENDGRID_FROM_EMAIL: z.string().email().optional().default('noreply@casamx.mx'),
     SENDGRID_FROM_NAME: z.string().optional().default('CasaMX'),
+    AWS_REGION: z.string().optional().default('us-east-1'),
+    AWS_BUCKET: z.string().optional(),
+    AWS_ACCESS_KEY_ID: z.string().optional(),
+    AWS_SECRET_ACCESS_KEY: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'test') {

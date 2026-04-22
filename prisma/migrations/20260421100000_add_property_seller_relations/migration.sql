@@ -1,0 +1,4 @@
+-- Add named Prisma relations
+-- Property.seller -> User.listedProperties (fields: [sellerId])
+-- PropertyDocument.uploader -> User.uploadedDocuments (relation: DocumentUploader)
+-- Note: These are Prisma relation definitions; no SQL changes required as FKs already exist
