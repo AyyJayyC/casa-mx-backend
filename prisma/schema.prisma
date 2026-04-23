@@ -27,6 +27,7 @@ model User {
   creditTransactions CreditTransaction[]
   listedProperties   Property[] @relation("PropertySeller")
   uploadedDocuments  PropertyDocument[] @relation("DocumentUploader")
+  userDocuments      UserDocument[]     @relation("UserDocuments")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -130,6 +131,20 @@ model PropertyDocument {
 
   @@index([propertyId])
   @@index([uploaderId])
+}
+
+model UserDocument {
+  id           String   @id @default(uuid())
+  userId       String
+  documentType String   // official_id | other
+  fileUrl      String   // S3 key (not public URL)
+  fileName     String
+  fileMimeType String
+  user         User     @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([documentType])
 }
 
 model PropertyRequest {
