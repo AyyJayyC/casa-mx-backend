@@ -58,10 +58,10 @@ const userDocumentsRoutes: FastifyPluginAsync = async (app) => {
     let fileUrl = `local/user-docs/${userId}/${documentType}/${Date.now()}-${fileName}`;
 
     if (isS3Configured()) {
-      const s3Key = `user-documents/${userId}/${documentType}/${Date.now()}-${fileName}`;
+      const folder = `user-documents/${userId}/${documentType}`;
       try {
-        await uploadToS3(s3Key, fileBuffer, fileMimeType);
-        fileUrl = s3Key;
+        const uploaded = await uploadToS3(fileBuffer, fileName, fileMimeType, folder);
+        fileUrl = uploaded.key;
       } catch (err) {
         app.log.error({ err }, 'S3 upload failed for user document');
         return reply.code(500).send({ error: 'Upload failed. Please try again.' });
