@@ -12,9 +12,9 @@ const ALLOWED_TYPES = new Set([
 
 // Required docs per role type
 const REQUIRED_DOCS_BY_ROLE: Record<string, string[]> = {
-  seller:     ['title_deed', 'official_id'],
-  landlord:   ['title_deed', 'official_id'],
-  wholesaler: ['official_id', 'agent_authorization'],
+  seller:     ['title_deed'],
+  landlord:   ['title_deed'],
+  wholesaler: ['agent_authorization'],
 };
 
 // All recognized documentType values
@@ -88,31 +88,41 @@ const propertyDocumentsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(503).send({ success: false, error: 'Document storage not configured' });
       }
 
-      const data = await request.file();
-      if (!data) return reply.code(400).send({ success: false, error: 'No file uploaded' });
-      if (!ALLOWED_TYPES.has(data.mimetype)) {
+      let documentType = 'other';
+      let filePart: any = null;
+
+      for await (const part of request.parts()) {
+        if (part.type === 'field' && part.fieldname === 'documentType') {
+          documentType = String(part.value || 'other');
+        }
+
+        if (part.type === 'file' && part.fieldname === 'file') {
+          filePart = part;
+        }
+      }
+
+      if (!filePart) return reply.code(400).send({ success: false, error: 'No file uploaded' });
+      if (!ALLOWED_TYPES.has(filePart.mimetype)) {
         return reply.code(415).send({ success: false, error: 'File type not allowed. Use PDF, JPEG, PNG, or WebP.' });
       }
 
-      // documentType comes as a multipart field (part of same request before or after file)
-      const documentType = (data.fields as any)?.documentType?.value ?? 'other';
       if (!VALID_DOC_TYPES.has(documentType)) {
         return reply.code(400).send({ success: false, error: `Invalid documentType. Valid: ${[...VALID_DOC_TYPES].join(', ')}` });
       }
 
       // Read buffer (10 MB limit already enforced by multipart plugin)
       const chunks: Buffer[] = [];
-      for await (const chunk of data.file) chunks.push(chunk);
+      for await (const chunk of filePart.file) chunks.push(chunk);
       const buffer = Buffer.concat(chunks);
 
       const { key, fileName, mimeType } = await uploadToS3(
         buffer,
-        data.filename,
-        data.mimetype,
+        filePart.filename,
+        filePart.mimetype,
         `property-docs/${propertyId}`,
       );
 
-      await fastify.prisma.propertyDocument.create({
+      const createdDoc = await fastify.prisma.propertyDocument.create({
         data: {
           propertyId,
           uploaderId: userId,
@@ -136,6 +146,11 @@ const propertyDocumentsRoutes: FastifyPluginAsync = async (fastify) => {
 
       return reply.send({
         success: true,
+        document: {
+          id: createdDoc.id,
+          documentType: createdDoc.documentType,
+          fileName: createdDoc.fileName,
+        },
         autoVerified,
         verificationStatus: autoVerified ? 'verified' : 'docs_uploaded',
         uploadedTypes: uploaded,

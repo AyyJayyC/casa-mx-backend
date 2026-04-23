@@ -19,6 +19,7 @@ import mapsRoutes from './routes/maps.js';
 import locationsRoutes from './routes/locations.js';
 import analyticsRoutes from './routes/analytics.js';
 import propertiesRoutes from './routes/properties.js';
+import propertyDocumentsRoutes from './routes/propertyDocuments.js';
 import applicationsRoutes from './routes/applications.js';
 import requestsRoutes from './routes/requests.js';
 import usersRoutes from './routes/users.js';
@@ -236,6 +237,7 @@ export async function buildApp() {
   await app.register(locationsRoutes);
   await app.register(analyticsRoutes);
   await app.register(propertiesRoutes);
+  await app.register(propertyDocumentsRoutes);
   await app.register(applicationsRoutes);
   await app.register(requestsRoutes);
   await app.register(usersRoutes);
