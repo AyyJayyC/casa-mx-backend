@@ -2,9 +2,9 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { verifyJWT } from '../utils/guards.js';
 import { updateMeSchema, userIdParamSchema } from '../schemas/users.js';
+import { isClientError } from '../utils/errorClassification.js';
 
-function hasAdminRole(request: any) {
-  const roles = request.user?.roles || [];
+function hasAdminRole(roles: any[]): boolean {
   return roles.includes('admin') || roles.some((r: any) => r?.name === 'admin');
 }
 
@@ -112,7 +112,7 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       const params = userIdParamSchema.parse(request.params);
       const requesterId = request.user.id;
-      const admin = hasAdminRole(request);
+      const admin = hasAdminRole(request.user?.roles || []);
 
       if (!admin && requesterId !== params.id) {
         return reply.code(403).send({

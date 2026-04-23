@@ -2,14 +2,16 @@
  * Debug Routes - API endpoints for logging and debugging
  * Purpose: Public endpoints for frontend logging, admin endpoints for log viewing
  * Checkpoint 2: Backend Logging Infrastructure
+ * 
+ * Note: @ts-nocheck is used because Fastify schema types have restrictive 
+ * definitions that don't align with our debug route configuration.
+ * Future work: Create proper FastifyHandler types for debug routes.
  */
 // @ts-nocheck
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { loggingService } from '../services/logging.service.js';
-import pino from 'pino';
-
-const logger = pino();
+import { requireAdmin } from '../utils/guards.js';
 
 export async function setupDebugRoutes(fastify: FastifyInstance) {
   const truncateString = (value: unknown, maxLength: number) => {
@@ -199,7 +201,7 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
   fastify.get<{ Querystring: any }>(
     '/admin/debug/sessions',
     {
-      preHandler: [requireAdminRole],
+      preHandler: [requireAdmin],
       schema: {
         description: 'List debug sessions',
         tags: ['admin', 'debug'],
@@ -237,7 +239,7 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { sessionId: string } }>(
     '/admin/debug/sessions/:sessionId',
     {
-      preHandler: [requireAdminRole],
+      preHandler: [requireAdmin],
       schema: {
         description: 'Get session details',
         tags: ['admin', 'debug'],
@@ -268,7 +270,7 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
   fastify.post<{ Params: { sessionId: string } }>(
     '/admin/debug/sessions/:sessionId/export',
     {
-      preHandler: [requireAdminRole],
+      preHandler: [requireAdmin],
       schema: {
         description: 'Export bug report',
         tags: ['admin', 'debug'],
@@ -295,7 +297,7 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
       try {
         await loggingService.updateSessionExported(request.params.sessionId);
       } catch (error) {
-        logger.error({ error }, 'Failed to mark session as exported');
+        fastify.log.error({ err: error }, 'Failed to mark session as exported');
       }
 
       return reply.send(bugReport);
@@ -309,7 +311,7 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
   fastify.patch<{ Params: { errorId: string }; Body: any }>(
     '/admin/debug/errors/:errorId/resolve',
     {
-      preHandler: [requireAdminRole],
+      preHandler: [requireAdmin],
       schema: {
         description: 'Mark error as resolved',
         tags: ['admin', 'debug'],
@@ -350,7 +352,7 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
   fastify.delete<{ Querystring: any }>(
     '/admin/debug/cleanup',
     {
-      preHandler: [requireAdminRole],
+      preHandler: [requireAdmin],
       schema: {
         description: 'Clean up old logs',
         tags: ['admin', 'debug'],
@@ -375,7 +377,7 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/admin/debug/stats',
     {
-      preHandler: [requireAdminRole],
+      preHandler: [requireAdmin],
       schema: {
         description: 'Get debug statistics',
         tags: ['admin', 'debug']
@@ -386,23 +388,6 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
       return reply.send(stats);
     }
   );
-}
-
-/**
- * Guard: Require admin role
- */
-async function requireAdminRole(request: FastifyRequest, reply: FastifyReply) {
-  const user = request.user;
-  if (!user) {
-    return reply.status(401).send({ error: 'Unauthorized' });
-  }
-
-  // Check if user has admin role (this would be populated by your auth system)
-  const hasAdminRole = user.roles?.some((role: any) => role.name === 'admin');
-
-  if (!hasAdminRole) {
-    return reply.status(403).send({ error: 'Forbidden - Admin role required' });
-  }
 }
 
 /**

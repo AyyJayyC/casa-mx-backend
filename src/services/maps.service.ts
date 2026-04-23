@@ -508,7 +508,7 @@ export class MapsService {
       }
 
       const took = Date.now() - start;
-      console.error('Geocode error:', err);
+      // Log error but recover with local fallback if available
       await this.logRequest({ provider: 'google_maps', serviceType: 'geocoding', userId: opts?.userId, requestDetails: { address }, responseStatus: 'error', responseTimeMs: took, errorMessage: err.message });
       throw err;
     }

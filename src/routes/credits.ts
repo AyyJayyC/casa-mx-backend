@@ -7,6 +7,7 @@ import {
   FulfillPaymentSchema,
 } from '../schemas/credits.js';
 import { env } from '../config/env.js';
+import { isZodError, createValidationErrorResponse, createServerErrorResponse } from '../utils/errorHandling.js';
 
 const creditsRoutes: FastifyPluginAsync = async (fastify) => {
   const creditsService = new CreditsService(fastify.prisma, env.STRIPE_SECRET_KEY);
@@ -88,11 +89,11 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
 
       return reply.send({ success: true, ...result });
     } catch (error: any) {
-      if (error.constructor?.name === 'ZodError') {
-        return reply.code(400).send({ success: false, error: 'Validation error', details: error.errors });
+      if (isZodError(error)) {
+        return reply.code(400).send(createValidationErrorResponse(error));
       }
       fastify.log.error(error);
-      return reply.code(500).send({ success: false, error: 'Failed to spend credit' });
+      return reply.code(500).send(createServerErrorResponse('Failed to spend credit'));
     }
   });
 

@@ -6,6 +6,7 @@ import { AuthService } from '../services/auth.service.js';
 import { refreshTokenStoreService } from '../services/refreshTokenStore.service.js';
 import { env } from '../config/env.js';
 import { sendVerificationEmail } from '../services/email.service.js';
+import { isZodError, createValidationErrorResponse, createServerErrorResponse } from '../utils/errorHandling.js';
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authService = new AuthService(fastify.prisma);
@@ -54,12 +55,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           message: 'User registered successfully',
         });
       } catch (error: any) {
-        if (error instanceof Error && error.constructor.name === 'ZodError') {
-          return reply.code(400).send({
-            success: false,
-            error: 'Validation error',
-          details: (error as any).errors || error.message,
-          });
+        if (isZodError(error)) {
+          return reply.code(400).send(createValidationErrorResponse(error));
         }
 
         if (error.code === 'P2002') {
@@ -70,10 +67,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         fastify.log.error(error);
-        return reply.code(500).send({
-          success: false,
-          error: 'Registration failed',
-        });
+        return reply.code(500).send(createServerErrorResponse('Registration failed'));
       }
     }
   );

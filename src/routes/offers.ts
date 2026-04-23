@@ -6,6 +6,7 @@ import {
   offerIdParamSchema,
   propertyIdParamSchema,
 } from '../schemas/offers.js';
+import { isZodError, createValidationErrorResponse, createServerErrorResponse } from '../utils/errorHandling.js';
 import { createNotification } from '../services/notification.service.js';
 import {
   sendOfferAcceptedEmail,
@@ -71,11 +72,11 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
 
         return reply.code(201).send({ success: true, data: offer });
       } catch (error: any) {
-        if (error.constructor?.name === 'ZodError') {
-          return reply.code(400).send({ success: false, error: 'Validation error', details: error.errors });
+        if (isZodError(error)) {
+          return reply.code(400).send(createValidationErrorResponse(error));
         }
         fastify.log.error(error);
-        return reply.code(500).send({ success: false, error: 'Failed to submit offer' });
+        return reply.code(500).send(createServerErrorResponse('Failed to submit offer'));
       }
     }
   );

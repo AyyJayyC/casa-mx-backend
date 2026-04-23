@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { AnalyticsEventSchema } from '../schemas/analytics.js';
 import { AnalyticsService } from '../services/analytics.service.js';
 import { requireAdmin, verifyJWT } from '../utils/guards.js';
+import { isZodError, createValidationErrorResponse, createServerErrorResponse } from '../utils/errorHandling.js';
 
 const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
   const analyticsService = new AnalyticsService(fastify.prisma);
@@ -22,19 +23,12 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
           data: event,
         });
       } catch (error: any) {
-        if (error instanceof Error && error.constructor.name === 'ZodError') {
-          return reply.code(400).send({
-            success: false,
-            error: 'Validation error',
-            details: (error as any).errors || error.message,
-          });
+        if (isZodError(error)) {
+          return reply.code(400).send(createValidationErrorResponse(error));
         }
 
         fastify.log.error(error);
-        return reply.code(500).send({
-          success: false,
-          error: 'Failed to track event',
-        });
+        return reply.code(500).send(createServerErrorResponse('Failed to track event'));
       }
     }
   );

@@ -3,6 +3,7 @@ import { verifyJWT, requireAnyRole } from '../utils/guards.js';
 import { z } from 'zod';
 import { createReviewSchema, reviewSummaryQuerySchema, reviewUserParamsSchema } from '../schemas/reviews.js';
 import { ReviewsService } from '../services/reviews.service.js';
+import { isClientError } from '../utils/errorClassification.js';
 
 const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
   const reviewsService = new ReviewsService(fastify.prisma);
@@ -30,7 +31,7 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         if (error instanceof Error) {
-          const statusCode = thisIsClientError(error.message) ? 400 : 500;
+          const statusCode = isClientError(error.message) ? 400 : 500;
           return reply.code(statusCode).send({
             success: false,
             error: error.message,
@@ -130,15 +131,5 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 };
-
-function thisIsClientError(message: string) {
-  return [
-    'Rental application not found',
-    'Reviews are only allowed for approved rental applications',
-    'You have already reviewed this user for the selected rental application',
-    'Only the approved tenant can review the landlord for this application',
-    'Only the property landlord can review the tenant for this application',
-  ].includes(message);
-}
 
 export default reviewsRoutes;
