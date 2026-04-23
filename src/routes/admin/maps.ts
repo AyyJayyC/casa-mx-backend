@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { mapsService } from '../../services/maps.service.js';
 import { verifyJWT, requireRole } from '../../utils/guards.js';
+import { getDaysRemainingInMonth } from '../../utils/errorClassification.js';
 
 const serviceTypeSchema = z.enum([
   'geocoding',
@@ -44,11 +45,7 @@ const adminMapsRoutes: FastifyPluginAsync = async (fastify, opts) => {
       currentUsage: s.currentUsage
     }));
     const results = await Promise.all(usagePromises);
-    return reply.send({ services: results, daysRemainingInMonth: (() => {
-      const now = new Date();
-      const end = new Date(now.getFullYear(), now.getMonth()+1, 1);
-      return Math.ceil((+end - +now) / (1000*60*60*24));
-    })() });
+    return reply.send({ services: results, daysRemainingInMonth: getDaysRemainingInMonth() });
   });
 
   // GET /admin/maps/limits

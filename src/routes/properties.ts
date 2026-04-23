@@ -27,11 +27,11 @@ class PropertyService {
     // Try to get from cache first
     const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
-      console.log('[CACHE HIT] Location filter options retrieved from Redis');
+      // Cache hit - return cached location filter options
       return cached;
     }
 
-    console.log('[CACHE MISS] Fetching location filter options from database');
+    // Cache miss - fetch location filter options from database
 
     // Get all unique estados
     const estados = await this.prisma.property.findMany({

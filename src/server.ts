@@ -10,15 +10,15 @@ async function gracefulShutdown(signal: string) {
     return;
   }
 
-  console.log(`\n${signal} received. Starting graceful shutdown...`);
+  appInstance.log.info(`${signal} received. Starting graceful shutdown...`);
 
   try {
     await appInstance.close();
     await cacheService.close();
-    console.log('Graceful shutdown complete');
+    appInstance.log.info('Graceful shutdown complete');
     process.exit(0);
   } catch (error) {
-    console.error('Error during graceful shutdown:', error);
+    appInstance.log.error({ err: error }, 'Error during graceful shutdown');
     process.exit(1);
   }
 }
@@ -32,10 +32,10 @@ async function start() {
       host: '0.0.0.0',
     });
 
-    console.log(`🚀 Server listening on http://localhost:${env.PORT}`);
-    console.log(`📊 Health check: http://localhost:${env.PORT}/health`);
+    appInstance.log.info(`Server listening on http://localhost:${env.PORT}`);
+    appInstance.log.info(`Health check: http://localhost:${env.PORT}/health`);
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 }
