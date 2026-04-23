@@ -239,7 +239,7 @@ export async function buildApp() {
   await app.register(analyticsRoutes);
   await app.register(propertiesRoutes);
   await app.register(propertyDocumentsRoutes);
-    await app.register(userDocumentsRoutes);
+  await app.register(userDocumentsRoutes);
   await app.register(applicationsRoutes);
   await app.register(requestsRoutes);
   await app.register(usersRoutes);
