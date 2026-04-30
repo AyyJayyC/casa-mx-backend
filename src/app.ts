@@ -26,6 +26,7 @@ import requestsRoutes from './routes/requests.js';
 import usersRoutes from './routes/users.js';
 import reviewsRoutes from './routes/reviews.js';
 import creditsRoutes from './routes/credits.js';
+import subscriptionsRoutes from './routes/subscriptions.js';
 import documentsRoutes from './routes/documents.js';
 import negotiationsRoutes from './routes/negotiations.js';
 import offersRoutes from './routes/offers.js';
@@ -144,7 +145,7 @@ export async function buildApp() {
       roleMap[roleName] = role.id;
     }
 
-    const adminEmail = 'admin@casamx.local';
+    const adminEmail = 'admin@Casa-MX.com.local';
     const existingAdmin = await app.prisma.user.findUnique({
       where: { email: adminEmail },
       select: { id: true },
@@ -180,7 +181,7 @@ export async function buildApp() {
       });
     }
 
-    const seededSellerEmail = 'seller@casamx.local';
+    const seededSellerEmail = 'seller@Casa-MX.com.local';
     const existingSeller = await app.prisma.user.findUnique({
       where: { email: seededSellerEmail },
       select: { id: true },
@@ -245,6 +246,7 @@ export async function buildApp() {
   await app.register(usersRoutes);
   await app.register(reviewsRoutes);
   await app.register(creditsRoutes);
+  await app.register(subscriptionsRoutes);
   await app.register(documentsRoutes);
   await app.register(negotiationsRoutes);
   await app.register(offersRoutes);
@@ -291,4 +293,5 @@ export async function buildApp() {
 
   return app;
 }
+
 

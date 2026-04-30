@@ -1,9 +1,10 @@
 import { FastifyPluginAsync } from 'fastify';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-import { verifyJWT, requireAnyRole } from '../utils/guards.js';
+import { verifyJWT, requireAnyRole, getUserEligibility } from '../utils/guards.js';
 import { LandlordService } from '../services/landlord.service.js';
 import { cacheService } from '../services/cache.service.js';
+import { computeBadgeFlags } from '../utils/badges.js';
 import {
   propertyFilterSchema,
   createPropertySchema,
@@ -15,6 +16,49 @@ import {
 
 class PropertyService {
   constructor(private prisma: PrismaClient) {}
+
+  private async enrichPropertiesWithSellerBadges<T extends { sellerId: string; [key: string]: any }>(properties: T[]) {
+    const sellerIds = Array.from(new Set(properties.map((property) => property.sellerId).filter(Boolean)));
+
+    const sellers = sellerIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: sellerIds } },
+          select: {
+            id: true,
+            name: true,
+            userDocuments: {
+              where: { documentType: 'official_id' },
+              select: { documentType: true, isVerified: true },
+            },
+            subscription: {
+              select: { status: true, currentPeriodEnd: true },
+            },
+          },
+        })
+      : [];
+
+    const sellerById = new Map(sellers.map((seller) => [seller.id, seller]));
+
+    return properties.map((property) => {
+      const seller = sellerById.get(property.sellerId);
+      const badges = computeBadgeFlags((seller ?? null) as any);
+
+      return {
+        ...property,
+        owner: seller?.name,
+        seller: seller
+          ? {
+              id: seller.id,
+              name: seller.name,
+              officialIdUploaded: badges.officialIdUploaded,
+              officialIdVerified: badges.officialIdVerified,
+              paidSubscriber: badges.paidSubscriber,
+              subscriptionStatus: badges.subscriptionStatus,
+            }
+          : null,
+      };
+    });
+  }
 
   /**
    * Get all Mexican states with their cities (with Redis caching)
@@ -36,6 +80,7 @@ class PropertyService {
     // Get all unique estados
     const estados = await this.prisma.property.findMany({
       select: { estado: true },
+      where: { status: 'available' },
       distinct: ['estado'],
       orderBy: { estado: 'asc' },
     });
@@ -52,7 +97,7 @@ class PropertyService {
 
         const ciudades = await this.prisma.property.findMany({
           select: { ciudad: true },
-          where: { estado },
+          where: { estado, status: 'available' },
           distinct: ['ciudad'],
           orderBy: { ciudad: 'asc' },
         });
@@ -89,7 +134,9 @@ class PropertyService {
     } = filters;
 
     // Build where clause dynamically
-    const where: any = {};
+    const where: any = {
+      status: 'available',
+    };
 
     if (estado) where.estado = estado;
     if (ciudad) where.ciudad = ciudad;
@@ -125,9 +172,45 @@ class PropertyService {
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: offset,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        address: true,
+        imageUrls: true,
+        price: true,
+        lat: true,
+        lng: true,
+        status: true,
+        estado: true,
+        ciudad: true,
+        colonia: true,
+        codigoPostal: true,
+        propertyType: true,
+        bedrooms: true,
+        bathrooms: true,
+        squareMeters: true,
+        includedServices: true,
+        amenities: true,
+        financeOptions: true,
+        sellerId: true,
+        verificationStatus: true,
+        verificationNote: true,
+        listingType: true,
+        monthlyRent: true,
+        securityDeposit: true,
+        leaseTermMonths: true,
+        availableFrom: true,
+        furnished: true,
+        utilitiesIncluded: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
-    return { properties, total };
+    const enriched = await this.enrichPropertiesWithSellerBadges(properties as any);
+
+    return { properties: enriched, total };
   }
 
   async getOwnedProperties(ownerId: string, filters: PropertyFilter) {
@@ -179,9 +262,45 @@ class PropertyService {
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: offset,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        address: true,
+        imageUrls: true,
+        price: true,
+        lat: true,
+        lng: true,
+        status: true,
+        estado: true,
+        ciudad: true,
+        colonia: true,
+        codigoPostal: true,
+        propertyType: true,
+        bedrooms: true,
+        bathrooms: true,
+        squareMeters: true,
+        includedServices: true,
+        amenities: true,
+        financeOptions: true,
+        sellerId: true,
+        verificationStatus: true,
+        verificationNote: true,
+        listingType: true,
+        monthlyRent: true,
+        securityDeposit: true,
+        leaseTermMonths: true,
+        availableFrom: true,
+        furnished: true,
+        utilitiesIncluded: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
-    return { properties, total };
+    const enriched = await this.enrichPropertiesWithSellerBadges(properties as any);
+
+    return { properties: enriched, total };
   }
 }
 
@@ -278,6 +397,9 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         // Validate input with Zod
         const input = createPropertySchema.parse(request.body);
 
+        const eligibility = await getUserEligibility(request as any);
+        const isPublishEligible = eligibility.emailVerified && eligibility.hasVerifiedINE;
+
         // Create property
         const property = await app.prisma.property.create({
           data: {
@@ -299,7 +421,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             includedServices: input.includedServices ?? [],
             amenities: input.amenities ?? [],
             financeOptions: (input as any).financeOptions ?? [],
-            status: input.status,
+            status: isPublishEligible ? input.status : 'pending',
             listingType: input.listingType,
             monthlyRent: input.monthlyRent ?? null,
             securityDeposit: input.securityDeposit ?? null,
@@ -322,6 +444,11 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         return reply.code(201).send({
           success: true,
           data: property,
+          publishEligibility: {
+            canPublish: isPublishEligible,
+            emailVerified: eligibility.emailVerified,
+            hasVerifiedINE: eligibility.hasVerifiedINE,
+          },
         });
       } catch (error: any) {
         if (error instanceof z.ZodError) {
@@ -385,6 +512,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           where: {
             lat: { not: null },
             lng: { not: null },
+            status: 'available',
           },
           select: {
             id: true,
@@ -433,6 +561,19 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             propertyRequests: {
               select: { id: true, buyerId: true, status: true },
             },
+            seller: {
+              select: {
+                id: true,
+                name: true,
+                userDocuments: {
+                  where: { documentType: 'official_id' },
+                  select: { documentType: true, isVerified: true },
+                },
+                subscription: {
+                  select: { status: true, currentPeriodEnd: true },
+                },
+              },
+            },
           },
         });
 
@@ -443,9 +584,21 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           });
         }
 
+        const badges = computeBadgeFlags((property as any).seller as any);
+
         return reply.code(200).send({
           success: true,
-          data: property,
+          data: {
+            ...property,
+            owner: (property as any).seller?.name,
+            seller: {
+              ...(property as any).seller,
+              officialIdUploaded: badges.officialIdUploaded,
+              officialIdVerified: badges.officialIdVerified,
+              paidSubscriber: badges.paidSubscriber,
+              subscriptionStatus: badges.subscriptionStatus,
+            },
+          },
         });
       } catch (error: any) {
         app.log.error(error);
@@ -488,6 +641,17 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
 
         // Validate update input
         const input = updatePropertySchema.parse(request.body);
+        const eligibility = await getUserEligibility(request as any);
+
+        if (input.status === 'available' && (!eligibility.emailVerified || !eligibility.hasVerifiedINE)) {
+          return reply.code(403).send({
+            success: false,
+            error: !eligibility.emailVerified
+              ? 'Debes verificar tu correo electronico antes de publicar una propiedad.'
+              : 'Debes subir y verificar tu INE (identificacion oficial) antes de publicar una propiedad.',
+            code: !eligibility.emailVerified ? 'EMAIL_NOT_VERIFIED' : 'INE_NOT_VERIFIED',
+          });
+        }
 
         // Update property
         const updated = await app.prisma.property.update({
@@ -608,6 +772,65 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         return reply.code(500).send({
           success: false,
           error: 'Failed to delete property',
+        });
+      }
+    },
+  });
+
+  // POST /properties/:id/publish - Publish a property draft (protected - owner only)
+  app.route({
+    method: 'POST',
+    url: '/properties/:id/publish',
+    onRequest: [verifyJWT],
+    handler: async (request, reply) => {
+      try {
+        const user = (request as any).user;
+        const { id } = request.params as { id: string };
+
+        const property = await app.prisma.property.findUnique({
+          where: { id },
+        });
+
+        if (!property) {
+          return reply.code(404).send({
+            success: false,
+            error: 'Property not found',
+          });
+        }
+
+        if (property.sellerId !== user.id) {
+          return reply.code(403).send({
+            success: false,
+            error: 'You can only publish your own properties',
+          });
+        }
+
+        const eligibility = await getUserEligibility(request as any);
+        if (!eligibility.emailVerified || !eligibility.hasVerifiedINE) {
+          return reply.code(403).send({
+            success: false,
+            error: !eligibility.emailVerified
+              ? 'Debes verificar tu correo electronico antes de publicar una propiedad.'
+              : 'Debes subir y verificar tu INE (identificacion oficial) antes de publicar una propiedad.',
+            code: !eligibility.emailVerified ? 'EMAIL_NOT_VERIFIED' : 'INE_NOT_VERIFIED',
+          });
+        }
+
+        const published = await app.prisma.property.update({
+          where: { id },
+          data: { status: 'available' },
+        });
+
+        return reply.code(200).send({
+          success: true,
+          data: published,
+          message: 'Property published successfully',
+        });
+      } catch (error: any) {
+        app.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Failed to publish property',
         });
       }
     },

@@ -8,6 +8,26 @@ let testEmail: string;
 let userId: string;
 let userRoleId: string;
 
+async function createPendingAdminRoleForUser(userId: string) {
+  const adminRole = await app.prisma.role.findUnique({
+    where: { name: 'admin' },
+    select: { id: true },
+  });
+
+  expect(adminRole).toBeDefined();
+
+  const userRole = await app.prisma.userRole.create({
+    data: {
+      userId,
+      roleId: adminRole!.id,
+      status: 'pending',
+    },
+    select: { id: true },
+  });
+
+  return userRole.id;
+}
+
 async function getPendingRoleIdByEmail(email: string) {
   const pendingResponse = await app.inject({
     method: 'GET',
@@ -59,7 +79,7 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
     });
     expect(createdUser).toBeDefined();
     userId = createdUser!.id;
-    userRoleId = await getPendingRoleIdByEmail(testEmail);
+    userRoleId = await createPendingAdminRoleForUser(userId);
   });
 
   afterAll(async () => {
@@ -129,7 +149,12 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
         roles: ['seller'],
       },
     });
-    const denyTestRoleId = await getPendingRoleIdByEmail(denyTestEmail);
+    const denyTestUser = await app.prisma.user.findUnique({
+      where: { email: denyTestEmail },
+      select: { id: true },
+    });
+    expect(denyTestUser).toBeDefined();
+    const denyTestRoleId = await createPendingAdminRoleForUser(denyTestUser!.id);
 
     // Deny the role
     const denyResponse = await app.inject({

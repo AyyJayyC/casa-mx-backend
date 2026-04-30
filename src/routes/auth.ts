@@ -7,6 +7,24 @@ import { refreshTokenStoreService } from '../services/refreshTokenStore.service.
 import { env } from '../config/env.js';
 import { sendVerificationEmail } from '../services/email.service.js';
 import { isZodError, createValidationErrorResponse, createServerErrorResponse } from '../utils/errorHandling.js';
+import { getPresignedUrl, isS3Configured } from '../services/s3.service.js';
+
+async function resolveAvatarUrl(rawAvatarUrl: string | null | undefined): Promise<string | null> {
+  if (!rawAvatarUrl) return null;
+  if (rawAvatarUrl.startsWith('http://') || rawAvatarUrl.startsWith('https://') || rawAvatarUrl.startsWith('data:')) {
+    return rawAvatarUrl;
+  }
+
+  if (isS3Configured() && !rawAvatarUrl.startsWith('local/')) {
+    try {
+      return await getPresignedUrl(rawAvatarUrl);
+    } catch {
+      return null;
+    }
+  }
+
+  return rawAvatarUrl;
+}
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authService = new AuthService(fastify.prisma);
@@ -126,7 +144,10 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
         return reply.code(200).send({
           success: true,
-          user,
+          user: {
+            ...user,
+            avatarUrl: await resolveAvatarUrl((user as any).avatarUrl),
+          },
           token,
           refreshToken,
         });
@@ -301,7 +322,15 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           id: user.id,
           email: user.email,
           name: user.name,
+          avatarUrl: await resolveAvatarUrl((user as any).avatarUrl),
           emailVerified: (user as any).emailVerified ?? false,
+          officialIdUploaded: Array.isArray((user as any).userDocuments) && (user as any).userDocuments.length > 0,
+          officialIdVerified: Array.isArray((user as any).userDocuments) && (user as any).userDocuments.some((doc: any) => doc.isVerified),
+          paidSubscriber:
+            ['active', 'trialing'].includes(String((user as any).subscription?.status || '').toLowerCase()) &&
+            (!(user as any).subscription?.currentPeriodEnd || new Date((user as any).subscription.currentPeriodEnd) > new Date()),
+          subscriptionStatus: (user as any).subscription?.status ?? 'inactive',
+          subscriptionCurrentPeriodEnd: (user as any).subscription?.currentPeriodEnd ?? null,
           roles: user.roles.map((ur) => ({
             roleId: ur.roleId,
             roleName: ur.role.name,

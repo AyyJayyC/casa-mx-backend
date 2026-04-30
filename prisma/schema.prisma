@@ -17,6 +17,7 @@ model User {
   avatarUrl String?  // profile picture from OAuth provider
   phone     String?  // contact phone number (optional)
   whatsapp  String?  // WhatsApp number with country code, e.g. +525512345678
+  stripeCustomerId String? @unique
   emailVerified     Boolean  @default(false)
   verificationToken String?  @unique
   verificationTokenExpiresAt DateTime?
@@ -28,6 +29,7 @@ model User {
   listedProperties   Property[] @relation("PropertySeller")
   uploadedDocuments  PropertyDocument[] @relation("DocumentUploader")
   userDocuments      UserDocument[]     @relation("UserDocuments")
+  subscription       UserSubscription?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -140,6 +142,12 @@ model UserDocument {
   fileUrl      String   // S3 key (not public URL)
   fileName     String
   fileMimeType String
+  isVerified   Boolean  @default(false)
+  reviewStatus String   @default("pending") // pending | verified | rejected
+  reviewNote   String?  @db.Text
+  reviewedByUserId String?
+  verifiedAt   DateTime?
+  reviewedAt   DateTime?
   user         User     @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
 
@@ -498,6 +506,24 @@ model CreditPackage {
   @@index([active])
 }
 
+model UserSubscription {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  stripeSubscriptionId String? @unique
+  stripePriceId       String?
+  status              String   @default("inactive") // inactive | trialing | active | past_due | canceled | unpaid
+  currentPeriodStart  DateTime?
+  currentPeriodEnd    DateTime?
+  cancelAtPeriodEnd   Boolean  @default(false)
+  canceledAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
 // Rent Negotiation models
 
 model Negotiation {
@@ -563,8 +589,14 @@ model PropertyOffer {
   // Seller response
   sellerNote     String?  @db.Text
   counterAmount  Float?   // set if seller counters
+
+  // Negotiation state projection (latest known values)
+  latestAmount   Float?
+  lastActionByRole String? // buyer | seller
+  agreedFurnishedStatus String? // amueblada | equipada | sin_muebles — set when offer is accepted
   
   property       Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  events         PropertyOfferEvent[]
   
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -572,5 +604,28 @@ model PropertyOffer {
   @@index([propertyId])
   @@index([buyerId])
   @@index([status])
+  @@index([createdAt])
+}
+
+model PropertyOfferEvent {
+  id            String   @id @default(uuid())
+  offerId       String
+  parentEventId String?
+
+  actorId       String
+  actorRole     String   // buyer | seller
+  action        String   // offer | counter | accept | reject
+  amount        Float
+  message       String?  @db.Text
+  proposedFurnishedStatus String? // amueblada | equipada | sin_muebles
+  createdAt     DateTime @default(now())
+
+  offer         PropertyOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  parentEvent   PropertyOfferEvent? @relation("PropertyOfferEventTree", fields: [parentEventId], references: [id], onDelete: SetNull)
+  childEvents   PropertyOfferEvent[] @relation("PropertyOfferEventTree")
+
+  @@index([offerId])
+  @@index([parentEventId])
+  @@index([actorId])
   @@index([createdAt])
 }

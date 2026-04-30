@@ -47,9 +47,9 @@ function wrap(title: string, bodyHtml: string): string {
   .footer { padding:20px 40px; background:#f9fafb; border-top:1px solid #e5e7eb; font-size:12px; color:#9ca3af; text-align:center; }
 </style></head><body>
 <div class="container">
-  <div class="header"><h1>CasaMX</h1><p>Plataforma inmobiliaria de México</p></div>
+  <div class="header"><img src="${env.FRONTEND_URL}/brand/logo-primary@2x.png" alt="Casa-MX.com" width="220" height="73" style="display:block;max-width:220px;width:100%;height:auto;"><p>Plataforma inmobiliaria de México</p></div>
   <div class="body">${bodyHtml}</div>
-  <div class="footer">© ${new Date().getFullYear()} CasaMX · Este correo es automático, no responder.</div>
+  <div class="footer">© ${new Date().getFullYear()} Casa-MX.com · Este correo es automático, no responder.</div>
 </div></body></html>`;
 }
 
@@ -68,9 +68,9 @@ export async function sendOfferAcceptedEmail(opts: {
       <strong>Propiedad:</strong> ${opts.propertyTitle}<br>
       <strong>Monto aceptado:</strong> $${amountFmt} MXN
     </div>
-    <p>Inicia sesión en CasaMX para descargar tu contrato de compraventa.</p>
+    <p>Inicia sesión en Casa-MX.com para descargar tu contrato de compraventa.</p>
     <a class="btn" href="${env.FRONTEND_URL}/dashboard/offers">Ver mis ofertas</a>
-    <p>Si tienes dudas, contacta a tu agente o al soporte de CasaMX.</p>
+    <p>Si tienes dudas, contacta a tu agente o al soporte de Casa-MX.com.</p>
   `);
   const text = `¡Felicidades! Tu oferta de $${amountFmt} MXN para "${opts.propertyTitle}" fue aceptada. Entra a ${env.FRONTEND_URL}/dashboard/offers para descargar tu contrato.`;
   await sendEmail(opts.buyerEmail, subject, html, text);
@@ -89,7 +89,7 @@ export async function sendOfferRejectedEmail(opts: {
       <strong>Propiedad:</strong> ${opts.propertyTitle}<br>
       <strong>Monto ofertado:</strong> $${amountFmt} MXN
     </div>
-    <p>No te desanimes — hay muchas otras propiedades disponibles en CasaMX.</p>
+    <p>No te desanimes — hay muchas otras propiedades disponibles en Casa-MX.com.</p>
     <a class="btn" href="${env.FRONTEND_URL}/properties">Explorar propiedades</a>
   `);
   const text = `Tu oferta de $${amountFmt} MXN para "${opts.propertyTitle}" fue rechazada. Explora más propiedades en ${env.FRONTEND_URL}/properties`;
@@ -111,7 +111,7 @@ export async function sendOfferCounteredEmail(opts: {
       <strong>Contraoferta:</strong> $${amountFmt} MXN
     </div>
     ${noteHtml}
-    <p>Entra a CasaMX para revisar y responder.</p>
+    <p>Entra a Casa-MX.com para revisar y responder.</p>
     <a class="btn" href="${env.FRONTEND_URL}/dashboard/offers">Ver mi oferta</a>
   `);
   const text = `Contraoferta de $${amountFmt} MXN para "${opts.propertyTitle}". Revísala en ${env.FRONTEND_URL}/dashboard/offers`;
@@ -131,7 +131,7 @@ export async function sendOfferReceivedEmail(opts: {
       <strong>Propiedad:</strong> ${opts.propertyTitle}<br>
       <strong>Monto ofertado:</strong> $${amountFmt} MXN
     </div>
-    <p>Entra a CasaMX para aceptar, rechazar o contra-ofertar.</p>
+    <p>Entra a Casa-MX.com para aceptar, rechazar o contra-ofertar.</p>
     <a class="btn" href="${env.FRONTEND_URL}/dashboard/offers">Responder oferta</a>
   `);
   const text = `${opts.buyerName} hizo una oferta de $${amountFmt} MXN por "${opts.propertyTitle}". Respóndela en ${env.FRONTEND_URL}/dashboard/offers`;
@@ -153,7 +153,7 @@ export async function sendApplicationApprovedEmail(opts: {
       <strong>Propiedad:</strong> ${opts.propertyTitle}<br>
       <strong>Renta mensual:</strong> $${rentFmt} MXN/mes
     </div>
-    <p>Entra a CasaMX para descargar tu contrato de arrendamiento.</p>
+    <p>Entra a Casa-MX.com para descargar tu contrato de arrendamiento.</p>
     <a class="btn" href="${env.FRONTEND_URL}/dashboard/rental-applications">Ver mi solicitud</a>
   `);
   const text = `Tu solicitud para "${opts.propertyTitle}" fue aprobada (renta $${rentFmt}/mes). Descarga tu contrato en ${env.FRONTEND_URL}/dashboard/rental-applications`;
@@ -188,7 +188,7 @@ export async function sendApplicationReceivedEmail(opts: {
     <div class="highlight">
       <strong>Propiedad:</strong> ${opts.propertyTitle}
     </div>
-    <p>Entra a CasaMX para revisar su perfil y responder.</p>
+    <p>Entra a Casa-MX.com para revisar su perfil y responder.</p>
     <a class="btn" href="${env.FRONTEND_URL}/dashboard/applications">Revisar solicitud</a>
   `);
   const text = `${opts.tenantName} solicitó arrendar "${opts.propertyTitle}". Revísalo en ${env.FRONTEND_URL}/dashboard/applications`;
@@ -200,23 +200,23 @@ export async function sendApplicationReceivedEmail(opts: {
 export async function sendVerificationEmail(opts: {
   userEmail: string; userName: string; token: string;
 }) {
-  const subject = 'Confirma tu correo electrónico — CasaMX';
+  const subject = 'Confirma tu correo electrónico — Casa-MX.com';
   const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${opts.token}`;
   const html = wrap(subject, `
-    <h2>Bienvenido a CasaMX, ${opts.userName}!</h2>
+    <h2>Bienvenido a Casa-MX.com, ${opts.userName}!</h2>
     <p>Gracias por registrarte. Por favor confirma tu dirección de correo electrónico para activar todas las funciones de tu cuenta.</p>
     <a class="btn" href="${verifyUrl}">Confirmar correo electrónico</a>
     <p style="margin-top:20px;font-size:13px;color:#6b7280;">Este enlace expira en <strong>24 horas</strong>. Si no creaste esta cuenta, puedes ignorar este mensaje.</p>
     <p style="font-size:12px;color:#9ca3af;word-break:break-all;">Si el botón no funciona, copia y pega este enlace en tu navegador:<br>${verifyUrl}</p>
   `);
-  const text = `Bienvenido a CasaMX, ${opts.userName}! Confirma tu correo aquí: ${verifyUrl} (válido 24 horas)`;
+  const text = `Bienvenido a Casa-MX.com, ${opts.userName}! Confirma tu correo aquí: ${verifyUrl} (válido 24 horas)`;
   await sendEmail(opts.userEmail, subject, html, text);
 }
 
 export async function sendVerificationApprovedEmail(opts: {
   sellerEmail: string; sellerName: string; propertyTitle: string;
 }) {
-  const subject = 'Tu propiedad fue verificada y publicada — CasaMX';
+  const subject = 'Tu propiedad fue verificada y publicada — Casa-MX.com';
   const dashboardUrl = `${env.FRONTEND_URL}/dashboard`;
   const html = wrap(subject, `
     <h2>¡Tu propiedad fue aprobada! ✅</h2>
@@ -233,7 +233,7 @@ export async function sendVerificationApprovedEmail(opts: {
 export async function sendVerificationRejectedEmail(opts: {
   sellerEmail: string; sellerName: string; propertyTitle: string; note: string;
 }) {
-  const subject = 'Tu propiedad requiere documentación adicional — CasaMX';
+  const subject = 'Tu propiedad requiere documentación adicional — Casa-MX.com';
   const dashboardUrl = `${env.FRONTEND_URL}/dashboard`;
   const html = wrap(subject, `
     <h2>Documentación insuficiente</h2>
@@ -251,7 +251,7 @@ export async function sendVerificationRejectedEmail(opts: {
 export async function sendPasswordResetEmail(opts: {
   userEmail: string; userName: string; token: string;
 }) {
-  const subject = 'Restablecer contraseña — CasaMX';
+  const subject = 'Restablecer contraseña — Casa-MX.com';
   const resetUrl = `${env.FRONTEND_URL}/reset-password?token=${opts.token}`;
   const html = wrap(subject, `
     <h2>Hola, ${opts.userName}</h2>

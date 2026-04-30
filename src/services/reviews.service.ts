@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { CreateReviewInput } from '../schemas/reviews.js';
+import { computeBadgeFlags } from '../utils/badges.js';
 
 export class ReviewsService {
   constructor(private prisma: PrismaClient) {}
@@ -70,7 +71,7 @@ export class ReviewsService {
   }
 
   async getUserReviews(userId: string, role?: 'tenant' | 'landlord') {
-    return this.prisma.review.findMany({
+    const reviews = await this.prisma.review.findMany({
       where: {
         revieweeUserId: userId,
         status: 'published',
@@ -82,6 +83,13 @@ export class ReviewsService {
           select: {
             id: true,
             name: true,
+            userDocuments: {
+              where: { documentType: 'official_id' },
+              select: { documentType: true, isVerified: true },
+            },
+            subscription: {
+              select: { status: true, currentPeriodEnd: true },
+            },
           },
         },
         property: {
@@ -92,6 +100,21 @@ export class ReviewsService {
         },
       },
       orderBy: { createdAt: 'desc' },
+    });
+
+    return reviews.map((review) => {
+      const reviewerBadges = computeBadgeFlags(review.reviewer as any);
+      return {
+        ...review,
+        reviewer: {
+          id: review.reviewer.id,
+          name: review.reviewer.name,
+          officialIdUploaded: reviewerBadges.officialIdUploaded,
+          officialIdVerified: reviewerBadges.officialIdVerified,
+          paidSubscriber: reviewerBadges.paidSubscriber,
+          subscriptionStatus: reviewerBadges.subscriptionStatus,
+        },
+      };
     });
   }
 

@@ -6,13 +6,15 @@ export const updateMeSchema = z
     email: z.string().email('Invalid email').optional(),
     phone: z.string().optional(),
     whatsapp: z.string().optional(),
+    avatarUrl: z.string().url('Invalid avatar URL').optional(),
   })
   .refine(
     (data) =>
       data.name !== undefined ||
       data.email !== undefined ||
       data.phone !== undefined ||
-      data.whatsapp !== undefined,
+      data.whatsapp !== undefined ||
+      data.avatarUrl !== undefined,
     {
       message: 'At least one field is required',
     },

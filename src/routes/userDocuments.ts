@@ -75,11 +75,24 @@ const userDocumentsRoutes: FastifyPluginAsync = async (app) => {
         fileUrl,
         fileName,
         fileMimeType,
+        // Identity docs must be verified by a separate review process.
+        isVerified: false,
+        reviewStatus: 'pending',
+        verifiedAt: null,
       },
     });
 
     return reply.code(201).send({
-      document: { id: doc.id, documentType: doc.documentType, fileName: doc.fileName },
+      document: {
+        id: doc.id,
+        documentType: doc.documentType,
+        fileName: doc.fileName,
+        isVerified: doc.isVerified,
+        reviewStatus: doc.reviewStatus,
+        reviewNote: doc.reviewNote,
+        verifiedAt: doc.verifiedAt,
+        reviewedAt: doc.reviewedAt,
+      },
     });
   });
 
@@ -112,6 +125,11 @@ const userDocumentsRoutes: FastifyPluginAsync = async (app) => {
           documentType: doc.documentType,
           fileName: doc.fileName,
           fileMimeType: doc.fileMimeType,
+          isVerified: doc.isVerified,
+          reviewStatus: doc.reviewStatus,
+          reviewNote: doc.reviewNote,
+          verifiedAt: doc.verifiedAt,
+          reviewedAt: doc.reviewedAt,
           createdAt: doc.createdAt,
           viewUrl,
         };

@@ -2,6 +2,15 @@ import { FastifyPluginAsync } from 'fastify';
 import { PrismaClient } from '@prisma/client';
 import { requireAdmin, verifyJWT } from '../utils/guards.js';
 import { UserRoleIdParamSchema } from '../schemas/admin.js';
+import { z } from 'zod';
+
+const userDocumentIdParamSchema = z.object({
+  documentId: z.string().uuid(),
+});
+
+const reviewUserDocumentSchema = z.object({
+  note: z.string().max(1000).optional(),
+});
 
 export class AdminService {
   constructor(private prisma: PrismaClient) {}
@@ -114,6 +123,103 @@ export class AdminService {
           }
         }
       },
+    });
+  }
+
+  async getPendingUserDocuments() {
+    return this.prisma.userDocument.findMany({
+      where: {
+        documentType: 'official_id',
+        reviewStatus: 'pending',
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async approveUserDocument(adminId: string, documentId: string, note?: string) {
+    const document = await this.prisma.userDocument.findUnique({ where: { id: documentId } });
+
+    if (!document) {
+      throw new Error('User document not found');
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.userDocument.update({
+        where: { id: documentId },
+        data: {
+          isVerified: true,
+          reviewStatus: 'verified',
+          reviewNote: note,
+          reviewedByUserId: adminId,
+          reviewedAt: new Date(),
+          verifiedAt: new Date(),
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: adminId,
+          targetUserId: document.userId,
+          action: 'APPROVE_USER_DOCUMENT',
+          previousState: {
+            reviewStatus: document.reviewStatus,
+            isVerified: document.isVerified,
+          },
+          newState: {
+            reviewStatus: 'verified',
+            isVerified: true,
+            reviewNote: note ?? null,
+          },
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  async rejectUserDocument(adminId: string, documentId: string, note?: string) {
+    const document = await this.prisma.userDocument.findUnique({ where: { id: documentId } });
+
+    if (!document) {
+      throw new Error('User document not found');
+    }
+
+    return await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.userDocument.update({
+        where: { id: documentId },
+        data: {
+          isVerified: false,
+          reviewStatus: 'rejected',
+          reviewNote: note,
+          reviewedByUserId: adminId,
+          reviewedAt: new Date(),
+          verifiedAt: null,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: adminId,
+          targetUserId: document.userId,
+          action: 'REJECT_USER_DOCUMENT',
+          previousState: {
+            reviewStatus: document.reviewStatus,
+            isVerified: document.isVerified,
+          },
+          newState: {
+            reviewStatus: 'rejected',
+            isVerified: false,
+            reviewNote: note ?? null,
+          },
+        },
+      });
+
+      return updated;
     });
   }
 }
@@ -278,6 +384,93 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           success: false,
           error: 'Failed to fetch audit logs',
         });
+      }
+    }
+  );
+
+  // Get pending account-level official ID documents (admin only)
+  fastify.get(
+    '/admin/user-documents/pending',
+    { onRequest: [requireAdmin] },
+    async (_request, reply) => {
+      try {
+        const documents = await adminService.getPendingUserDocuments();
+        return reply.code(200).send({
+          success: true,
+          data: documents,
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Failed to fetch pending user documents',
+        });
+      }
+    }
+  );
+
+  // Approve user identity document (admin only)
+  fastify.post<{ Params: { documentId: string }; Body: { note?: string } }>(
+    '/admin/user-documents/:documentId/approve',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const { documentId } = userDocumentIdParamSchema.parse(request.params);
+        const { note } = reviewUserDocumentSchema.parse(request.body ?? {});
+        const adminId = (request.user as any).id;
+
+        const updated = await adminService.approveUserDocument(adminId, documentId, note);
+        return reply.code(200).send({
+          success: true,
+          data: updated,
+          message: 'User document approved successfully',
+        });
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            success: false,
+            error: 'Validation error',
+            details: error.errors,
+          });
+        }
+        if (error.message?.includes('not found')) {
+          return reply.code(404).send({ success: false, error: error.message });
+        }
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to approve user document' });
+      }
+    }
+  );
+
+  // Reject user identity document (admin only)
+  fastify.post<{ Params: { documentId: string }; Body: { note?: string } }>(
+    '/admin/user-documents/:documentId/reject',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const { documentId } = userDocumentIdParamSchema.parse(request.params);
+        const { note } = reviewUserDocumentSchema.parse(request.body ?? {});
+        const adminId = (request.user as any).id;
+
+        const updated = await adminService.rejectUserDocument(adminId, documentId, note);
+        return reply.code(200).send({
+          success: true,
+          data: updated,
+          message: 'User document rejected successfully',
+        });
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            success: false,
+            error: 'Validation error',
+            details: error.errors,
+          });
+        }
+        if (error.message?.includes('not found')) {
+          return reply.code(404).send({ success: false, error: error.message });
+        }
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to reject user document' });
       }
     }
   );

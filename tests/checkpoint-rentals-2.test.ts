@@ -96,6 +96,11 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(data.data.price).toBeNull(); // Price not required for rentals
 
       rentalPropertyId = data.data.id;
+
+      await app.prisma.property.update({
+        where: { id: rentalPropertyId },
+        data: { status: 'available' },
+      });
     });
 
     it('should auto-add landlord role when creating first rental', async () => {
@@ -147,6 +152,11 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(data.data.monthlyRent).toBeNull(); // Rent not required for sales
 
       salePropertyId = data.data.id;
+
+      await app.prisma.property.update({
+        where: { id: salePropertyId },
+        data: { status: 'available' },
+      });
     });
 
     it('should reject rental property without monthlyRent', async () => {

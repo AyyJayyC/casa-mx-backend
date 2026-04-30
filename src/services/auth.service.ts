@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { RegisterInput, LoginInput } from '../schemas/auth.js';
 
-const AUTO_APPROVED_ROLES = new Set(['buyer', 'tenant']);
+const MANUAL_APPROVAL_ROLES = new Set(['admin']);
 
 export class AuthService {
   constructor(private prisma: PrismaClient) {}
@@ -26,13 +26,29 @@ export class AuthService {
           ),
         },
       },
-      include: { roles: { include: { role: true } } },
+      include: {
+        roles: { include: { role: true } },
+        userDocuments: {
+          where: { documentType: 'official_id' },
+          select: { documentType: true, isVerified: true },
+        },
+        subscription: { select: { status: true, currentPeriodEnd: true } },
+      },
     });
 
     return {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatarUrl: user.avatarUrl,
+      emailVerified: user.emailVerified,
+      officialIdUploaded: user.userDocuments.length > 0,
+      officialIdVerified: user.userDocuments.some((d) => d.isVerified),
+      paidSubscriber:
+        ['active', 'trialing'].includes(user.subscription?.status || '') &&
+        (!user.subscription?.currentPeriodEnd || user.subscription.currentPeriodEnd > new Date()),
+      subscriptionStatus: user.subscription?.status || 'inactive',
+      subscriptionCurrentPeriodEnd: user.subscription?.currentPeriodEnd || null,
       roles: user.roles.map((ur) => ({
         roleId: ur.roleId,
         roleName: ur.role.name,
@@ -44,7 +60,14 @@ export class AuthService {
   async login(data: LoginInput) {
     const user = await this.prisma.user.findUnique({
       where: { email: data.email },
-      include: { roles: { include: { role: true } } },
+      include: {
+        roles: { include: { role: true } },
+        userDocuments: {
+          where: { documentType: 'official_id' },
+          select: { documentType: true, isVerified: true },
+        },
+        subscription: { select: { status: true, currentPeriodEnd: true } },
+      },
     });
 
     if (!user) {
@@ -60,6 +83,15 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatarUrl: user.avatarUrl,
+      emailVerified: user.emailVerified,
+      officialIdUploaded: user.userDocuments.length > 0,
+      officialIdVerified: user.userDocuments.some((d) => d.isVerified),
+      paidSubscriber:
+        ['active', 'trialing'].includes(user.subscription?.status || '') &&
+        (!user.subscription?.currentPeriodEnd || user.subscription.currentPeriodEnd > new Date()),
+      subscriptionStatus: user.subscription?.status || 'inactive',
+      subscriptionCurrentPeriodEnd: user.subscription?.currentPeriodEnd || null,
       roles: user.roles.map((ur) => ({
         roleId: ur.roleId,
         roleName: ur.role.name,
@@ -71,7 +103,14 @@ export class AuthService {
   async getUserById(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
-      include: { roles: { include: { role: true } } },
+      include: {
+        roles: { include: { role: true } },
+        userDocuments: {
+          where: { documentType: 'official_id' },
+          select: { documentType: true, isVerified: true },
+        },
+        subscription: { select: { status: true, currentPeriodEnd: true } },
+      },
     });
   }
 
@@ -85,14 +124,28 @@ export class AuthService {
     // Try find by provider + providerId first (most reliable)
     let user = await this.prisma.user.findUnique({
       where: { provider_providerId: { provider: data.provider, providerId: data.providerId } },
-      include: { roles: { include: { role: true } } },
+      include: {
+        roles: { include: { role: true } },
+        userDocuments: {
+          where: { documentType: 'official_id' },
+          select: { documentType: true, isVerified: true },
+        },
+        subscription: { select: { status: true, currentPeriodEnd: true } },
+      },
     });
 
     if (!user) {
       // Try find by email (link accounts)
       user = await this.prisma.user.findUnique({
         where: { email: data.email },
-        include: { roles: { include: { role: true } } },
+        include: {
+          roles: { include: { role: true } },
+          userDocuments: {
+            where: { documentType: 'official_id' },
+            select: { documentType: true, isVerified: true },
+          },
+          subscription: { select: { status: true, currentPeriodEnd: true } },
+        },
       });
 
       if (user) {
@@ -100,7 +153,14 @@ export class AuthService {
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: { provider: data.provider, providerId: data.providerId, avatarUrl: data.avatarUrl },
-          include: { roles: { include: { role: true } } },
+          include: {
+            roles: { include: { role: true } },
+            userDocuments: {
+              where: { documentType: 'official_id' },
+              select: { documentType: true, isVerified: true },
+            },
+            subscription: { select: { status: true, currentPeriodEnd: true } },
+          },
         });
       } else {
         // Create new user via OAuth
@@ -121,7 +181,14 @@ export class AuthService {
               ),
             },
           },
-          include: { roles: { include: { role: true } } },
+          include: {
+            roles: { include: { role: true } },
+            userDocuments: {
+              where: { documentType: 'official_id' },
+              select: { documentType: true, isVerified: true },
+            },
+            subscription: { select: { status: true, currentPeriodEnd: true } },
+          },
         });
       }
     }
@@ -132,6 +199,14 @@ export class AuthService {
       name: user.name,
       avatarUrl: user.avatarUrl,
       provider: user.provider,
+      emailVerified: user.emailVerified,
+      officialIdUploaded: user.userDocuments.length > 0,
+      officialIdVerified: user.userDocuments.some((d) => d.isVerified),
+      paidSubscriber:
+        ['active', 'trialing'].includes(user.subscription?.status || '') &&
+        (!user.subscription?.currentPeriodEnd || user.subscription.currentPeriodEnd > new Date()),
+      subscriptionStatus: user.subscription?.status || 'inactive',
+      subscriptionCurrentPeriodEnd: user.subscription?.currentPeriodEnd || null,
       roles: user.roles.map((ur) => ({
         roleId: ur.roleId,
         roleName: ur.role.name,
@@ -155,6 +230,6 @@ export class AuthService {
   }
 
   private getInitialRoleStatus(roleName: string): string {
-    return AUTO_APPROVED_ROLES.has(roleName) ? 'approved' : 'pending';
+    return MANUAL_APPROVAL_ROLES.has(roleName) ? 'pending' : 'approved';
   }
 }

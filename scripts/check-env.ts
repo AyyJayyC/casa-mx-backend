@@ -53,6 +53,12 @@ const REQUIRED_ENV_VARS: EnvVariable[] = [
     example: 'AIza...',
   },
   {
+    name: 'ENABLE_BILLABLE_MAPS',
+    description: 'Enable Google-only billable Maps calls (must be true in production)',
+    required: false,
+    example: 'true',
+  },
+  {
     name: 'NODE_ENV',
     description: 'Application environment',
     required: true,
@@ -104,9 +110,39 @@ function checkEnvironmentVariables(): void {
         errors.push(
           `❌ INVALID VALUE: ${envVar.name}\n   Must be 'development', 'production', or 'test'\n   Current: ${value}`
         );
+      } else if (envVar.name === 'ENABLE_BILLABLE_MAPS' && !['true', 'false'].includes(value)) {
+        errors.push(
+          `❌ INVALID VALUE: ${envVar.name}\n   Must be 'true' or 'false'\n   Current: ${value}`
+        );
       } else {
         valid.push(`✅ ${envVar.name}: ${value.substring(0, 30)}${value.length > 30 ? '...' : ''}`);
       }
+    }
+  }
+
+  const isPlaceholderMapsKey = (raw: string | undefined) => {
+    const value = String(raw || '').trim().toLowerCase();
+    if (!value) return true;
+    return (
+      value.startsWith('replace_with') ||
+      value.startsWith('your_') ||
+      value.startsWith('changeme') ||
+      value.startsWith('placeholder') ||
+      (value.startsWith('<') && value.endsWith('>'))
+    );
+  };
+
+  if (process.env.NODE_ENV === 'production') {
+    if (process.env.ENABLE_BILLABLE_MAPS !== 'true') {
+      errors.push(
+        `❌ INVALID VALUE: ENABLE_BILLABLE_MAPS\n   Must be 'true' in production\n   Current: ${process.env.ENABLE_BILLABLE_MAPS || '(unset)'}`
+      );
+    }
+
+    if (isPlaceholderMapsKey(process.env.MAPS_API_KEY)) {
+      errors.push(
+        '❌ INVALID VALUE: MAPS_API_KEY\n   Must be a real server-side Google Maps key in production\n   Current: placeholder or missing key'
+      );
     }
   }
 

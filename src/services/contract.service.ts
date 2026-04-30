@@ -61,7 +61,7 @@ function signatureBlock(doc: PDFKit.PDFDocument, labelLeft: string, labelRight: 
 }
 
 function header(doc: PDFKit.PDFDocument, title: string, subtitle?: string) {
-  doc.font('Helvetica-Bold').fontSize(14).text('CASAMX', { align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(14).text('Casa-MX.com', { align: 'center' });
   doc.font('Helvetica-Bold').fontSize(12).text(title, { align: 'center' });
   if (subtitle) doc.font('Helvetica').fontSize(10).text(subtitle, { align: 'center' });
   doc.moveDown(0.5);
@@ -139,7 +139,7 @@ export async function generateRentalContract(prisma: PrismaClient, applicationId
 
     signatureBlock(doc, `EL ARRENDADOR\n${landlord.name}`, `EL ARRENDATARIO\n${app.fullName}`);
 
-    doc.fontSize(8).fillColor('grey').text('Contrato generado por CasaMX · Plataforma de bienes raíces · México', { align: 'center' });
+    doc.fontSize(8).fillColor('grey').text('Contrato generado por Casa-MX.com · Plataforma de bienes raíces · México', { align: 'center' });
 
     doc.end();
   });
@@ -184,7 +184,7 @@ export async function generateSaleContract(prisma: PrismaClient, offerId: string
 
     sectionTitle(doc, 'CLÁUSULAS');
 
-    clause(doc, 1, 'OBJETO', `El VENDEDOR transmite la propiedad del inmueble ubicado en: ${address}, con clave CasaMX: ${p.id.substring(0, 8).toUpperCase()}, tipo: ${p.propertyType ?? 'inmueble'}, con ${p.bedrooms ?? 'N/D'} recámaras, ${p.bathrooms ?? 'N/D'} baños y ${p.squareMeters ?? 'N/D'} m².`);
+    clause(doc, 1, 'OBJETO', `El VENDEDOR transmite la propiedad del inmueble ubicado en: ${address}, con clave Casa-MX.com: ${p.id.substring(0, 8).toUpperCase()}, tipo: ${p.propertyType ?? 'inmueble'}, con ${p.bedrooms ?? 'N/D'} recámaras, ${p.bathrooms ?? 'N/D'} baños y ${p.squareMeters ?? 'N/D'} m².`);
 
     clause(doc, 2, 'PRECIO Y FORMA DE PAGO', `Las partes acuerdan como precio de venta la cantidad de ${price}. Forma de financiamiento: ${offer.financing}. La totalidad del precio deberá cubrirse a más tardar el ${closingDate}.`);
 
@@ -214,7 +214,7 @@ export async function generateSaleContract(prisma: PrismaClient, offerId: string
 
     signatureBlock(doc, `EL VENDEDOR\n${seller.name}`, `EL COMPRADOR\n${offer.buyerName}`);
 
-    doc.fontSize(8).fillColor('grey').text('Contrato generado por CasaMX · Plataforma de bienes raíces · México', { align: 'center' });
+    doc.fontSize(8).fillColor('grey').text('Contrato generado por Casa-MX.com · Plataforma de bienes raíces · México', { align: 'center' });
 
     doc.end();
   });
@@ -262,7 +262,7 @@ export async function generatePromesaContract(prisma: PrismaClient, offerId: str
 
     sectionTitle(doc, 'CLÁUSULAS');
 
-    clause(doc, 1, 'OBJETO', `El VENDEDOR promete vender y el COMPRADOR promete comprar el inmueble ubicado en: ${address}, clave CasaMX: ${p.id.substring(0, 8).toUpperCase()}, tipo: ${p.propertyType ?? 'inmueble'}, de ${p.squareMeters ?? 'N/D'} m².`);
+    clause(doc, 1, 'OBJETO', `El VENDEDOR promete vender y el COMPRADOR promete comprar el inmueble ubicado en: ${address}, clave Casa-MX.com: ${p.id.substring(0, 8).toUpperCase()}, tipo: ${p.propertyType ?? 'inmueble'}, de ${p.squareMeters ?? 'N/D'} m².`);
 
     clause(doc, 2, 'PRECIO TOTAL', `El precio total de venta acordado es de ${price}. Las partes convienen en el siguiente plan de pagos:`);
 
@@ -328,8 +328,9 @@ export async function generatePromesaContract(prisma: PrismaClient, offerId: str
 
     signatureBlock(doc, `EL PROMITENTE VENDEDOR\n${seller.name}`, `EL PROMITENTE COMPRADOR\n${offer.buyerName}`);
 
-    doc.fontSize(8).fillColor('grey').text('Contrato generado por CasaMX · Plataforma de bienes raíces · México', { align: 'center' });
+    doc.fontSize(8).fillColor('grey').text('Contrato generado por Casa-MX.com · Plataforma de bienes raíces · México', { align: 'center' });
 
     doc.end();
   });
 }
+
