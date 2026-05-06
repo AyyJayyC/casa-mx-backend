@@ -4,8 +4,8 @@ import { verifyJWT } from '../utils/guards.js';
 
 const createRequestSchema = z.object({
   propertyId: z.string().min(1),
-  name: z.string().min(2).optional(),
-  phone: z.string().min(7).optional(),
+  name: z.string().min(2, 'El nombre es requerido'),
+  phone: z.string().min(7, 'El teléfono es requerido'),
   message: z.string().optional(),
 });
 
@@ -17,7 +17,7 @@ const requestsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const property = await fastify.prisma.property.findUnique({
         where: { id: input.propertyId },
-        select: { id: true },
+        select: { id: true, sellerId: true },
       });
 
       if (!property) {
@@ -27,19 +27,13 @@ const requestsRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const composedMessage = [
-        input.name ? `Nombre: ${input.name}` : null,
-        input.phone ? `Teléfono: ${input.phone}` : null,
-        input.message ? `Mensaje: ${input.message}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n');
-
       const created = await fastify.prisma.propertyRequest.create({
         data: {
           propertyId: input.propertyId,
           buyerId: user.id,
-          message: composedMessage || null,
+          name: input.name,
+          phone: input.phone,
+          message: input.message || null,
           status: 'pending',
         },
       });
@@ -84,6 +78,7 @@ const requestsRoutes: FastifyPluginAsync = async (fastify) => {
             select: {
               id: true,
               title: true,
+              address: true,
               colonia: true,
               listingType: true,
               price: true,
@@ -103,6 +98,81 @@ const requestsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(500).send({
         success: false,
         error: 'Failed to fetch requests',
+      });
+    }
+  });
+
+  fastify.get('/requests/seller', { onRequest: [verifyJWT] }, async (request, reply) => {
+    try {
+      const user = (request as any).user;
+
+      const requests = await fastify.prisma.propertyRequest.findMany({
+        where: { property: { sellerId: user.id } },
+        include: {
+          property: {
+            select: {
+              id: true,
+              title: true,
+              colonia: true,
+              listingType: true,
+              price: true,
+              monthlyRent: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return reply.code(200).send({
+        success: true,
+        data: requests,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Failed to fetch seller requests',
+      });
+    }
+  });
+
+  fastify.post('/requests/:id/approve', { onRequest: [verifyJWT] }, async (request, reply) => {
+    try {
+      const user = (request as any).user;
+      const { id } = request.params as { id: string };
+
+      const req = await fastify.prisma.propertyRequest.findUnique({
+        where: { id },
+        include: { property: { select: { sellerId: true, address: true } } },
+      });
+
+      if (!req) {
+        return reply.code(404).send({ success: false, error: 'Solicitud no encontrada' });
+      }
+
+      if (req.property.sellerId !== user.id) {
+        return reply.code(403).send({ success: false, error: 'No autorizado' });
+      }
+
+      if (req.status === 'contacted') {
+        return reply.code(409).send({ success: false, error: 'La solicitud ya fue aprobada' });
+      }
+
+      await fastify.prisma.propertyRequest.update({
+        where: { id },
+        data: { status: 'contacted' },
+      });
+
+      return reply.code(200).send({
+        success: true,
+        message: 'Dirección revelada al comprador',
+        address: req.property.address,
+      });
+    } catch (error: any) {
+      fastify.log.error(error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Failed to approve request',
       });
     }
   });

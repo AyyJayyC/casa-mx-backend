@@ -53,14 +53,14 @@ export class CreditsService {
 
   /**
    * Deduct 1 credit to unlock a lead's contact info.
-   * leadType: 'application' (RentalApplication) | 'request' (PropertyRequest for sale).
+   * leadType: 'application' (RentalApplication) | 'request' (PropertyRequest) | 'offer' (PropertyOffer).
    * The caller must be the property's seller/landlord.
    * Idempotent: if the user already unlocked this lead, return immediately.
    */
   async spendCredit(
     userId: string,
     leadId: string,
-    leadType: 'application' | 'request',
+    leadType: 'application' | 'request' | 'offer',
   ): Promise<{
     success: boolean;
     newBalance: number;
@@ -79,16 +79,23 @@ export class CreditsService {
           select: { fullName: true, email: true, phone: true },
         });
         return app ? { fullName: app.fullName, email: app.email ?? null, phone: app.phone ?? null } : null;
+      } else if (leadType === 'offer') {
+        const offer = await this.prisma.propertyOffer.findUnique({
+          where: { id: leadId },
+          select: { buyerName: true, buyerEmail: true, buyerPhone: true },
+        });
+        return offer ? { fullName: offer.buyerName, email: offer.buyerEmail ?? null, phone: offer.buyerPhone ?? null } : null;
       } else {
         const req = await this.prisma.propertyRequest.findUnique({
           where: { id: leadId },
+          select: { name: true, phone: true, buyerId: true },
         });
         if (!req) return null;
         const buyer = await this.prisma.user.findUnique({
           where: { id: req.buyerId },
-          select: { name: true, email: true, phone: true },
+          select: { email: true },
         });
-        return buyer ? { fullName: buyer.name, email: buyer.email ?? null, phone: (buyer as any).phone ?? null } : null;
+        return { fullName: req.name ?? buyer?.email ?? null, email: buyer?.email ?? null, phone: req.phone ?? null };
       }
     };
 

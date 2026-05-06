@@ -151,6 +151,8 @@ model PropertyRequest {
   id         String   @id @default(uuid())
   propertyId String
   buyerId    String
+  name       String?  // buyer's name for contact
+  phone      String?  // buyer's phone for contact
   message    String?
   status     String   @default("pending") // pending, contacted
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)

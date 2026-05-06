@@ -62,6 +62,12 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
           include: { property: { select: { sellerId: true } } },
         });
         propertyOwnerId = (app as any)?.property?.sellerId ?? null;
+      } else if (leadType === 'offer') {
+        const offer = await fastify.prisma.propertyOffer.findUnique({
+          where: { id: leadId },
+          include: { property: { select: { sellerId: true } } },
+        });
+        propertyOwnerId = (offer as any)?.property?.sellerId ?? null;
       } else {
         const req = await fastify.prisma.propertyRequest.findUnique({
           where: { id: leadId },
