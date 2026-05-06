@@ -54,15 +54,6 @@ export class ReviewsService {
         overallRating: input.overallRating,
         comment: input.comment,
         status: 'published',
-        categoryScores: {
-          create: input.categoryScores.map((item) => ({
-            category: item.category,
-            score: item.score,
-          })),
-        },
-      },
-      include: {
-        categoryScores: true,
       },
     });
 
@@ -77,7 +68,6 @@ export class ReviewsService {
         ...(role ? { revieweeRole: role } : {}),
       },
       include: {
-        categoryScores: true,
         reviewer: {
           select: {
             id: true,
@@ -102,7 +92,6 @@ export class ReviewsService {
         ...(role ? { reviewerRole: role } : {}),
       },
       include: {
-        categoryScores: true,
         reviewee: {
           select: {
             id: true,
@@ -128,29 +117,11 @@ export class ReviewsService {
       ? Number((reviews.reduce((sum, review) => sum + review.overallRating, 0) / totalReviews).toFixed(2))
       : null;
 
-    const categoryBuckets = new Map<string, { total: number; count: number }>();
-
-    reviews.forEach((review) => {
-      review.categoryScores.forEach((categoryScore) => {
-        const existing = categoryBuckets.get(categoryScore.category) ?? { total: 0, count: 0 };
-        existing.total += categoryScore.score;
-        existing.count += 1;
-        categoryBuckets.set(categoryScore.category, existing);
-      });
-    });
-
-    const categoryAverages = Array.from(categoryBuckets.entries()).map(([category, value]) => ({
-      category,
-      average: Number((value.total / value.count).toFixed(2)),
-      count: value.count,
-    }));
-
     return {
       userId,
       role: role ?? null,
       totalReviews,
       averageRating,
-      categoryAverages,
       recentReviews: reviews.slice(0, 5),
     };
   }
