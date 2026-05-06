@@ -116,7 +116,6 @@ describe('Reviews API', () => {
   });
 
   afterAll(async () => {
-    await app.prisma.reviewCategoryScore.deleteMany({});
     await app.prisma.review.deleteMany({});
     await app.prisma.rentalApplication.deleteMany({ where: { id: applicationId } });
     await app.prisma.property.deleteMany({ where: { id: propertyId } });
@@ -136,10 +135,6 @@ describe('Reviews API', () => {
         reviewerRole: 'tenant',
         overallRating: 5,
         comment: 'Excellent communication and very fair throughout the process.',
-        categoryScores: [
-          { category: 'communication', score: 5 },
-          { category: 'listing_accuracy', score: 5 },
-        ],
       },
     });
 
@@ -162,7 +157,6 @@ describe('Reviews API', () => {
         reviewerRole: 'tenant',
         overallRating: 4,
         comment: 'Trying to review twice should fail for the same relationship.',
-        categoryScores: [{ category: 'communication', score: 4 }],
       },
     });
 
@@ -182,10 +176,6 @@ describe('Reviews API', () => {
         reviewerRole: 'landlord',
         overallRating: 5,
         comment: 'Reliable tenant with clear communication and strong follow-through.',
-        categoryScores: [
-          { category: 'communication', score: 5 },
-          { category: 'payment_reliability', score: 5 },
-        ],
       },
     });
 

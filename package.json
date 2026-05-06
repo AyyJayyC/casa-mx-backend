@@ -9,7 +9,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "node scripts/check-node-version.js && tsx watch src/server.ts",
-    "build": "node scripts/check-node-version.js && tsc && node scripts/copy-static-assets.js && prisma generate",
+    "build": "node scripts/check-node-version.js && prisma generate && tsc && node scripts/copy-static-assets.js",
     "start": "npx prisma migrate deploy && node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
