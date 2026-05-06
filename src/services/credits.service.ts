@@ -56,7 +56,6 @@ export class CreditsService {
    * leadType: 'application' (RentalApplication) | 'request' (PropertyRequest) | 'offer' (PropertyOffer).
    * The caller must be the property's seller/landlord.
    * Idempotent: if the user already unlocked this lead, return immediately.
-   * Subscription bypass: active subscribers unlock for free without deduction.
    */
   async spendCredit(
     userId: string,
@@ -66,7 +65,6 @@ export class CreditsService {
     success: boolean;
     newBalance: number;
     alreadyUnlocked?: boolean;
-    subscriptionUnlock?: boolean;
     contact?: { fullName: string; email: string | null; phone: string | null };
   }> {
     // Idempotency check
@@ -100,16 +98,6 @@ export class CreditsService {
         return { fullName: req.name ?? buyer?.email ?? null, email: buyer?.email ?? null, phone: req.phone ?? null };
       }
     };
-
-    // Subscription bypass: active subscribers unlock for free
-    const subscription = await this.prisma.userSubscription.findFirst({
-      where: { userId, status: { in: ['active', 'trialing'] } },
-    });
-    if (subscription) {
-      const balance = await this.getBalance(userId);
-      const contact = await resolveContact();
-      return { success: true, newBalance: balance, alreadyUnlocked: !!existing, subscriptionUnlock: true, contact: contact ?? undefined };
-    }
 
     if (existing) {
       const balance = await this.getBalance(userId);
