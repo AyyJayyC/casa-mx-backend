@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const SpendCreditSchema = z.object({
   leadId:   z.string().uuid('Invalid lead ID'),
-  leadType: z.enum(['application', 'request']),
+  leadType: z.enum(['application', 'request', 'offer']),
 });
 
 export const CreatePaymentIntentSchema = z.object({
