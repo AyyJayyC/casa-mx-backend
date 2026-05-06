@@ -233,26 +233,12 @@ model Review {
   reviewee          User              @relation("ReviewTarget", fields: [revieweeUserId], references: [id], onDelete: Cascade)
   property          Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   rentalApplication RentalApplication @relation(fields: [rentalApplicationId], references: [id], onDelete: Cascade)
-  categoryScores    ReviewCategoryScore[]
 
   @@unique([reviewerUserId, revieweeUserId, rentalApplicationId])
   @@index([revieweeUserId, revieweeRole, status])
   @@index([reviewerUserId, reviewerRole])
   @@index([propertyId])
   @@index([rentalApplicationId])
-}
-
-model ReviewCategoryScore {
-  id        String   @id @default(uuid())
-  reviewId  String
-  category  String
-  score     Int
-  createdAt DateTime @default(now())
-
-  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-
-  @@unique([reviewId, category])
-  @@index([category])
 }
 
 model Notification {
