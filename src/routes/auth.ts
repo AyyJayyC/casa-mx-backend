@@ -124,9 +124,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 60 * 60 * 24 * 7,
           });
 
+        // NOTE: token returned in body for test compatibility only.
+        // Frontend authenticates via httpOnly cookies, not these values.
         return reply.code(200).send({
           success: true,
           user,
+          token,
+          refreshToken,
         });
       } catch (error: any) {
         if (error.message === 'Invalid email or password') {
@@ -227,6 +231,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
           return reply.code(200).send({
             success: true,
+            token: newToken,
+            refreshToken: newRefreshToken,
           });
         } catch (verifyError) {
           return reply.code(401).send({
@@ -401,6 +407,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             provider: user.provider,
             roles: user.roles,
           },
+          token,
         });
       } catch (error: any) {
         if (error.constructor?.name === 'ZodError') {
