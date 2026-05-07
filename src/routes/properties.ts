@@ -298,7 +298,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             squareMeters: input.squareMeters ?? null,
             includedServices: input.includedServices ?? [],
             amenities: input.amenities ?? [],
-            financeOptions: (input as any).financeOptions ?? [],
+            financeOptions: input.financeOptions ?? [],
             status: input.status,
             listingType: input.listingType,
             monthlyRent: input.monthlyRent ?? null,
@@ -520,7 +520,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
                 : input.utilitiesIncluded,
             includedServices: input.includedServices,
             amenities: input.amenities,
-            financeOptions: (input as any).financeOptions,
+            financeOptions: input.financeOptions,
             availableFrom: input.availableFrom ? new Date(input.availableFrom) : undefined,
           },
         });

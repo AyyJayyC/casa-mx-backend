@@ -82,7 +82,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
 
     expect(response.statusCode).toBe(409);
     const body = response.json() as any;
-    expect(body.error).toContain('Email already exists');
+    expect(body.error).toContain('Registration failed');
   });
 
   it('should reject invalid email format', async () => {

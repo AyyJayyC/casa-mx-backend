@@ -62,7 +62,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         if (error.code === 'P2002') {
           return reply.code(409).send({
             success: false,
-            error: 'Email already exists',
+            error: 'Registration failed. Please check your details or try logging in.',
           });
         }
 
@@ -124,6 +124,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 60 * 60 * 24 * 7,
           });
 
+        // NOTE: token returned in body for test compatibility only.
+        // Frontend authenticates via httpOnly cookies, not these values.
         return reply.code(200).send({
           success: true,
           user,
@@ -267,8 +269,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     reply
-      .clearCookie('accessToken', { path: '/' })
-      .clearCookie('refreshToken', { path: '/' });
+        .clearCookie('accessToken', { path: '/', secure: cookieOptions.secure, sameSite: cookieOptions.sameSite })
+        .clearCookie('refreshToken', { path: '/', secure: cookieOptions.secure, sameSite: cookieOptions.sameSite });
 
     return reply.code(200).send({
       success: true,
