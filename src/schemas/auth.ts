@@ -3,9 +3,14 @@ import { z } from 'zod';
 export const registerRoleSchema = z.enum(['buyer', 'tenant', 'seller', 'landlord', 'wholesaler']);
 
 export const RegisterSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  email: z.string().email('Invalid email format').max(254, 'Email is too long'),
+  name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password is too long')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
   roles: z.array(registerRoleSchema).min(1, 'Select at least one role').optional().default(['buyer']),
 });
 
