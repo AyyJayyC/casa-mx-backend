@@ -28,20 +28,20 @@ const FINANCE_OPTIONS = ['cash', 'bankLoan', 'INFONAVIT', 'FOVISSSTE', 'paymentP
 const financeOptionsSchema = z.array(z.enum(FINANCE_OPTIONS)).optional();
 
 const basePropertySchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().optional(),
-  address: z.string().optional(),
+  title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
+  description: z.string().max(5000, 'Description is too long').optional(),
+  address: z.string().max(500, 'Address is too long').optional(),
   imageUrls: imageUrlsSchema.optional(),
-  lat: z.number().optional(),
-  lng: z.number().optional(),
-  estado: z.string().min(1, 'Estado is required'),
-  ciudad: z.string().optional(),
-  colonia: z.string().optional(),
-  codigoPostal: z.string().optional(),
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
+  estado: z.string().min(1, 'Estado is required').max(100, 'Estado is too long'),
+  ciudad: z.string().max(100, 'Ciudad is too long').optional(),
+  colonia: z.string().max(100, 'Colonia is too long').optional(),
+  codigoPostal: z.string().max(10, 'Postal code is too long').optional(),
   propertyType: propertyTypeSchema.optional(),
-  bedrooms: z.number().int().min(0).optional(),
-  bathrooms: z.number().int().min(0).optional(),
-  squareMeters: z.number().int().positive('Square meters must be positive').optional(),
+  bedrooms: z.number().int().min(0).max(50).optional(),
+  bathrooms: z.number().int().min(0).max(50).optional(),
+  squareMeters: z.number().int().positive('Square meters must be positive').max(1000000).optional(),
   status: z.enum(['available', 'pending', 'sold', 'rented']).default('available'),
   listingType: z.enum(['for_sale', 'for_rent']).default('for_sale'),
 });
@@ -49,7 +49,7 @@ const basePropertySchema = z.object({
 // Schema for sale properties (requires price)
 export const createSalePropertySchema = basePropertySchema.extend({
   listingType: z.literal('for_sale'),
-  price: z.number().positive('Price must be positive'),
+  price: z.number().positive('Price must be positive').max(999999999, 'Price is too high'),
   monthlyRent: z.number().optional(),
   securityDeposit: z.number().optional(),
   leaseTermMonths: z.number().optional(),
@@ -65,8 +65,8 @@ export const createSalePropertySchema = basePropertySchema.extend({
 export const createRentalPropertySchema = basePropertySchema.extend({
   listingType: z.literal('for_rent'),
   price: z.number().optional(), // Not required for rentals
-  monthlyRent: z.number().positive('Monthly rent must be positive'),
-  securityDeposit: z.number().positive('Security deposit must be positive').optional(),
+  monthlyRent: z.number().positive('Monthly rent must be positive').max(999999999, 'Rent is too high'),
+  securityDeposit: z.number().positive('Security deposit must be positive').max(999999999, 'Deposit is too high').optional(),
   leaseTermMonths: z.number().int().positive('Lease term must be positive').optional(),
   availableFrom: z.string().optional(), // ISO date string
   furnished: z.boolean().default(false),

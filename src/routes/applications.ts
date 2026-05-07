@@ -84,7 +84,7 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
             reference2Name: input.reference2Name,
             reference2Phone: input.reference2Phone,
             messageToLandlord: input.messageToLandlord,
-            offeredMonthlyRent: (input as any).offeredMonthlyRent,
+            offeredMonthlyRent: input.offeredMonthlyRent,
             applicantId,
             status: 'pending',
           } as any,

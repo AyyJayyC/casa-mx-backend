@@ -116,7 +116,6 @@ describe('Reviews API', () => {
   });
 
   afterAll(async () => {
-    await app.prisma.reviewCategoryScore.deleteMany({});
     await app.prisma.review.deleteMany({});
     await app.prisma.rentalApplication.deleteMany({ where: { id: applicationId } });
     await app.prisma.property.deleteMany({ where: { id: propertyId } });
