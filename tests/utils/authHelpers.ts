@@ -50,7 +50,18 @@ export async function loginAndGetToken(
     throw new Error(`Login failed for ${email}: ${loginRes.statusCode}`);
   }
 
-  return loginRes.json().token;
+  const cookieHeader = loginRes.headers['set-cookie'];
+  if (!cookieHeader) {
+    throw new Error(`No cookie returned for ${email}`);
+  }
+
+  const accessTokenCookie = (Array.isArray(cookieHeader) ? cookieHeader : [cookieHeader])
+    .find((c: string) => c.startsWith('accessToken='));
+  if (!accessTokenCookie) {
+    throw new Error(`No accessToken cookie for ${email}`);
+  }
+
+  return accessTokenCookie.split(';')[0].replace('accessToken=', '');
 }
 
 export function signRoleToken(

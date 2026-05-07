@@ -440,7 +440,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
         },
       });
 
-      const otherToken = otherLoginRes.json().token;
+      const otherToken = await loginAndGetToken(app, otherEmail, 'TestPassword123');
 
       await approveUserRole(app, otherUserRes.json().user.id, 'seller');
       const approvedOtherToken = await loginAndGetToken(
