@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import crypto from 'node:crypto';
 import { RegisterInput, LoginInput } from '../schemas/auth.js';
 
 const AUTO_APPROVED_ROLES = new Set(['buyer', 'tenant']);
@@ -7,16 +8,50 @@ const AUTO_APPROVED_ROLES = new Set(['buyer', 'tenant']);
 export class AuthService {
   constructor(private prisma: PrismaClient) {}
 
+  private generateReferralCode(): string {
+    return crypto.randomBytes(4).toString('hex').toUpperCase();
+  }
+
+  private async ensureUniqueReferralCode(): Promise<string> {
+    for (let i = 0; i < 5; i++) {
+      const code = this.generateReferralCode();
+      const existing = await this.prisma.user.findUnique({ where: { referralCode: code } });
+      if (!existing) return code;
+    }
+    return this.generateReferralCode() + Date.now().toString(36).toUpperCase();
+  }
+
   async register(data: RegisterInput) {
-    // Hash password
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const requestedRoles = [...new Set(data.roles ?? ['buyer'])];
+    const referralCode = await this.ensureUniqueReferralCode();
+
+    const ref = data.ref?.trim();
+
+    // Check if ref is a user referral code or an agency code
+    let referredById: string | undefined;
+    let agencyId: string | undefined;
+
+    if (ref) {
+      const referrerUser = await this.prisma.user.findUnique({ where: { referralCode: ref } });
+      if (referrerUser) {
+        referredById = referrerUser.id;
+      } else {
+        const agency = await this.prisma.agency.findUnique({ where: { referralCode: ref } });
+        if (agency) {
+          agencyId = agency.id;
+        }
+      }
+    }
 
     const user = await this.prisma.user.create({
       data: {
         email: data.email,
         name: data.name,
         password: hashedPassword,
+        referralCode,
+        referredById,
+        agencyId,
         roles: {
           create: await Promise.all(
             requestedRoles.map(async (roleName) => ({
@@ -29,10 +64,23 @@ export class AuthService {
       include: { roles: { include: { role: true } } },
     });
 
+    // Log referral events
+    if (ref && (referredById || agencyId)) {
+      await this.prisma.referralEvent.create({
+        data: {
+          referrerId: referredById,
+          referralCode: ref,
+          eventType: 'signup',
+          linkedUserId: user.id,
+        },
+      });
+    }
+
     return {
       id: user.id,
       email: user.email,
       name: user.name,
+      referralCode: user.referralCode,
       roles: user.roles.map((ur) => ({
         roleId: ur.roleId,
         roleName: ur.role.name,
@@ -71,7 +119,10 @@ export class AuthService {
   async getUserById(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
-      include: { roles: { include: { role: true } } },
+      include: {
+        roles: { include: { role: true } },
+        agency: { select: { id: true, name: true } },
+      },
     });
   }
 
@@ -105,6 +156,7 @@ export class AuthService {
       } else {
         // Create new user via OAuth
         const defaultRoles = ['buyer', 'tenant'];
+        const referralCode = await this.ensureUniqueReferralCode();
         user = await this.prisma.user.create({
           data: {
             email: data.email,
@@ -112,6 +164,7 @@ export class AuthService {
             provider: data.provider,
             providerId: data.providerId,
             avatarUrl: data.avatarUrl,
+            referralCode,
             roles: {
               create: await Promise.all(
                 defaultRoles.map(async (roleName) => ({
