@@ -7,7 +7,7 @@ import { isZodError, createValidationErrorResponse, createServerErrorResponse } 
 const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
   const analyticsService = new AnalyticsService(fastify.prisma);
 
-  // Track event (authenticated users only)
+  // POST /analytics/events — track an event (authenticated users)
   fastify.post<{ Body: Record<string, any> }>(
     '/analytics/events',
     { onRequest: [verifyJWT] },
@@ -15,47 +15,81 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const input = AnalyticsEventSchema.parse(request.body);
         const userId = (request.user as any).id;
-
         const event = await analyticsService.trackEvent(userId, input);
-
-        return reply.code(201).send({
-          success: true,
-          data: event,
-        });
+        return reply.code(201).send({ success: true, data: event });
       } catch (error: any) {
         if (isZodError(error)) {
           return reply.code(400).send(createValidationErrorResponse(error));
         }
-
         fastify.log.error(error);
         return reply.code(500).send(createServerErrorResponse('Failed to track event'));
       }
     }
   );
 
-  // Get analytics summary (admin only)
+  // GET /admin/analytics/dashboard — aggregated KPIs (admin)
   fastify.get(
-    '/admin/analytics/summary',
+    '/admin/analytics/dashboard',
     { onRequest: [requireAdmin] },
     async (request, reply) => {
       try {
-        const summary = await analyticsService.getEventsSummary();
-
-        return reply.code(200).send({
-          success: true,
-          data: summary,
-        });
+        const data = await analyticsService.getDashboard();
+        return reply.send({ success: true, data });
       } catch (error: any) {
         fastify.log.error(error);
-        return reply.code(500).send({
-          success: false,
-          error: 'Failed to fetch analytics summary',
-        });
+        return reply.code(500).send({ success: false, error: 'Failed to fetch dashboard' });
       }
     }
   );
 
-  // Get all analytics events (admin only)
+  // GET /admin/analytics/timeline — daily data for charts (admin)
+  fastify.get<{ Querystring: { days?: string } }>(
+    '/admin/analytics/timeline',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const days = request.query.days ? parseInt(request.query.days, 10) : 30;
+        const data = await analyticsService.getTimeline(days);
+        return reply.send({ success: true, data });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to fetch timeline' });
+      }
+    }
+  );
+
+  // GET /admin/analytics/top-properties — most engaged properties (admin)
+  fastify.get<{ Querystring: { limit?: string } }>(
+    '/admin/analytics/top-properties',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const limit = request.query.limit ? parseInt(request.query.limit, 10) : 10;
+        const data = await analyticsService.getTopProperties(limit);
+        return reply.send({ success: true, data });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to fetch top properties' });
+      }
+    }
+  );
+
+  // GET /admin/analytics/referral-summary — referral stats (admin)
+  fastify.get(
+    '/admin/analytics/referral-summary',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const data = await analyticsService.getReferralSummary();
+        return reply.send({ success: true, data });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to fetch referral summary' });
+      }
+    }
+  );
+
+  // GET /admin/analytics/events — all events list (admin)
   fastify.get<{ Querystring: { limit?: string } }>(
     '/admin/analytics/events',
     { onRequest: [requireAdmin] },
@@ -63,49 +97,30 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const limit = request.query.limit ? parseInt(request.query.limit, 10) : 100;
         const events = await analyticsService.getAllEvents(limit);
-
-        return reply.code(200).send({
-          success: true,
-          data: events,
-        });
+        return reply.send({ success: true, data: events });
       } catch (error: any) {
         fastify.log.error(error);
-        return reply.code(500).send({
-          success: false,
-          error: 'Failed to fetch analytics events',
-        });
+        return reply.code(500).send({ success: false, error: 'Failed to fetch events' });
       }
     }
   );
 
-  // Get events by name (admin only)
+  // GET /admin/analytics/events-by-name — filter events by name (admin)
   fastify.get<{ Querystring: { eventName: string; limit?: string } }>(
     '/admin/analytics/events-by-name',
     { onRequest: [requireAdmin] },
     async (request, reply) => {
       try {
         const { eventName } = request.query;
-
         if (!eventName) {
-          return reply.code(400).send({
-            success: false,
-            error: 'eventName query parameter is required',
-          });
+          return reply.code(400).send({ success: false, error: 'eventName query parameter is required' });
         }
-
         const limit = request.query.limit ? parseInt(request.query.limit, 10) : 50;
         const events = await analyticsService.getEventsByName(eventName, limit);
-
-        return reply.code(200).send({
-          success: true,
-          data: events,
-        });
+        return reply.send({ success: true, data: events });
       } catch (error: any) {
         fastify.log.error(error);
-        return reply.code(500).send({
-          success: false,
-          error: 'Failed to fetch events by name',
-        });
+        return reply.code(500).send({ success: false, error: 'Failed to fetch events by name' });
       }
     }
   );

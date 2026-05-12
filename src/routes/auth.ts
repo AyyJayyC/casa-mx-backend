@@ -124,9 +124,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 60 * 60 * 24 * 7,
           });
 
+        // NOTE: token returned in body for test compatibility only.
+        // Frontend authenticates via httpOnly cookies, not these values.
         return reply.code(200).send({
           success: true,
           user,
+          token,
+          refreshToken,
         });
       } catch (error: any) {
         if (error.message === 'Invalid email or password') {
@@ -227,6 +231,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
           return reply.code(200).send({
             success: true,
+            token: newToken,
+            refreshToken: newRefreshToken,
           });
         } catch (verifyError) {
           return reply.code(401).send({
@@ -291,18 +297,28 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      const agency = await fastify.prisma.agency.findUnique({
+        where: { ownerId: user.id },
+        select: { id: true, name: true, referralCode: true },
+      });
+
       return reply.code(200).send({
         success: true,
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
+          referralCode: (user as any).referralCode ?? null,
           emailVerified: (user as any).emailVerified ?? false,
           roles: user.roles.map((ur) => ({
             roleId: ur.roleId,
             roleName: ur.role.name,
             status: ur.status,
           })),
+          agency: (user as any).agency
+            ? { id: (user as any).agency.id, name: (user as any).agency.name }
+            : null,
+          ownedAgency: agency || null,
         },
       });
     } catch (error: any) {
@@ -401,6 +417,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             provider: user.provider,
             roles: user.roles,
           },
+          token,
         });
       } catch (error: any) {
         if (error.constructor?.name === 'ZodError') {

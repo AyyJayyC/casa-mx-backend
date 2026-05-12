@@ -32,6 +32,8 @@ import offersRoutes from './routes/offers.js';
 import notificationsRoutes from './routes/notifications.js';
 import contractsRoutes from './routes/contracts.js';
 import verificationRoutes from './routes/verification.js';
+import referralsRoutes from './routes/referrals.js';
+import agenciesRoutes from './routes/agencies.js';
 import setupDebugRoutes from './routes/debug.js';
 
 type ErrorWithStatusCode = Error & { statusCode?: number };
@@ -264,6 +266,8 @@ export async function buildApp() {
   await app.register(notificationsRoutes);
   await app.register(contractsRoutes);
   await app.register(verificationRoutes);
+  await app.register(referralsRoutes);
+  await app.register(agenciesRoutes);
 
   // Global error handler for production logging
   app.setErrorHandler(async (error, request, reply) => {
