@@ -9,6 +9,7 @@ export const RegisterSchema = z.object({
     .min(8, 'Password must be at least 8 characters')
     .max(128, 'Password is too long'),
   roles: z.array(registerRoleSchema).min(1, 'Select at least one role').optional().default(['buyer']),
+  ref: z.string().max(20).optional(),
 });
 
 export const LoginSchema = z.object({
