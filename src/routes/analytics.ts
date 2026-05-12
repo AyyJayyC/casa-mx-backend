@@ -27,6 +27,21 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
+  // GET /admin/analytics/summary — basic event summary (admin, backward compat)
+  fastify.get(
+    '/admin/analytics/summary',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const summary = await analyticsService.getEventsSummary();
+        return reply.code(200).send({ success: true, data: summary });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to fetch analytics summary' });
+      }
+    }
+  );
+
   // GET /admin/analytics/dashboard — aggregated KPIs (admin)
   fastify.get(
     '/admin/analytics/dashboard',

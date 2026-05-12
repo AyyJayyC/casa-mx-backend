@@ -15,6 +15,25 @@ export class AnalyticsService {
     });
   }
 
+  async getEventsSummary() {
+    const events = await this.prisma.analyticsEvent.findMany();
+    const summary = events.reduce(
+      (acc, event) => {
+        if (!acc[event.eventName]) acc[event.eventName] = 0;
+        acc[event.eventName]++;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+    return {
+      totalEvents: events.length,
+      eventTypes: Object.keys(summary),
+      eventCounts: summary,
+      uniqueUsers: new Set(events.map((e) => e.userId)).size,
+    };
+  }
+
   async getDashboard() {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
