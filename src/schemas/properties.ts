@@ -118,14 +118,21 @@ export const propertyFilterSchema = z.object({
   ciudad: z.string().optional(),
   colonia: z.string().optional(),
   codigoPostal: z.string().optional(),
-  listingType: z.enum(['for_sale', 'for_rent']).optional(), // NEW: Filter by listing type
+  listingType: z.enum(['for_sale', 'for_rent']).optional(),
   minPrice: z.coerce.number().positive().optional(),
   maxPrice: z.coerce.number().positive().optional(),
-  minRent: z.coerce.number().positive().optional(), // NEW: Filter by rent range
+  minRent: z.coerce.number().positive().optional(),
   maxRent: z.coerce.number().positive().optional(),
-  furnished: z.coerce.boolean().optional(), // NEW: Filter by furnished status
+  furnished: z.coerce.boolean().optional(),
+  promoted: z.coerce.boolean().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
+});
+
+// Schema for promoting a property
+export const promotePropertySchema = z.object({
+  tier: z.enum(['featured', 'carousel']),
+  days: z.coerce.number().int().min(1).max(90),
 });
 
 export type PropertyFilter = z.infer<typeof propertyFilterSchema>;

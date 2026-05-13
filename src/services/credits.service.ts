@@ -42,11 +42,11 @@ export class CreditsService {
 
     await this.prisma.creditPackage.createMany({
       data: [
-        { name: 'Explorador', credits: 3,   priceMXN: 59  },
-        { name: 'Básico',     credits: 10,  priceMXN: 149 },
-        { name: 'Agente',     credits: 25,  priceMXN: 299 },
-        { name: 'Pro',        credits: 60,  priceMXN: 599 },
-        { name: 'Ilimitado',  credits: 120, priceMXN: 999 },
+        { name: 'Explorador', credits: 30,   priceMXN: 59  },
+        { name: 'Básico',     credits: 100,  priceMXN: 149 },
+        { name: 'Agente',     credits: 250,  priceMXN: 299 },
+        { name: 'Pro',        credits: 600,  priceMXN: 599 },
+        { name: 'Ilimitado',  credits: 1200, priceMXN: 999 },
       ],
     });
   }
@@ -105,9 +105,10 @@ export class CreditsService {
       return { success: true, newBalance: balance, alreadyUnlocked: true, contact: contact ?? undefined };
     }
 
-    // Check balance
+    // Check balance (10 credits per contact unlock)
+    const SPEND_AMOUNT = 10;
     const balanceRecord = await this.prisma.creditBalance.findUnique({ where: { userId } });
-    if (!balanceRecord || balanceRecord.balance < 1) {
+    if (!balanceRecord || balanceRecord.balance < SPEND_AMOUNT) {
       return { success: false, newBalance: balanceRecord?.balance ?? 0 };
     }
 
@@ -115,13 +116,13 @@ export class CreditsService {
     const [updated] = await this.prisma.$transaction([
       this.prisma.creditBalance.update({
         where: { userId },
-        data: { balance: { decrement: 1 } },
+        data: { balance: { decrement: SPEND_AMOUNT } },
       }),
       this.prisma.creditTransaction.create({
         data: {
           userId,
           type: 'spend',
-          amount: -1,
+          amount: -SPEND_AMOUNT,
           description: `Contacto de interesado desbloqueado (${leadType})`,
           referenceId: leadId,
         },

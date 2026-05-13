@@ -8,6 +8,7 @@ import {
   propertyFilterSchema,
   createPropertySchema,
   updatePropertySchema,
+  promotePropertySchema,
   type PropertyFilter,
   type CreatePropertyInput,
   type UpdatePropertyInput,
@@ -74,55 +75,49 @@ class PropertyService {
    */
   async getProperties(filters: PropertyFilter) {
     const {
-      estado,
-      ciudad,
-      colonia,
-      codigoPostal,
-      listingType, // NEW: Filter by sale/rent
-      minPrice,
-      maxPrice,
-      minRent, // NEW: Filter by rent range
-      maxRent,
-      furnished, // NEW: Filter by furnished
-      limit,
-      offset,
+      estado, ciudad, colonia, codigoPostal, listingType,
+      minPrice, maxPrice, minRent, maxRent, furnished,
+      promoted, limit, offset,
     } = filters;
 
-    // Build where clause dynamically
+    // Expire stale promotions
+    await this.prisma.property.updateMany({
+      where: { featuredUntil: { lt: new Date() } },
+      data: { promotionTier: null, featuredUntil: null },
+    });
+
     const where: any = {};
 
     if (estado) where.estado = estado;
     if (ciudad) where.ciudad = ciudad;
     if (colonia) where.colonia = colonia;
     if (codigoPostal) where.codigoPostal = codigoPostal;
-    if (listingType) where.listingType = listingType; // NEW: Filter by listing type
+    if (listingType) where.listingType = listingType;
 
-    // Price range filter (for sale properties)
     if (minPrice !== undefined || maxPrice !== undefined) {
       where.price = {};
       if (minPrice !== undefined) where.price.gte = minPrice;
       if (maxPrice !== undefined) where.price.lte = maxPrice;
     }
 
-    // Rent range filter (for rental properties)
     if (minRent !== undefined || maxRent !== undefined) {
       where.monthlyRent = {};
       if (minRent !== undefined) where.monthlyRent.gte = minRent;
       if (maxRent !== undefined) where.monthlyRent.lte = maxRent;
     }
 
-    // Furnished filter
-    if (furnished !== undefined) {
-      where.furnished = furnished;
-    }
+    if (furnished !== undefined) where.furnished = furnished;
+    if (promoted) where.promotionTier = { not: null };
 
-    // Get total count for pagination
+    const orderBy: any[] = [
+      { featuredUntil: { sort: 'desc', nulls: 'last' } },
+      { createdAt: 'desc' },
+    ];
+
     const total = await this.prisma.property.count({ where });
-
-    // Get filtered properties
     const properties = await this.prisma.property.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       take: limit,
       skip: offset,
     });
@@ -560,7 +555,67 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
     },
   });
 
-  // DELETE /properties/:id - Delete property (protected - owner only)
+  // POST /properties/:id/promote — boost property visibility (owner only)
+  app.route({
+    method: 'POST',
+    url: '/properties/:id/promote',
+    onRequest: [verifyJWT],
+    handler: async (request, reply) => {
+      try {
+        const user = (request as any).user;
+        const { id } = request.params as { id: string };
+        const { tier, days } = promotePropertySchema.parse(request.body);
+
+        const property = await app.prisma.property.findUnique({ where: { id } });
+        if (!property) {
+          return reply.code(404).send({ success: false, error: 'Propiedad no encontrada' });
+        }
+        if (property.sellerId !== user.id) {
+          return reply.code(403).send({ success: false, error: 'Solo el dueño puede promocionar' });
+        }
+
+        const RATES: Record<string, number> = { featured: 300, carousel: 800 };
+        const cost = RATES[tier] * days;
+
+        const balance = await app.prisma.creditBalance.findUnique({ where: { userId: user.id } });
+        if (!balance || balance.balance < cost) {
+          return reply.code(402).send({ success: false, error: `Saldo insuficiente. Necesitas ${cost} créditos.` });
+        }
+
+        const featuredUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+        await app.prisma.$transaction([
+          app.prisma.creditBalance.update({
+            where: { userId: user.id },
+            data: { balance: { decrement: cost } },
+          }),
+          app.prisma.creditTransaction.create({
+            data: {
+              userId: user.id,
+              type: 'promotion',
+              amount: -cost,
+              description: `Promoción ${tier === 'carousel' ? 'Promocionado' : 'Destacado'} × ${days} días`,
+              referenceId: id,
+            },
+          }),
+          app.prisma.property.update({
+            where: { id },
+            data: { promotionTier: tier, featuredUntil },
+          }),
+        ]);
+
+        return reply.send({ success: true, cost, tier, days, featuredUntil });
+      } catch (error: any) {
+        if (error.constructor?.name === 'ZodError') {
+          return reply.code(400).send({ success: false, error: 'Datos inválidos', details: error.errors });
+        }
+        app.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Error al promocionar' });
+      }
+    },
+  });
+
+  // DELETE /properties/:id - Delete property (owner only)
   app.route({
     method: 'DELETE',
     url: '/properties/:id',

@@ -133,6 +133,10 @@ model Property {
   furnished         Boolean  @default(false)
   utilitiesIncluded Boolean  @default(false)
   
+  // Promotion / visibility tiers
+  promotionTier String?  // null = none, "featured" = Destacado, "carousel" = Promocionado
+  featuredUntil DateTime? // when the promotion expires
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

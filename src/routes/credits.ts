@@ -146,11 +146,11 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(403).send({ success: false, error: 'Forbidden' });
       }
       const packages = [
-        { name: 'Explorador', credits: 3,   priceMXN: 59  },
-        { name: 'Básico',     credits: 10,  priceMXN: 149 },
-        { name: 'Agente',     credits: 25,  priceMXN: 299 },
-        { name: 'Pro',        credits: 60,  priceMXN: 599 },
-        { name: 'Ilimitado',  credits: 120, priceMXN: 999 },
+        { name: 'Explorador', credits: 30,   priceMXN: 59  },
+        { name: 'Básico',     credits: 100,  priceMXN: 149 },
+        { name: 'Agente',     credits: 250,  priceMXN: 299 },
+        { name: 'Pro',        credits: 600,  priceMXN: 599 },
+        { name: 'Ilimitado',  credits: 1200, priceMXN: 999 },
       ];
       // Deactivate all existing, then upsert by name
       await fastify.prisma.creditPackage.updateMany({ where: {}, data: { active: false } });

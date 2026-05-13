@@ -1,0 +1,2 @@
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "promotionTier" TEXT;
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "featuredUntil" TIMESTAMP(3);
