@@ -19,6 +19,7 @@ import mapsRoutes from './routes/maps.js';
 import locationsRoutes from './routes/locations.js';
 import analyticsRoutes from './routes/analytics.js';
 import propertiesRoutes from './routes/properties.js';
+import propertyImagesRoutes from './routes/propertyImages.js';
 import propertyDocumentsRoutes from './routes/propertyDocuments.js';
 import userDocumentsRoutes from './routes/userDocuments.js';
 import applicationsRoutes from './routes/applications.js';
@@ -244,6 +245,15 @@ export async function buildApp() {
   await app.register(mapsMonitor);
 
   // Register routes
+  app.get('/', async (_request, reply) => {
+    return reply.send({
+      name: 'Casa MX API',
+      version: '1.0.0',
+      docs: 'https://github.com/anomalyco/casa-mx',
+      health: '/health',
+    });
+  });
+
   await app.register(healthRoutes);
   await app.register(versionRoutes);
   await app.register(authRoutes);
@@ -253,6 +263,7 @@ export async function buildApp() {
   await app.register(locationsRoutes);
   await app.register(analyticsRoutes);
   await app.register(propertiesRoutes);
+  await app.register(propertyImagesRoutes);
   await app.register(propertyDocumentsRoutes);
   await app.register(userDocumentsRoutes);
   await app.register(applicationsRoutes);

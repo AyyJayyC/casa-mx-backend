@@ -489,40 +489,86 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         // Validate update input
         const input = updatePropertySchema.parse(request.body);
 
+        // Cross-field validation: if switching listing type, ensure required field exists
+        const effectiveListingType = input.listingType ?? existingProperty.listingType;
+
+        if (effectiveListingType === 'for_sale') {
+          const willHavePrice = input.price !== undefined || existingProperty.price != null;
+          if (!willHavePrice) {
+            return reply.code(400).send({
+              success: false,
+              error: 'Validation error',
+              details: [{ path: ['price'], message: 'Price is required when listing type is for_sale' }],
+            });
+          }
+        }
+
+        if (effectiveListingType === 'for_rent') {
+          const willHaveMonthlyRent = input.monthlyRent !== undefined || existingProperty.monthlyRent != null;
+          if (!willHaveMonthlyRent) {
+            return reply.code(400).send({
+              success: false,
+              error: 'Validation error',
+              details: [{ path: ['monthlyRent'], message: 'Monthly rent is required when listing type is for_rent' }],
+            });
+          }
+        }
+
+        // Build update data with listingType cleanup
+        const updateData: Record<string, any> = {
+          title: input.title,
+          description: input.description,
+          address: input.address,
+          imageUrls: input.imageUrls,
+          price: input.price,
+          lat: input.lat,
+          lng: input.lng,
+          estado: input.estado,
+          ciudad: input.ciudad,
+          colonia: input.colonia,
+          codigoPostal: input.codigoPostal,
+          propertyType: input.propertyType,
+          bedrooms: input.bedrooms,
+          bathrooms: input.bathrooms,
+          squareMeters: input.squareMeters,
+          status: input.status,
+          listingType: input.listingType,
+          monthlyRent: input.monthlyRent,
+          securityDeposit: input.securityDeposit,
+          leaseTermMonths: input.leaseTermMonths,
+          furnished: input.furnished,
+          utilitiesIncluded:
+            input.includedServices !== undefined
+              ? input.includedServices.length > 0
+              : input.utilitiesIncluded,
+          includedServices: input.includedServices,
+          amenities: input.amenities,
+          financeOptions: input.financeOptions,
+          availableFrom: input.availableFrom ? new Date(input.availableFrom) : undefined,
+        };
+
+        // When switching listing types, null out incompatible fields
+        if (effectiveListingType === 'for_rent') {
+          if (input.listingType === 'for_rent' && existingProperty.listingType === 'for_sale') {
+            updateData.price = null;
+          }
+        }
+
+        if (effectiveListingType === 'for_sale') {
+          if (input.listingType === 'for_sale' && existingProperty.listingType === 'for_rent') {
+            updateData.monthlyRent = null;
+            updateData.securityDeposit = null;
+            updateData.leaseTermMonths = null;
+            updateData.availableFrom = null;
+            updateData.furnished = false;
+            updateData.utilitiesIncluded = false;
+          }
+        }
+
         // Update property
         const updated = await app.prisma.property.update({
           where: { id },
-          data: {
-            title: input.title,
-            description: input.description,
-            address: input.address,
-            imageUrls: input.imageUrls,
-            price: input.price,
-            lat: input.lat,
-            lng: input.lng,
-            estado: input.estado,
-            ciudad: input.ciudad,
-            colonia: input.colonia,
-            codigoPostal: input.codigoPostal,
-            propertyType: input.propertyType,
-            bedrooms: input.bedrooms,
-            bathrooms: input.bathrooms,
-            squareMeters: input.squareMeters,
-            status: input.status,
-            listingType: input.listingType,
-            monthlyRent: input.monthlyRent,
-            securityDeposit: input.securityDeposit,
-            leaseTermMonths: input.leaseTermMonths,
-            furnished: input.furnished,
-            utilitiesIncluded:
-              input.includedServices !== undefined
-                ? input.includedServices.length > 0
-                : input.utilitiesIncluded,
-            includedServices: input.includedServices,
-            amenities: input.amenities,
-            financeOptions: input.financeOptions,
-            availableFrom: input.availableFrom ? new Date(input.availableFrom) : undefined,
-          },
+          data: updateData,
         });
 
         // If changed to rental, add landlord role
@@ -537,6 +583,23 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
 
         // Invalidate location filter cache when property is updated
         await cacheService.invalidate('location:filter:*');
+
+        // Create audit log for property update
+        const changedFields: string[] = [];
+        for (const key of Object.keys(updateData)) {
+          if (updateData[key] !== undefined) {
+            changedFields.push(key);
+          }
+        }
+        await app.prisma.auditLog.create({
+          data: {
+            actorUserId: user.id,
+            targetUserId: existingProperty.sellerId,
+            action: 'UPDATE_PROPERTY',
+            previousState: { id, title: existingProperty.title },
+            newState: { id, changedFields },
+          },
+        });
 
         return reply.code(200).send({
           success: true,

@@ -365,6 +365,183 @@ describe('Checkpoint 2 - Rental Properties API', () => {
 
       expect(response.statusCode).toBe(404);
     });
+
+    it('should update sale property price', async () => {
+      // Create a fresh sale property for this test
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/properties',
+        headers: { authorization: `Bearer ${authToken}` },
+        payload: {
+          title: 'Price Update Test',
+          estado: 'Jalisco',
+          listingType: 'for_sale',
+          price: 1000000,
+        },
+      });
+      const propId = createRes.json().data.id;
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/properties/${propId}`,
+        headers: { authorization: `Bearer ${authToken}` },
+        payload: { price: 1500000 },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = response.json();
+      expect(data.success).toBe(true);
+      expect(data.data.price).toBe(1500000);
+
+      // Cleanup
+      await app.inject({
+        method: 'DELETE',
+        url: `/properties/${propId}`,
+        headers: { authorization: `Bearer ${authToken}` },
+      });
+    });
+
+    it('should update description and title', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/properties/${rentalPropertyId}`,
+        headers: { authorization: `Bearer ${authToken}` },
+        payload: {
+          title: 'Updated Title',
+          description: 'Updated description text',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = response.json();
+      expect(data.success).toBe(true);
+      expect(data.data.title).toBe('Updated Title');
+      expect(data.data.description).toBe('Updated description text');
+    });
+
+    it('should update imageUrls array', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/properties/${rentalPropertyId}`,
+        headers: { authorization: `Bearer ${authToken}` },
+        payload: {
+          imageUrls: ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg'],
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = response.json();
+      expect(data.success).toBe(true);
+      expect(data.data.imageUrls).toEqual(['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg']);
+    });
+
+    it('should reject switching to for_sale without price', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/properties/${rentalPropertyId}`,
+        headers: { authorization: `Bearer ${authToken}` },
+        payload: { listingType: 'for_sale' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      const data = response.json();
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Validation error');
+    });
+
+    it('should allow switching to for_sale with price provided', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/properties/${rentalPropertyId}`,
+        headers: { authorization: `Bearer ${authToken}` },
+        payload: {
+          listingType: 'for_sale',
+          price: 5000000,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = response.json();
+      expect(data.success).toBe(true);
+      expect(data.data.listingType).toBe('for_sale');
+      expect(data.data.price).toBe(5000000);
+      expect(data.data.monthlyRent).toBeNull();
+    });
+
+    it('should reject switching to for_rent without monthlyRent', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/properties/${rentalPropertyId}`,
+        headers: { authorization: `Bearer ${authToken}` },
+        payload: { listingType: 'for_rent' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      const data = response.json();
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Validation error');
+      expect(data.details[0].path).toContain('monthlyRent');
+    });
+
+    it('should allow switching to for_rent with monthlyRent provided', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/properties/${rentalPropertyId}`,
+        headers: { authorization: `Bearer ${authToken}` },
+        payload: {
+          listingType: 'for_rent',
+          monthlyRent: 30000,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = response.json();
+      expect(data.success).toBe(true);
+      expect(data.data.listingType).toBe('for_rent');
+      expect(data.data.monthlyRent).toBe(30000);
+      expect(data.data.price).toBeNull();
+    });
+
+    it('should preserve unchanged fields on partial update', async () => {
+      // First verify current state
+      const before = await app.inject({
+        method: 'GET',
+        url: `/properties/${rentalPropertyId}`,
+      });
+      const beforeData = before.json().data;
+
+      // Update only the title
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/properties/${rentalPropertyId}`,
+        headers: { authorization: `Bearer ${authToken}` },
+        payload: { title: 'Partially Updated Title' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = response.json();
+      expect(data.data.title).toBe('Partially Updated Title');
+      expect(data.data.price).toBe(beforeData.price);
+      expect(data.data.estado).toBe(beforeData.estado);
+    });
+
+    it('should update estado and ciudad', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/properties/${rentalPropertyId}`,
+        headers: { authorization: `Bearer ${authToken}` },
+        payload: {
+          estado: 'Nuevo León',
+          ciudad: 'Monterrey',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = response.json();
+      expect(data.success).toBe(true);
+      expect(data.data.estado).toBe('Nuevo León');
+      expect(data.data.ciudad).toBe('Monterrey');
+    });
   });
 
   describe('DELETE /properties/:id - Delete Property', () => {

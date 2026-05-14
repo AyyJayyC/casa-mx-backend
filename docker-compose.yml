@@ -53,6 +53,10 @@ services:
       ENABLE_BILLABLE_MAPS: ${ENABLE_BILLABLE_MAPS:-false}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_BUCKET: ${AWS_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
     depends_on:
       postgres:
         condition: service_healthy
