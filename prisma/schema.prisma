@@ -20,6 +20,12 @@ model User {
   emailVerified     Boolean  @default(false)
   verificationToken String?  @unique
   verificationTokenExpiresAt DateTime?
+  referralCode String?  @unique
+  referredById String?
+  referredBy   User?    @relation("UserReferrer", fields: [referredById], references: [id], onDelete: SetNull)
+  agencyId     String?
+  agency       Agency?  @relation("AgencyMembers", fields: [agencyId], references: [id], onDelete: SetNull)
+  referredUsers       User[] @relation("UserReferrer")
   roles              UserRole[]
   reviewsWritten     Review[] @relation("ReviewAuthor")
   reviewsReceived    Review[] @relation("ReviewTarget")
@@ -28,19 +34,8 @@ model User {
   listedProperties   Property[] @relation("PropertySeller")
   uploadedDocuments  PropertyDocument[] @relation("DocumentUploader")
   userDocuments      UserDocument[]     @relation("UserDocuments")
-
-  // Referral system
-  referralCode   String?  @unique
-  referredById   String?
-  referredBy     User?    @relation("ReferralChain", fields: [referredById], references: [id])
-  referrals      User[]   @relation("ReferralChain")
-
-  // Agency membership
-  agencyId         String?
-  agency           Agency?  @relation("AgencyMembers", fields: [agencyId], references: [id])
-  ownedAgency      Agency?  @relation("AgencyOwner")
-  agenciesReferred Agency[] @relation("AgencyReferrals")
-
+  ownedAgencies      Agency[] @relation("AgencyOwner")
+  referredAgencies   Agency[] @relation("AgencyReferrer")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -61,15 +56,20 @@ model Agency {
   ownerId        String   @unique
   owner          User     @relation("AgencyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   referredById   String?
-  referredBy     User?    @relation("AgencyReferrals", fields: [referredById], references: [id])
+  referredBy     User?    @relation("AgencyReferrer", fields: [referredById], references: [id], onDelete: SetNull)
   referralCode   String   @unique
   members        User[]   @relation("AgencyMembers")
+  plan           String   @default("inactive")
+  agentLimit     Int      @default(0)
+  billingActive  Boolean  @default(false)
+  subscriptionEnds DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@index([ownerId])
   @@index([referredById])
   @@index([referralCode])
+  @@index([plan])
 }
 
 model Role {
@@ -123,6 +123,10 @@ model Property {
   // Ownership verification
   verificationStatus String  @default("unverified") // unverified | docs_uploaded | verified | rejected
   verificationNote   String? @db.Text
+
+  // Promotions
+  promotionTier String?  // none | carousel | featured | urgent | priority
+  featuredUntil DateTime?
   
   // Rental system fields
   listingType       String   @default("for_sale") // for_sale, for_rent
@@ -151,6 +155,7 @@ model Property {
   @@index([colonia])
   @@index([codigoPostal])
   @@index([listingType])
+  @@index([promotionTier])
 }
 
 model PropertyImage {
@@ -621,13 +626,14 @@ model PropertyOffer {
   sellerNote     String?  @db.Text
   counterAmount  Float?   // set if seller counters
   
-  property       Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+   property       Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+   
+   createdAt      DateTime @default(now())
+   updatedAt      DateTime @updatedAt
 
-  @@index([propertyId])
-  @@index([buyerId])
-  @@index([status])
-  @@index([createdAt])
-}
+   @@index([propertyId])
+   @@index([buyerId])
+   @@index([status])
+   @@index([createdAt])
+ }
+

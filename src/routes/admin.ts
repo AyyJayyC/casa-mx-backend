@@ -281,6 +281,76 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
   );
+  // Promote property (admin only)
+  fastify.patch<{ Params: { id: string } }>(
+    '/admin/properties/:id/promote',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const { id } = request.params;
+        const { promotionTier, featuredUntil } = request.body as {
+          promotionTier?: 'carousel' | 'featured' | 'urgent' | 'priority' | null;
+          featuredUntil?: string | null;
+        };
+
+        const VALID_TIERS = ['carousel', 'featured', 'urgent', 'priority'];
+
+        if (promotionTier !== undefined && promotionTier !== null && !VALID_TIERS.includes(promotionTier)) {
+          return reply.code(400).send({
+            success: false,
+            error: `Invalid promotionTier. Must be one of: ${VALID_TIERS.join(', ')} or null`,
+          });
+        }
+
+        const property = await fastify.prisma.property.findUnique({
+          where: { id },
+        });
+
+        if (!property) {
+          return reply.code(404).send({ success: false, error: 'Property not found' });
+        }
+
+        const data: Record<string, any> = {};
+        if (promotionTier !== undefined) {
+          data.promotionTier = promotionTier;
+        }
+        if (featuredUntil !== undefined) {
+          data.featuredUntil = featuredUntil ? new Date(featuredUntil) : null;
+        }
+
+        const updated = await fastify.prisma.property.update({
+          where: { id },
+          data,
+        });
+
+        await fastify.prisma.auditLog.create({
+          data: {
+            actorUserId: (request.user as any).id,
+            targetUserId: property.sellerId,
+            action: 'PROMOTE_PROPERTY',
+            previousState: { promotionTier: property.promotionTier, featuredUntil: property.featuredUntil },
+            newState: { promotionTier: updated.promotionTier, featuredUntil: updated.featuredUntil },
+          },
+        });
+
+        return reply.send({
+          success: true,
+          data: {
+            id: updated.id,
+            title: updated.title,
+            promotionTier: updated.promotionTier,
+            featuredUntil: updated.featuredUntil,
+          },
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Failed to promote property',
+        });
+      }
+    }
+  );
 };
 
 export default adminRoutes;
