@@ -141,6 +141,7 @@ model Property {
   reviews            Review[]
   propertyOffers     PropertyOffer[]
   documents          PropertyDocument[]
+  images             PropertyImage[]
 
   @@index([sellerId])
   @@index([status])
@@ -150,6 +151,21 @@ model Property {
   @@index([colonia])
   @@index([codigoPostal])
   @@index([listingType])
+}
+
+model PropertyImage {
+  id         String   @id @default(uuid())
+  propertyId String
+  imageUrl   String   // S3 key (not public URL)
+  fileName   String
+  fileMimeType String
+  order      Int      @default(0)
+  caption    String?
+  createdAt  DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([propertyId, order])
 }
 
 model PropertyDocument {
