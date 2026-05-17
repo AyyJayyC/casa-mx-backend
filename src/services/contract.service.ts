@@ -132,7 +132,46 @@ export async function generateRentalContract(prisma: PrismaClient, applicationId
 
     clause(doc, 9, 'ENTREGA DEL INMUEBLE', `Al término del contrato, el ARRENDATARIO entregará el inmueble libre de personas, bienes muebles, en buen estado de conservación y al corriente en el pago de todos los servicios.`);
 
-    clause(doc, 10, 'JURISDICCIÓN', `En todo lo relacionado con la interpretación y cumplimiento del presente contrato, las partes se someten expresamente a las leyes y tribunales competentes del fuero común del Estado de ${p.estado ?? 'México'}, renunciando al fuero que por razón de su domicilio presente o futuro pudiera corresponderles.`);
+    clause(doc, 10, 'NOM-247 Y SERVICIOS INMOBILIARIOS', `Este servicio inmobiliario se presta de conformidad con la Norma Oficial Mexicana NOM-247-SE-2021. CasaMX actúa únicamente como testigo e intermediario tecnológico, sin representación legal de ninguna de las partes. Las partes reconocen que CasaMX no asume responsabilidad solidaria. Los honorarios de intermediación han sido cubiertos por EL ARRENDADOR. Queda prohibida toda discriminación por motivos de género, origen étnico, preferencia sexual, religión, discapacidad o cualquier otra condición, conforme al artículo 1° Constitucional.`);
+
+    clause(doc, 11, 'JURISDICCIÓN', `En todo lo relacionado con la interpretación y cumplimiento del presente contrato, las partes se someten expresamente a las leyes y tribunales competentes del fuero común del Estado de ${p.estado ?? 'México'}, renunciando al fuero que por razón de su domicilio presente o futuro pudiera corresponderles.`);
+
+    // ── INVENTORY ANNEX ──
+    doc.addPage();
+    sectionTitle(doc, 'ANEXO — INVENTARIO Y ESTADO DEL INMUEBLE');
+    doc.moveDown(0.3);
+    doc.font('Helvetica').fontSize(10).text(`Inmueble: ${address}`);
+    doc.text(`Amueblado: ${p.furnished ? 'Sí' : 'No'} | Servicios incluidos: ${p.utilitiesIncluded ? 'Sí' : 'No'}`);
+    doc.moveDown(0.5);
+
+    const amenities = p.amenities || [];
+    if (amenities.length > 0) {
+      doc.font('Helvetica-Bold').fontSize(10).text('Bienes y accesorios incluidos:');
+      doc.font('Helvetica').fontSize(10);
+      amenities.forEach((item: string, i: number) => {
+        doc.text(`  ${i + 1}. ${item} — Estado: Bueno / Reparaciones: Ninguna`);
+      });
+      doc.moveDown(0.5);
+    } else {
+      doc.text('No se incluyen bienes muebles en este arrendamiento.');
+      doc.moveDown(0.3);
+    }
+
+    if (p.securityDeposit) {
+      doc.font('Helvetica-Bold').fontSize(10).text(`Depósito en garantía: ${formatMXN(p.securityDeposit)}`);
+      doc.font('Helvetica').fontSize(10).text(`El depósito será reembolsable al término del contrato, previa verificación del estado de los bienes inventariados y del inmueble. Cualquier daño o faltante será deducido del depósito conforme a los valores de reposición aquí descritos.`);
+      doc.moveDown(0.3);
+    }
+
+    if (p.inventoryNotes) {
+      doc.font('Helvetica-Bold').fontSize(10).text('Notas de inspección inicial:');
+      doc.font('Helvetica').fontSize(10).text(p.inventoryNotes);
+      doc.moveDown(0.5);
+    }
+
+    doc.font('Helvetica').fontSize(10).text('Ambas partes declaran haber inspeccionado conjuntamente el inmueble y los bienes inventariados el día de la firma, aceptando el estado en que se encuentran.', { align: 'justify' });
+    doc.moveDown(0.3);
+    doc.font('Helvetica-Oblique').fontSize(9).fillColor('grey').text('Este anexo forma parte integrante del Contrato de Arrendamiento y es de cumplimiento obligatorio para ambas partes.', { align: 'center' });
 
     doc.addPage();
     doc.font('Helvetica').fontSize(10).text('Leído el presente instrumento por las partes y enteradas de su contenido, valor y alcance legal, lo firman de conformidad en la ciudad y fecha indicados al inicio.', { align: 'justify' });
@@ -202,7 +241,9 @@ export async function generateSaleContract(prisma: PrismaClient, offerId: string
 
     clause(doc, 9, 'CESIÓN DE DERECHOS', `Los derechos derivados del presente contrato no podrán cederse sin previa autorización escrita de la otra parte.`);
 
-    clause(doc, 10, 'JURISDICCIÓN', `Para la interpretación y cumplimiento del presente contrato, las partes se someten a las leyes y tribunales de ${p.estado ?? 'México'}, renunciando a cualquier otro fuero que pudiera corresponderles.`);
+    clause(doc, 10, 'NOM-247 Y SERVICIOS INMOBILIARIOS', `Este servicio inmobiliario se presta de conformidad con la Norma Oficial Mexicana NOM-247-SE-2021. CasaMX actúa únicamente como testigo e intermediario tecnológico, sin representación legal de ninguna de las partes. Las partes reconocen que CasaMX no asume responsabilidad solidaria. Los honorarios de intermediación han sido cubiertos por EL VENDEDOR. Queda prohibida toda discriminación por motivos de género, origen étnico, preferencia sexual, religión, discapacidad o cualquier otra condición.`);
+
+    clause(doc, 11, 'JURISDICCIÓN', `Para la interpretación y cumplimiento del presente contrato, las partes se someten a las leyes y tribunales de ${p.estado ?? 'México'}, renunciando a cualquier otro fuero que pudiera corresponderles.`);
 
     if (offer.message) {
       doc.moveDown(0.5);
@@ -316,7 +357,9 @@ export async function generatePromesaContract(prisma: PrismaClient, offerId: str
 
     clause(doc, 8, 'FECHA DE CIERRE ESTIMADA', `Las partes estiman que la escrituración definitiva se realizará, como máximo, el ${closingDate}.`);
 
-    clause(doc, 9, 'JURISDICCIÓN', `Para la interpretación y cumplimiento, las partes se someten a las leyes y tribunales del Estado de ${p.estado ?? 'México'}.`);
+    clause(doc, 9, 'NOM-247 Y SERVICIOS INMOBILIARIOS', `Este servicio inmobiliario se presta de conformidad con la Norma Oficial Mexicana NOM-247-SE-2021. CasaMX actúa únicamente como testigo e intermediario tecnológico, sin representación legal de ninguna de las partes. Queda prohibida toda discriminación por cualquier motivo conforme a la Constitución.`);
+
+    clause(doc, 10, 'JURISDICCIÓN', `Para la interpretación y cumplimiento, las partes se someten a las leyes y tribunales del Estado de ${p.estado ?? 'México'}.`);
 
     if (offer.message) {
       doc.moveDown(0.3);
