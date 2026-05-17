@@ -4,6 +4,19 @@ import { z } from 'zod';
 import { verifyJWT, requireAnyRole } from '../utils/guards.js';
 import { LandlordService } from '../services/landlord.service.js';
 import { cacheService } from '../services/cache.service.js';
+
+/**
+ * Normalize location strings for consistent storage and filtering.
+ * Trims, collapses spaces, converts to Title Case.
+ * "  polanco   v sección  " → "Polanco V Sección"
+ */
+function normalizeLocation(value: string | undefined | null): string | undefined {
+  if (value == null || value === '') return undefined;
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 import {
   propertyFilterSchema,
   createPropertySchema,
@@ -91,9 +104,9 @@ class PropertyService {
     // Build where clause dynamically
     const where: any = {};
 
-    if (estado) where.estado = estado;
-    if (ciudad) where.ciudad = ciudad;
-    if (colonia) where.colonia = colonia;
+    if (estado) where.estado = { startsWith: estado, mode: 'insensitive' };
+    if (ciudad) where.ciudad = { startsWith: ciudad, mode: 'insensitive' };
+    if (colonia) where.colonia = { contains: normalizeLocation(colonia)!, mode: 'insensitive' };
     if (codigoPostal) where.codigoPostal = codigoPostal;
     if (listingType) where.listingType = listingType; // NEW: Filter by listing type
 
@@ -150,9 +163,9 @@ class PropertyService {
       sellerId: ownerId,
     };
 
-    if (estado) where.estado = estado;
-    if (ciudad) where.ciudad = ciudad;
-    if (colonia) where.colonia = colonia;
+    if (estado) where.estado = { startsWith: estado, mode: 'insensitive' };
+    if (ciudad) where.ciudad = { startsWith: ciudad, mode: 'insensitive' };
+    if (colonia) where.colonia = { contains: normalizeLocation(colonia)!, mode: 'insensitive' };
     if (codigoPostal) where.codigoPostal = codigoPostal;
     if (listingType) where.listingType = listingType;
 
@@ -288,9 +301,9 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             price: input.price ?? null,
             lat: input.lat ?? null,
             lng: input.lng ?? null,
-            estado: input.estado,
-            ciudad: input.ciudad,
-            colonia: input.colonia,
+            estado: normalizeLocation(input.estado)!,
+            ciudad: normalizeLocation(input.ciudad),
+            colonia: normalizeLocation(input.colonia),
             codigoPostal: input.codigoPostal,
             propertyType: input.propertyType ?? null,
             bedrooms: input.bedrooms ?? null,
@@ -523,9 +536,9 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           price: input.price,
           lat: input.lat,
           lng: input.lng,
-          estado: input.estado,
-          ciudad: input.ciudad,
-          colonia: input.colonia,
+            estado: input.estado !== undefined ? normalizeLocation(input.estado)! : undefined,
+            ciudad: input.ciudad !== undefined ? normalizeLocation(input.ciudad) : undefined,
+            colonia: input.colonia !== undefined ? normalizeLocation(input.colonia) : undefined,
           codigoPostal: input.codigoPostal,
           propertyType: input.propertyType,
           bedrooms: input.bedrooms,
