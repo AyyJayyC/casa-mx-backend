@@ -44,6 +44,7 @@ const basePropertySchema = z.object({
   squareMeters: z.number().int().positive('Square meters must be positive').max(1000000).optional(),
   status: z.enum(['available', 'pending', 'sold', 'rented']).default('available'),
   listingType: z.enum(['for_sale', 'for_rent']).default('for_sale'),
+  inventoryNotes: z.string().max(5000, 'Inventory notes are too long').optional(),
 });
 
 // Schema for sale properties (requires price)
@@ -110,6 +111,7 @@ export const updatePropertySchema = z.object({
   includedServices: includedServicesSchema.optional(),
   amenities: amenitiesSchema.optional(),
   financeOptions: financeOptionsSchema,
+  inventoryNotes: z.string().max(5000).optional(),
 });
 
 // Schema for property filters

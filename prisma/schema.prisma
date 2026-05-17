@@ -127,6 +127,9 @@ model Property {
   // Promotions
   promotionTier String?  // none | carousel | featured | urgent | priority
   featuredUntil DateTime?
+
+  // Inventory & Condition
+  inventoryNotes String? @db.Text  // Move-in condition notes for rental contracts
   
   // Rental system fields
   listingType       String   @default("for_sale") // for_sale, for_rent
