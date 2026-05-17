@@ -82,6 +82,7 @@ const negotiationsRoutes: FastifyPluginAsync = async (fastify) => {
     '/negotiations/:id',
     { onRequest: [verifyJWT] },
     async (request, reply) => {
+      try {
       const negotiation = await fastify.prisma.negotiation.findUnique({
         where: { id: request.params.id },
         include: { offers: { orderBy: { createdAt: 'asc' } } },
@@ -95,6 +96,10 @@ const negotiationsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       return reply.send({ success: true, negotiation });
+      } catch (error: any) {
+        fastify.log.error({ err: error }, 'Failed to fetch negotiation');
+        return reply.code(500).send({ success: false, error: 'Failed to fetch negotiation' });
+      }
     }
   );
 
@@ -106,6 +111,7 @@ const negotiationsRoutes: FastifyPluginAsync = async (fastify) => {
     '/negotiations/by-application/:applicationId',
     { onRequest: [verifyJWT] },
     async (request, reply) => {
+      try {
       const negotiation = await fastify.prisma.negotiation.findUnique({
         where: { rentalApplicationId: request.params.applicationId },
         include: { offers: { orderBy: { createdAt: 'asc' } } },
@@ -119,6 +125,10 @@ const negotiationsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       return reply.send({ success: true, negotiation });
+      } catch (error: any) {
+        fastify.log.error({ err: error }, 'Failed to fetch negotiation by application');
+        return reply.code(500).send({ success: false, error: 'Failed to fetch negotiation' });
+      }
     }
   );
 

@@ -442,11 +442,6 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
 
         const property = await app.prisma.property.findUnique({
           where: { id },
-          include: {
-            propertyRequests: {
-              select: { id: true, buyerId: true, status: true },
-            },
-          },
         });
 
         if (!property) {

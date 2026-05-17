@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
 import { RegisterInput, LoginInput } from '../schemas/auth.js';
+import { generateReferralCode as genRefCode } from '../utils/errorHandling.js';
 
 const AUTO_APPROVED_ROLES = new Set(['buyer', 'tenant']);
 
@@ -9,7 +10,7 @@ export class AuthService {
   constructor(private prisma: PrismaClient) {}
 
   private generateReferralCode(): string {
-    return crypto.randomBytes(4).toString('hex').toUpperCase();
+    return genRefCode();
   }
 
   private async ensureUniqueReferralCode(): Promise<string> {

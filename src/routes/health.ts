@@ -46,8 +46,9 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       await fastify.prisma.$queryRaw`SELECT 1`;
       return reply.code(200).send({ ready: true });
-    } catch {
-      return reply.code(503).send({ ready: false });
+    } catch (err: any) {
+      fastify.log.error({ err }, 'Database readiness check failed');
+      return reply.code(503).send({ ready: false, error: 'Database unreachable' });
     }
   });
 

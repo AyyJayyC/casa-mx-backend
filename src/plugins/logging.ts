@@ -7,25 +7,9 @@
 import { loggingService } from '../services/logging.service.js';
 import pino from 'pino';
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { normalizeError, type ErrorWithStatusCode } from '../utils/errorHandling.js';
 
 const logger = pino();
-
-type ErrorWithStatusCode = Error & { statusCode?: number };
-
-function normalizeError(error: unknown): { errorObj: Error; statusCode: number } {
-  if (error instanceof Error) {
-    const errorWithStatus = error as ErrorWithStatusCode;
-    return {
-      errorObj: error,
-      statusCode: typeof errorWithStatus.statusCode === 'number' ? errorWithStatus.statusCode : 500,
-    };
-  }
-
-  return {
-    errorObj: new Error('Internal server error'),
-    statusCode: 500,
-  };
-}
 
 // Skip logging for health checks and static assets
 const SKIP_ENDPOINTS = ['/health', '/metrics', '/.well-known', '/static'];
