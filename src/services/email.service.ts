@@ -26,6 +26,7 @@ async function sendEmail(to: string, subject: string, html: string, text: string
     });
   } catch (err: any) {
     console.error('[email] SendGrid error:', err?.response?.body ?? err);
+    throw new Error(`Failed to send email to ${to}: ${err?.message ?? 'Unknown error'}`);
   }
 }
 

@@ -37,22 +37,7 @@ import referralsRoutes from './routes/referrals.js';
 import agenciesRoutes from './routes/agencies.js';
 import setupDebugRoutes from './routes/debug.js';
 
-type ErrorWithStatusCode = Error & { statusCode?: number };
-
-function normalizeError(error: unknown): { errorObj: Error; statusCode: number } {
-  if (error instanceof Error) {
-    const errorWithStatus = error as ErrorWithStatusCode;
-    return {
-      errorObj: error,
-      statusCode: typeof errorWithStatus.statusCode === 'number' ? errorWithStatus.statusCode : 500,
-    };
-  }
-
-  return {
-    errorObj: new Error('Internal server error'),
-    statusCode: 500,
-  };
-}
+import { normalizeError, type ErrorWithStatusCode } from './utils/errorHandling.js';
 
 export async function buildApp() {
   const isLocalFrontend =

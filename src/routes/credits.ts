@@ -116,8 +116,8 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
       if (error.constructor?.name === 'ZodError') {
         return reply.code(400).send({ success: false, error: 'Validation error', details: error.errors });
       }
-      fastify.log.error(error);
-      return reply.code(500).send({ success: false, error: error.message ?? 'Failed to create payment intent' });
+      fastify.log.error({ err: error }, 'Failed to create payment intent');
+      return reply.code(500).send({ success: false, error: 'Failed to create payment intent' });
     }
   });
 
@@ -134,8 +134,8 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
       if (error.constructor?.name === 'ZodError') {
         return reply.code(400).send({ success: false, error: 'Validation error', details: error.errors });
       }
-      fastify.log.error(error);
-      return reply.code(500).send({ success: false, error: error.message ?? 'Failed to fulfill payment' });
+      fastify.log.error({ err: error }, 'Failed to fulfill payment');
+      return reply.code(500).send({ success: false, error: 'Failed to fulfill payment' });
     }
   });
 
@@ -167,8 +167,8 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
       }
       return reply.send({ success: true, message: 'Packages synced' });
     } catch (error: any) {
-      fastify.log.error(error);
-      return reply.code(500).send({ success: false, error: error.message });
+      fastify.log.error({ err: error }, 'Failed to sync packages');
+      return reply.code(500).send({ success: false, error: 'Failed to sync packages' });
     }
   });
 
@@ -191,8 +191,8 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
         await creditsService.handleWebhook(rawBody, signature, env.STRIPE_WEBHOOK_SECRET);
         return reply.send({ received: true });
       } catch (error: any) {
-        fastify.log.error(error);
-        return reply.code(400).send({ error: error.message });
+        fastify.log.error({ err: error }, 'Stripe webhook failed');
+        return reply.code(400).send({ error: 'Webhook processing failed' });
       }
     }
   );
