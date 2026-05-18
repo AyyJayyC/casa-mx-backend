@@ -196,6 +196,67 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
   );
+
+  // GET /credits/invoice/:transactionId — Generate purchase comprobante
+  fastify.get<{ Params: { transactionId: string } }>(
+    '/credits/invoice/:transactionId',
+    { onRequest: [verifyJWT] },
+    async (request, reply) => {
+      try {
+        const userId = request.user.id;
+        const { transactionId } = request.params;
+
+        const transaction = await fastify.prisma.creditTransaction.findUnique({
+          where: { id: transactionId },
+        });
+
+        if (!transaction || transaction.userId !== userId) {
+          return reply.code(404).send({ success: false, error: 'Transaction not found' });
+        }
+
+        if (transaction.type !== 'purchase') {
+          return reply.code(400).send({ success: false, error: 'Only purchase transactions can be invoiced' });
+        }
+
+        const user = await fastify.prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true, email: true, rfc: true, razonSocial: true, usoCFDI: true },
+        });
+
+        const pkg = await fastify.prisma.creditPackage.findFirst({
+          where: { name: { contains: String(transaction.amount) } },
+        });
+
+        return reply.send({
+          success: true,
+          invoice: {
+            invoiceNumber: `CASAMX-${transaction.createdAt.getFullYear()}-${String(transaction.createdAt.getMonth() + 1).padStart(2, '0')}-${transaction.id.substring(0, 8).toUpperCase()}`,
+            date: transaction.createdAt.toISOString(),
+            client: {
+              name: user?.name || 'Cliente',
+              email: user?.email || '',
+              rfc: user?.rfc || 'XAXX010101000',
+              razonSocial: user?.razonSocial || user?.name || 'Cliente',
+              usoCFDI: user?.usoCFDI || 'G03',
+            },
+            items: [{
+              description: pkg?.name || 'Paquete de créditos',
+              credits: Math.abs(transaction.amount),
+              priceMXN: pkg?.priceMXN || 0,
+              subtotal: (pkg?.priceMXN || 0) / 1.16,
+              iva: (pkg?.priceMXN || 0) - ((pkg?.priceMXN || 0) / 1.16),
+              total: pkg?.priceMXN || 0,
+            }],
+            total: pkg?.priceMXN || 0,
+            status: 'issued',
+          },
+        });
+      } catch (error: any) {
+        fastify.log.error({ err: error }, 'Failed to generate invoice');
+        return reply.code(500).send({ success: false, error: 'Failed to generate invoice' });
+      }
+    }
+  );
 };
 
 export default creditsRoutes;
