@@ -145,6 +145,11 @@ describe('Checkpoint 1 - Database Models & Migrations', () => {
   });
 
   it('should have Property model with geo coordinates', async () => {
+    // Create a seller user first (FK constraint)
+    const seller = await app.prisma.user.create({
+      data: { email: `seller-geo-${Date.now()}@test.com`, name: 'Geo Seller', password: 'test' },
+    });
+
     const property = await app.prisma.property.create({
       data: {
         title: 'Test Property',
@@ -153,7 +158,7 @@ describe('Checkpoint 1 - Database Models & Migrations', () => {
         price: 250000,
         lat: 25.7617,
         lng: -100.3161,
-        sellerId: 'seller-123',
+        sellerId: seller.id,
       },
     });
 
@@ -163,22 +168,31 @@ describe('Checkpoint 1 - Database Models & Migrations', () => {
 
     // Cleanup
     await app.prisma.property.delete({ where: { id: property.id } });
+    await app.prisma.user.delete({ where: { id: seller.id } });
   });
 
   it('should support Property-Request relationships', async () => {
+    // Create seller + buyer users (FK constraints)
+    const seller = await app.prisma.user.create({
+      data: { email: `seller-req-${Date.now()}@test.com`, name: 'Req Seller', password: 'test' },
+    });
+    const buyer = await app.prisma.user.create({
+      data: { email: `buyer-req-${Date.now()}@test.com`, name: 'Req Buyer', password: 'test' },
+    });
+
     const property = await app.prisma.property.create({
       data: {
         title: 'Test Property',
         address: '123 Main St',
         price: 250000,
-        sellerId: 'seller-123',
+        sellerId: seller.id,
       },
     });
 
     const request = await app.prisma.propertyRequest.create({
       data: {
         propertyId: property.id,
-        buyerId: 'buyer-456',
+        buyerId: buyer.id,
         message: 'Interested in this property',
       },
     });
@@ -187,7 +201,10 @@ describe('Checkpoint 1 - Database Models & Migrations', () => {
     expect(request.status).toBe('pending');
 
     // Cleanup
+    await app.prisma.propertyRequest.delete({ where: { id: request.id } });
     await app.prisma.property.delete({ where: { id: property.id } });
+    await app.prisma.user.delete({ where: { id: buyer.id } });
+    await app.prisma.user.delete({ where: { id: seller.id } });
   });
 
   it('should have AnalyticsEvent model', async () => {

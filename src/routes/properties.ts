@@ -15,7 +15,9 @@ function normalizeLocation(value: string | undefined | null): string | undefined
   return value
     .trim()
     .replace(/\s+/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }
 import {
   propertyFilterSchema,

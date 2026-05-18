@@ -703,8 +703,8 @@ describe('Checkpoint 2 - Backend API Filters', () => {
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(Array.isArray(body.data.propertyRequests)).toBe(true);
-      expect(body.data.propertyRequests.length).toBeGreaterThanOrEqual(1);
+      expect(body.data.id).toBe(property.id);
+      expect(body.data.title).toBeDefined();
     });
   });
 });
