@@ -340,6 +340,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             petFee: input.petFee ?? null,
             petDeposit: input.petDeposit ?? null,
             childrenWelcome: input.childrenWelcome ?? false,
+            mapsUrl: input.mapsUrl ?? null,
             furnished: input.furnished ?? false,
             utilitiesIncluded: ((input.includedServices?.length ?? 0) > 0) || (input.utilitiesIncluded ?? false),
             sellerId: user.id,
@@ -579,6 +580,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           petFee: input.petFee,
           petDeposit: input.petDeposit,
           childrenWelcome: input.childrenWelcome,
+          mapsUrl: input.mapsUrl,
           financeOptions: input.financeOptions,
           availableFrom: input.availableFrom ? new Date(input.availableFrom) : undefined,
         };

@@ -50,6 +50,7 @@ const basePropertySchema = z.object({
   petFee: z.number().positive('Pet fee must be positive').optional(),
   petDeposit: z.number().positive('Pet deposit must be positive').optional(),
   childrenWelcome: z.boolean().optional(),
+  mapsUrl: z.string().url('Must be a valid URL').optional(),
 });
 
 // Schema for sale properties (requires price)
@@ -122,6 +123,7 @@ export const updatePropertySchema = z.object({
   petFee: z.number().positive().optional(),
   petDeposit: z.number().positive().optional(),
   childrenWelcome: z.boolean().optional(),
+  mapsUrl: z.string().url().optional(),
 });
 
 // Schema for property filters

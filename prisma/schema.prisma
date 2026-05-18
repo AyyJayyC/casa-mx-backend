@@ -141,6 +141,9 @@ model Property {
 
   // Inventory & Condition
   inventoryNotes String? @db.Text  // Move-in condition notes for rental contracts
+
+  // External links
+  mapsUrl       String?  // Google Maps link for the property
   
   // Rental system fields
   listingType       String   @default("for_sale") // for_sale, for_rent

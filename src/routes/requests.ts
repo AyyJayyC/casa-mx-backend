@@ -143,7 +143,7 @@ const requestsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const req = await fastify.prisma.propertyRequest.findUnique({
         where: { id },
-        include: { property: { select: { sellerId: true, address: true } } },
+        include: { property: { select: { sellerId: true, address: true, mapsUrl: true } } },
       });
 
       if (!req) {
@@ -167,6 +167,7 @@ const requestsRoutes: FastifyPluginAsync = async (fastify) => {
         success: true,
         message: 'Dirección revelada al comprador',
         address: req.property.address,
+        mapsUrl: req.property.mapsUrl,
       });
     } catch (error: any) {
       fastify.log.error(error);
