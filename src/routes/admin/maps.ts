@@ -34,7 +34,7 @@ const usageHistoryQuerySchema = z.object({
 
 const adminMapsRoutes: FastifyPluginAsync = async (fastify, opts) => {
   // GET /admin/maps/usage
-  fastify.get('/admin/maps/usage', { onRequest: [verifyJWT, requireRole('admin')] }, async (request, reply) => {
+  fastify.get('/admin/maps/usage', { onRequest: [requireRole('admin')] }, async (request, reply) => {
     const services = await mapsService.listLimits();
     // For each service, compute monthly usage
     const usagePromises = services.map(async (s) => ({
@@ -49,13 +49,13 @@ const adminMapsRoutes: FastifyPluginAsync = async (fastify, opts) => {
   });
 
   // GET /admin/maps/limits
-  fastify.get('/admin/maps/limits', { onRequest: [verifyJWT, requireRole('admin')] }, async (request, reply) => {
+  fastify.get('/admin/maps/limits', { onRequest: [requireRole('admin')] }, async (request, reply) => {
     const limits = await mapsService.listLimits();
     return reply.send(limits);
   });
 
   // PATCH /admin/maps/limits/:serviceType
-  fastify.patch('/admin/maps/limits/:serviceType', { onRequest: [verifyJWT, requireRole('admin')] }, async (request, reply) => {
+  fastify.patch('/admin/maps/limits/:serviceType', { onRequest: [requireRole('admin')] }, async (request, reply) => {
     const parsedParams = serviceTypeParamsSchema.safeParse(request.params);
     const parsedBody = updateLimitBodySchema.safeParse(request.body);
 
@@ -74,7 +74,7 @@ const adminMapsRoutes: FastifyPluginAsync = async (fastify, opts) => {
   });
 
   // PATCH /admin/maps/service/:serviceType/enable
-  fastify.patch('/admin/maps/service/:serviceType/enable', { onRequest: [verifyJWT, requireRole('admin')] }, async (request, reply) => {
+  fastify.patch('/admin/maps/service/:serviceType/enable', { onRequest: [requireRole('admin')] }, async (request, reply) => {
     const parsedParams = serviceTypeParamsSchema.safeParse(request.params);
     if (!parsedParams.success) {
       return reply.code(400).send({ error: 'invalid_request', details: parsedParams.error.issues });
@@ -85,7 +85,7 @@ const adminMapsRoutes: FastifyPluginAsync = async (fastify, opts) => {
   });
 
   // PATCH /admin/maps/service/:serviceType/disable
-  fastify.patch('/admin/maps/service/:serviceType/disable', { onRequest: [verifyJWT, requireRole('admin')] }, async (request, reply) => {
+  fastify.patch('/admin/maps/service/:serviceType/disable', { onRequest: [requireRole('admin')] }, async (request, reply) => {
     const parsedParams = serviceTypeParamsSchema.safeParse(request.params);
     if (!parsedParams.success) {
       return reply.code(400).send({ error: 'invalid_request', details: parsedParams.error.issues });
@@ -96,7 +96,7 @@ const adminMapsRoutes: FastifyPluginAsync = async (fastify, opts) => {
   });
 
   // GET /admin/maps/usage/history?service=...&period=daily|monthly
-  fastify.get('/admin/maps/usage/history', { onRequest: [verifyJWT, requireRole('admin')] }, async (request, reply) => {
+  fastify.get('/admin/maps/usage/history', { onRequest: [requireRole('admin')] }, async (request, reply) => {
     const parsedQuery = usageHistoryQuerySchema.safeParse(request.query);
     if (!parsedQuery.success) {
       return reply.code(400).send({ error: 'invalid_request', details: parsedQuery.error.issues });

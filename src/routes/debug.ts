@@ -72,7 +72,10 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
         ipAddress: request.ip
       });
 
-      return reply.send({ id: session?.id || 'error' });
+      if (!session?.id) {
+        return reply.code(500).send({ success: false, error: 'Failed to create debug session' });
+      }
+      return reply.send({ id: session.id });
     }
   );
 

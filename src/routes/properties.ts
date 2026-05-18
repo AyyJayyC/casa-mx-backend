@@ -297,7 +297,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
   app.route({
     method: 'POST',
     url: '/properties',
-    onRequest: [verifyJWT, requireAnyRole(['seller', 'wholesaler', 'landlord', 'admin'])],
+    onRequest: [requireAnyRole(['seller', 'wholesaler', 'landlord', 'admin'])],
     handler: async (request, reply) => {
       try {
         const user = (request as any).user;
@@ -378,7 +378,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
   app.route({
     method: 'GET',
     url: '/properties/mine',
-    onRequest: [verifyJWT, requireAnyRole(['seller', 'wholesaler', 'landlord', 'admin'])],
+    onRequest: [requireAnyRole(['seller', 'wholesaler', 'landlord', 'admin'])],
     handler: async (request, reply) => {
       try {
         const user = (request as any).user;

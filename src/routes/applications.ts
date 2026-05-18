@@ -190,7 +190,7 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /applications/property/:propertyId - View applications for property (landlord view)
   fastify.get(
     '/applications/property/:propertyId',
-    { onRequest: [verifyJWT, requireRole('landlord')] },
+    { onRequest: [requireRole('landlord')] },
     async (request, reply) => {
       try {
         const params = propertyIdParamSchema.parse(request.params);
@@ -263,7 +263,7 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
   // PATCH /applications/:id - Update application status (landlord action)
   fastify.patch(
     '/applications/:id',
-    { onRequest: [verifyJWT, requireRole('landlord')] },
+    { onRequest: [requireRole('landlord')] },
     async (request, reply) => {
       try {
         const params = applicationIdParamSchema.parse(request.params);
