@@ -45,6 +45,11 @@ const basePropertySchema = z.object({
   status: z.enum(['available', 'pending', 'sold', 'rented']).default('available'),
   listingType: z.enum(['for_sale', 'for_rent']).default('for_sale'),
   inventoryNotes: z.string().max(5000, 'Inventory notes are too long').optional(),
+  issuesInvoice: z.boolean().optional(),
+  petFriendly: z.boolean().optional(),
+  petFee: z.number().positive('Pet fee must be positive').optional(),
+  petDeposit: z.number().positive('Pet deposit must be positive').optional(),
+  childrenWelcome: z.boolean().optional(),
 });
 
 // Schema for sale properties (requires price)
@@ -112,6 +117,11 @@ export const updatePropertySchema = z.object({
   amenities: amenitiesSchema.optional(),
   financeOptions: financeOptionsSchema,
   inventoryNotes: z.string().max(5000).optional(),
+  issuesInvoice: z.boolean().optional(),
+  petFriendly: z.boolean().optional(),
+  petFee: z.number().positive().optional(),
+  petDeposit: z.number().positive().optional(),
+  childrenWelcome: z.boolean().optional(),
 });
 
 // Schema for property filters
@@ -126,6 +136,9 @@ export const propertyFilterSchema = z.object({
   minRent: z.coerce.number().positive().optional(), // NEW: Filter by rent range
   maxRent: z.coerce.number().positive().optional(),
   furnished: z.coerce.boolean().optional(), // NEW: Filter by furnished status
+  issuesInvoice: z.coerce.boolean().optional(),
+  petFriendly: z.coerce.boolean().optional(),
+  childrenWelcome: z.coerce.boolean().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });

@@ -117,6 +117,14 @@ model Property {
   includedServices String[] @default([])
   amenities   String[] @default([])
   financeOptions String[] @default([])  // cash, bankLoan, INFONAVIT, FOVISSSTE, paymentPlan, other
+
+  // Property features
+  issuesInvoice   Boolean  @default(false)  // ¿Emite factura (CFDI)?
+  petFriendly     Boolean  @default(false)  // ¿Se aceptan mascotas?
+  petFee          Float?   // Cuota mensual adicional por mascota
+  petDeposit      Float?   // Depósito adicional por mascota
+  childrenWelcome Boolean  @default(false)  // ¿Niños bienvenidos?
+
   sellerId    String
   seller      User     @relation("PropertySeller", fields: [sellerId], references: [id])
   
@@ -159,6 +167,9 @@ model Property {
   @@index([codigoPostal])
   @@index([listingType])
   @@index([promotionTier])
+  @@index([issuesInvoice])
+  @@index([petFriendly])
+  @@index([childrenWelcome])
 }
 
 model PropertyImage {
