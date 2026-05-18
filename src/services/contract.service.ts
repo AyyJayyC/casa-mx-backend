@@ -54,12 +54,12 @@ function sectionTitle(doc: PDFKit.PDFDocument, text: string) {
 function clause(doc: PDFKit.PDFDocument, number: number, title: string, body: string) {
   doc.font('Helvetica-Bold').fontSize(10).text(`CLÁUSULA ${number}. – ${title}`);
   doc.font('Helvetica').fontSize(10).text(body, { align: 'justify' });
-  doc.moveDown(0.5);
+  doc.moveDown(0.3);
 }
 
 // Signature block
 function signatureBlock(doc: PDFKit.PDFDocument, labelLeft: string, labelRight: string) {
-  doc.moveDown(2);
+  doc.moveDown(1.5);
   const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
   const col = pageWidth / 2 - 20;
 
@@ -72,7 +72,7 @@ function signatureBlock(doc: PDFKit.PDFDocument, labelLeft: string, labelRight: 
   const rightX = doc.page.margins.left + col + 40;
   doc.moveTo(rightX, doc.y + doc.currentLineHeight(true) * 1.5).lineTo(rightX + col, doc.y + doc.currentLineHeight(true) * 1.5).stroke();
   doc.text(labelRight, rightX, doc.y + doc.currentLineHeight(true) * 2, { width: col, align: 'center' });
-  doc.moveDown(2);
+  doc.moveDown(1.5);
 }
 
 function header(doc: PDFKit.PDFDocument, title: string, subtitle?: string) {
@@ -81,10 +81,9 @@ function header(doc: PDFKit.PDFDocument, title: string, subtitle?: string) {
     const logoPath = process.env.CONTRACT_LOGO_PATH || 'src/data/logo-horizontal.png';
     const fs = require('fs');
     if (fs.existsSync(logoPath)) {
-      doc.image(logoPath, doc.page.margins.left + 40, doc.y, { width: 200, align: 'center' });
-      // Center horizontally
+      doc.image(logoPath, doc.page.margins.left + 40, doc.y, { width: 160, align: 'center' });
       doc.x = doc.page.margins.left;
-      doc.moveDown(3);
+  doc.moveDown(1.5);
     }
   } catch { /* Logo not available, skip */ }
   doc.font('Helvetica-Bold').fontSize(14).text('CASAMX', { align: 'center' });
@@ -137,7 +136,7 @@ export async function generateRentalContract(prisma: PrismaClient, applicationId
     doc.text(`I. EL ARRENDADOR: ${landlord.name}, en adelante "EL ARRENDADOR", manifiesta ser el legítimo propietario o representante autorizado del inmueble objeto del presente contrato.`);
     doc.moveDown(0.3);
     doc.text(`II. EL ARRENDATARIO: ${app.fullName}, correo: ${app.email}, teléfono: ${app.phone}, en adelante "EL ARRENDATARIO".`);
-    doc.moveDown(0.8);
+    doc.moveDown(0.5);
 
     sectionTitle(doc, 'CLÁUSULAS');
 
@@ -164,7 +163,8 @@ export async function generateRentalContract(prisma: PrismaClient, applicationId
     clause(doc, 11, 'JURISDICCIÓN Y LEGISLACIÓN APLICABLE', `Para la interpretación y cumplimiento del presente contrato, las partes se someten expresamente a los ${legal.court || 'tribunales competentes'} de ${p.estado ?? 'México'}, renunciando al fuero que por razón de su domicilio presente o futuro pudiera corresponderles. El presente arrendamiento se rige por lo dispuesto en ${legal.rentalLaw || 'los artículos aplicables'} del ${legal.civilCode || 'Código Civil'}.`);
 
     // ── INVENTORY ANNEX ──
-    doc.addPage();
+    doc.moveDown(1);
+    doc.font('Helvetica-Oblique').fontSize(9).fillColor('grey').text('───────────────────────────────────────────', { align: 'center' });
     sectionTitle(doc, 'ANEXO — INVENTARIO Y ESTADO DEL INMUEBLE');
     doc.moveDown(0.3);
     doc.font('Helvetica').fontSize(10).text(`Inmueble: ${address}`);
@@ -200,7 +200,7 @@ export async function generateRentalContract(prisma: PrismaClient, applicationId
     doc.moveDown(0.3);
     doc.font('Helvetica-Oblique').fontSize(9).fillColor('grey').text('Este anexo forma parte integrante del Contrato de Arrendamiento y es de cumplimiento obligatorio para ambas partes.', { align: 'center' });
 
-    doc.addPage();
+    doc.moveDown(1.5);
     doc.font('Helvetica').fontSize(10).text('Leído el presente instrumento por las partes y enteradas de su contenido, valor y alcance legal, lo firman de conformidad en la ciudad y fecha indicados al inicio.', { align: 'justify' });
 
     signatureBlock(doc, `EL ARRENDADOR\n${landlord.name}`, `EL ARRENDATARIO\n${app.fullName}`);
@@ -263,7 +263,7 @@ export async function generateSaleContract(prisma: PrismaClient, offerId: string
     doc.text(`I. EL VENDEDOR: ${seller.name}, correo: ${seller.email}, en adelante "EL VENDEDOR", manifiesta ser el legítimo propietario del inmueble objeto de este contrato.`);
     doc.moveDown(0.3);
     doc.text(`II. EL COMPRADOR: ${offer.buyerName}, correo: ${offer.buyerEmail}, teléfono: ${offer.buyerPhone}, en adelante "EL COMPRADOR".`);
-    doc.moveDown(0.8);
+    doc.moveDown(0.5);
 
     sectionTitle(doc, 'CLÁUSULAS');
 
@@ -294,7 +294,7 @@ export async function generateSaleContract(prisma: PrismaClient, offerId: string
       doc.font('Helvetica-Oblique').fontSize(9).text(`Nota adicional del comprador: "${offer.message}"`, { align: 'justify' });
     }
 
-    doc.addPage();
+    doc.moveDown(1.5);
     doc.font('Helvetica').fontSize(10).text('Leído el presente instrumento por las partes y enteradas de su contenido, valor y alcance legal, lo firman de conformidad en la ciudad y fecha indicados al inicio.', { align: 'justify' });
 
     signatureBlock(doc, `EL VENDEDOR\n${seller.name}`, `EL COMPRADOR\n${offer.buyerName}`);
@@ -305,7 +305,6 @@ export async function generateSaleContract(prisma: PrismaClient, offerId: string
     doc.end();
   });
 }
-
 
 // ────────────────────────────────────────────────────────
 // PROMESA DE COMPRAVENTA — Payment Plan Contract
@@ -346,7 +345,7 @@ export async function generatePromesaContract(prisma: PrismaClient, offerId: str
     doc.text(`I. EL PROMITENTE VENDEDOR: ${seller.name}, correo: ${seller.email}, en adelante "EL VENDEDOR".`);
     doc.moveDown(0.3);
     doc.text(`II. EL PROMITENTE COMPRADOR: ${offer.buyerName}, correo: ${offer.buyerEmail}, teléfono: ${offer.buyerPhone}, en adelante "EL COMPRADOR".`);
-    doc.moveDown(0.8);
+    doc.moveDown(0.5);
 
     sectionTitle(doc, 'CLÁUSULAS');
 
@@ -389,7 +388,7 @@ export async function generatePromesaContract(prisma: PrismaClient, offerId: str
       doc.moveDown(0.05);
       doc.y = y + rowH;
     });
-    doc.moveDown(0.8);
+    doc.moveDown(0.5);
     doc.font('Helvetica').fontSize(10);
 
     clause(doc, 3, 'FORMA DE PAGO', `El enganche será pagado a la firma del presente contrato. Las mensualidades se pagarán los primeros cinco días de cada mes, comenzando el mes siguiente a la firma. Sin intereses, salvo mora.`);
@@ -413,11 +412,12 @@ export async function generatePromesaContract(prisma: PrismaClient, offerId: str
       doc.font('Helvetica-Oblique').fontSize(9).text(`Nota del comprador: "${offer.message}"`, { align: 'justify' });
     }
 
-    doc.addPage();
+    doc.moveDown(1.5);
     doc.font('Helvetica').fontSize(10).text('Leído el presente instrumento y enteradas las partes de su contenido y alcance legal, lo firman de conformidad.', { align: 'justify' });
 
     signatureBlock(doc, `EL PROMITENTE VENDEDOR\n${seller.name}`, `EL PROMITENTE COMPRADOR\n${offer.buyerName}`);
 
+    addLogoFooter(doc);
     doc.fontSize(8).fillColor('grey').text('Contrato generado por CasaMX · Plataforma de bienes raíces · México', { align: 'center' });
 
     doc.end();
