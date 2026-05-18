@@ -148,19 +148,31 @@ export async function generateRentalContract(prisma: PrismaClient, applicationId
 
     clause(doc, 4, 'DEPÓSITO EN GARANTÍA', `El ARRENDATARIO entrega en este acto la cantidad de ${deposit} como depósito en garantía, el cual le será devuelto al término del contrato, previa verificación de que el inmueble se encuentra en buen estado y sin adeudos.`);
 
-    clause(doc, 5, 'OCUPANTES', `El número de personas que habitarán el inmueble será de ${app.numberOfOccupants}. El ARRENDATARIO no podrá subarrendar total ni parcialmente sin autorización escrita del ARRENDADOR.`);
+    clause(doc, 5, 'OCUPANTES Y RESTRICCIONES', `El número de personas que habitarán el inmueble será de ${app.numberOfOccupants}. El ARRENDATARIO no podrá subarrendar total ni parcialmente sin autorización escrita del ARRENDADOR. ${p.childrenWelcome ? 'Los niños son bienvenidos en este inmueble.' : 'No se permiten niños en este inmueble.'}`);
 
-    clause(doc, 6, 'SERVICIOS E IMPUESTOS', `Los servicios de luz, agua, gas y demás que se generen en el inmueble durante el arrendamiento serán a cargo y responsabilidad del ARRENDATARIO.${p.utilitiesIncluded ? ' El ARRENDADOR ha indicado que algunos servicios están incluidos en la renta.' : ''}`);
+    clause(doc, 6, 'SERVICIOS E IMPUESTOS', `Los servicios de luz, agua, gas y demás que se generen en el inmueble durante el arrendamiento serán a cargo y responsabilidad del ARRENDATARIO.${p.utilitiesIncluded ? ' El ARRENDADOR ha indicado que algunos servicios están incluidos en la renta.' : ''} El ARRENDADOR ${p.issuesInvoice ? 'SÍ' : 'NO'} emite factura (CFDI de arrendamiento) por las rentas cobradas, de conformidad con el artículo 29-A del Código Fiscal de la Federación.`);
 
-    clause(doc, 7, 'CONSERVACIÓN Y MANTENIMIENTO', `El ARRENDATARIO recibirá el inmueble en buen estado de conservación y se obliga a mantenerlo en las mismas condiciones. Las reparaciones menores serán por cuenta del ARRENDATARIO; las mayores corresponderán al ARRENDADOR siempre que no deriven de descuido o mal uso por parte del ARRENDATARIO.`);
+    if (p.petFriendly) {
+      const petDetails = [];
+      if (p.petFee) petDetails.push(`cuota mensual adicional de ${formatMXN(p.petFee)} por mascota`);
+      if (p.petDeposit) petDetails.push(`depósito adicional de ${formatMXN(p.petDeposit)} por mascota`);
+      const petText = petDetails.length > 0 ? ` — ${petDetails.join(' y ')}.` : '.';
+      clause(doc, 7, 'MASCOTAS', `Las mascotas son permitidas en el inmueble${petText} El ARRENDATARIO se obliga a mantener a las mascotas bajo control, limpiar cualquier daño causado por estas, y entregar el inmueble libre de olores, manchas o deterioro relacionado. Cualquier daño ocasionado por mascotas será deducido del depósito en garantía.`);
+      // Renumber: clause 7 is now PETS, so 8 becomes TERMINACIÓN, etc.
+      // Actually let me renumber from here. Let me just use a note in the existing clauses.
+    } else {
+      clause(doc, 7, 'MASCOTAS', `No se permiten mascotas en el inmueble. El incumplimiento de esta cláusula será causa de rescisión del contrato con pérdida del depósito en garantía.`);
+    }
 
-    clause(doc, 8, 'TERMINACIÓN ANTICIPADA', `En caso de rescisión anticipada por parte del ARRENDATARIO, se perderá el depósito en garantía como penalidad, sin perjuicio de los demás adeudos. El ARRENDADOR podrá rescindir el contrato por falta de pago de dos mensualidades consecutivas.`);
+    clause(doc, 8, 'CONSERVACIÓN Y MANTENIMIENTO', `El ARRENDATARIO recibirá el inmueble en buen estado de conservación y se obliga a mantenerlo en las mismas condiciones. Las reparaciones menores serán por cuenta del ARRENDATARIO; las mayores corresponderán al ARRENDADOR siempre que no deriven de descuido o mal uso por parte del ARRENDATARIO.`);
 
-    clause(doc, 9, 'ENTREGA DEL INMUEBLE', `Al término del contrato, el ARRENDATARIO entregará el inmueble libre de personas, bienes muebles, en buen estado de conservación y al corriente en el pago de todos los servicios.`);
+    clause(doc, 9, 'TERMINACIÓN ANTICIPADA', `En caso de rescisión anticipada por parte del ARRENDATARIO, se perderá el depósito en garantía como penalidad, sin perjuicio de los demás adeudos. El ARRENDADOR podrá rescindir el contrato por falta de pago de dos mensualidades consecutivas.`);
 
-    clause(doc, 10, 'NOM-247 Y SERVICIOS INMOBILIARIOS', `Este servicio inmobiliario se presta de conformidad con la Norma Oficial Mexicana NOM-247-SE-2021. CasaMX actúa únicamente como testigo e intermediario tecnológico, sin representación legal de ninguna de las partes. Las partes reconocen que CasaMX no asume responsabilidad solidaria. Los honorarios de intermediación han sido cubiertos por EL ARRENDADOR. Queda prohibida toda discriminación por motivos de género, origen étnico, preferencia sexual, religión, discapacidad o cualquier otra condición, conforme al artículo 1° Constitucional.`);
+    clause(doc, 10, 'ENTREGA DEL INMUEBLE', `Al término del contrato, el ARRENDATARIO entregará el inmueble libre de personas, bienes muebles, en buen estado de conservación y al corriente en el pago de todos los servicios.`);
 
-    clause(doc, 11, 'JURISDICCIÓN Y LEGISLACIÓN APLICABLE', `Para la interpretación y cumplimiento del presente contrato, las partes se someten expresamente a los ${legal.court || 'tribunales competentes'} de ${p.estado ?? 'México'}, renunciando al fuero que por razón de su domicilio presente o futuro pudiera corresponderles. El presente arrendamiento se rige por lo dispuesto en ${legal.rentalLaw || 'los artículos aplicables'} del ${legal.civilCode || 'Código Civil'}.`);
+    clause(doc, 11, 'NOM-247 Y SERVICIOS INMOBILIARIOS', `Este servicio inmobiliario se presta de conformidad con la Norma Oficial Mexicana NOM-247-SE-2021. CasaMX actúa únicamente como testigo e intermediario tecnológico, sin representación legal de ninguna de las partes. Las partes reconocen que CasaMX no asume responsabilidad solidaria. Los honorarios de intermediación han sido cubiertos por EL ARRENDADOR. Queda prohibida toda discriminación por motivos de género, origen étnico, preferencia sexual, religión, discapacidad o cualquier otra condición, conforme al artículo 1° Constitucional.`);
+
+    clause(doc, 12, 'JURISDICCIÓN Y LEGISLACIÓN APLICABLE', `Para la interpretación y cumplimiento del presente contrato, las partes se someten expresamente a los ${legal.court || 'tribunales competentes'} de ${p.estado ?? 'México'}, renunciando al fuero que por razón de su domicilio presente o futuro pudiera corresponderles. El presente arrendamiento se rige por lo dispuesto en ${legal.rentalLaw || 'los artículos aplicables'} del ${legal.civilCode || 'Código Civil'}.`);
 
     // ── INVENTORY ANNEX ──
     doc.moveDown(1);

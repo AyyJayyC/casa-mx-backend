@@ -97,6 +97,9 @@ class PropertyService {
       minRent, // NEW: Filter by rent range
       maxRent,
       furnished, // NEW: Filter by furnished
+      issuesInvoice,
+      petFriendly,
+      childrenWelcome,
       limit,
       offset,
     } = filters;
@@ -129,6 +132,10 @@ class PropertyService {
       where.furnished = furnished;
     }
 
+    if (issuesInvoice !== undefined) where.issuesInvoice = issuesInvoice;
+    if (petFriendly !== undefined) where.petFriendly = petFriendly;
+    if (childrenWelcome !== undefined) where.childrenWelcome = childrenWelcome;
+
     // Get total count for pagination
     const total = await this.prisma.property.count({ where });
 
@@ -155,6 +162,9 @@ class PropertyService {
       minRent,
       maxRent,
       furnished,
+      issuesInvoice,
+      petFriendly,
+      childrenWelcome,
       limit,
       offset,
     } = filters;
@@ -184,6 +194,10 @@ class PropertyService {
     if (furnished !== undefined) {
       where.furnished = furnished;
     }
+
+    if (issuesInvoice !== undefined) where.issuesInvoice = issuesInvoice;
+    if (petFriendly !== undefined) where.petFriendly = petFriendly;
+    if (childrenWelcome !== undefined) where.childrenWelcome = childrenWelcome;
 
     const total = await this.prisma.property.count({ where });
 
@@ -319,6 +333,11 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             securityDeposit: input.securityDeposit ?? null,
             leaseTermMonths: input.leaseTermMonths ?? null,
             availableFrom: input.availableFrom ? new Date(input.availableFrom) : null,
+            issuesInvoice: input.issuesInvoice ?? false,
+            petFriendly: input.petFriendly ?? false,
+            petFee: input.petFee ?? null,
+            petDeposit: input.petDeposit ?? null,
+            childrenWelcome: input.childrenWelcome ?? false,
             furnished: input.furnished ?? false,
             utilitiesIncluded: ((input.includedServices?.length ?? 0) > 0) || (input.utilitiesIncluded ?? false),
             sellerId: user.id,
@@ -553,6 +572,11 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           includedServices: input.includedServices,
           amenities: input.amenities,
           inventoryNotes: input.inventoryNotes,
+          issuesInvoice: input.issuesInvoice,
+          petFriendly: input.petFriendly,
+          petFee: input.petFee,
+          petDeposit: input.petDeposit,
+          childrenWelcome: input.childrenWelcome,
           financeOptions: input.financeOptions,
           availableFrom: input.availableFrom ? new Date(input.availableFrom) : undefined,
         };
