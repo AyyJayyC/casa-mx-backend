@@ -1,5 +1,20 @@
 import PDFDocument from 'pdfkit';
 import { PrismaClient } from '@prisma/client';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+// Load state legal data
+const __dirname = dirname(fileURLToPath(import.meta.url));
+let stateLegalData: any = { states: {}, default: {} };
+try {
+  stateLegalData = JSON.parse(readFileSync(join(__dirname, '..', 'data', 'state-legal.json'), 'utf-8'));
+} catch { /* fallback to defaults */ }
+
+function getStateLegal(estado?: string | null) {
+  const name = (estado || '').trim();
+  return stateLegalData.states?.[name] || stateLegalData.default;
+}
 
 // ────────────────────────────────────────────────────────
 // Helpers
@@ -61,6 +76,17 @@ function signatureBlock(doc: PDFKit.PDFDocument, labelLeft: string, labelRight: 
 }
 
 function header(doc: PDFKit.PDFDocument, title: string, subtitle?: string) {
+  // Add horizontal logo centered at top
+  try {
+    const logoPath = process.env.CONTRACT_LOGO_PATH || 'src/data/logo-horizontal.png';
+    const fs = require('fs');
+    if (fs.existsSync(logoPath)) {
+      doc.image(logoPath, doc.page.margins.left + 40, doc.y, { width: 200, align: 'center' });
+      // Center horizontally
+      doc.x = doc.page.margins.left;
+      doc.moveDown(3);
+    }
+  } catch { /* Logo not available, skip */ }
   doc.font('Helvetica-Bold').fontSize(14).text('CASAMX', { align: 'center' });
   doc.font('Helvetica-Bold').fontSize(12).text(title, { align: 'center' });
   if (subtitle) doc.font('Helvetica').fontSize(10).text(subtitle, { align: 'center' });
@@ -86,6 +112,7 @@ export async function generateRentalContract(prisma: PrismaClient, applicationId
   if (!app) throw new Error('Application not found');
 
   const p = app.property;
+  const legal = getStateLegal(p.estado);
   const landlordUser = await prisma.user.findUnique({ where: { id: p.sellerId }, select: { name: true, email: true } });
   const landlord = landlordUser ?? { name: 'El Arrendador', email: '' };
   const address = [p.address, p.colonia, p.ciudad, p.estado].filter(Boolean).join(', ');
@@ -116,7 +143,7 @@ export async function generateRentalContract(prisma: PrismaClient, applicationId
 
     clause(doc, 1, 'OBJETO', `El ARRENDADOR da en arrendamiento al ARRENDATARIO el inmueble ubicado en: ${address}, con clave de propiedad: ${p.id.substring(0, 8).toUpperCase()}. El inmueble se destinará exclusivamente para uso habitacional.`);
 
-    clause(doc, 2, 'VIGENCIA DEL CONTRATO', `El presente contrato tendrá una vigencia de ${duration}, iniciando el ${moveIn}. Al término del plazo pactado, el contrato podrá renovarse por períodos iguales previo acuerdo escrito de las partes.`);
+    clause(doc, 2, 'VIGENCIA DEL CONTRATO', `El presente contrato tendrá una vigencia de ${duration}, iniciando el ${moveIn}. Al término del plazo pactado, el contrato podrá renovarse por períodos iguales previo acuerdo escrito de las partes.${legal.rentalCap ? ' De conformidad con la legislación de ' + p.estado + ': ' + legal.rentalCap : ''}`);
 
     clause(doc, 3, 'RENTA MENSUAL', `El ARRENDATARIO se obliga a pagar la cantidad de ${rent} mensualmente como renta del inmueble arrendado.${app.offeredMonthlyRent ? ` Renta acordada por el arrendatario: ${formatMXN(app.offeredMonthlyRent)}.` : ''} Los pagos deberán realizarse dentro de los primeros cinco días naturales de cada mes.`);
 
@@ -134,7 +161,7 @@ export async function generateRentalContract(prisma: PrismaClient, applicationId
 
     clause(doc, 10, 'NOM-247 Y SERVICIOS INMOBILIARIOS', `Este servicio inmobiliario se presta de conformidad con la Norma Oficial Mexicana NOM-247-SE-2021. CasaMX actúa únicamente como testigo e intermediario tecnológico, sin representación legal de ninguna de las partes. Las partes reconocen que CasaMX no asume responsabilidad solidaria. Los honorarios de intermediación han sido cubiertos por EL ARRENDADOR. Queda prohibida toda discriminación por motivos de género, origen étnico, preferencia sexual, religión, discapacidad o cualquier otra condición, conforme al artículo 1° Constitucional.`);
 
-    clause(doc, 11, 'JURISDICCIÓN', `En todo lo relacionado con la interpretación y cumplimiento del presente contrato, las partes se someten expresamente a las leyes y tribunales competentes del fuero común del Estado de ${p.estado ?? 'México'}, renunciando al fuero que por razón de su domicilio presente o futuro pudiera corresponderles.`);
+    clause(doc, 11, 'JURISDICCIÓN Y LEGISLACIÓN APLICABLE', `Para la interpretación y cumplimiento del presente contrato, las partes se someten expresamente a los ${legal.court || 'tribunales competentes'} de ${p.estado ?? 'México'}, renunciando al fuero que por razón de su domicilio presente o futuro pudiera corresponderles. El presente arrendamiento se rige por lo dispuesto en ${legal.rentalLaw || 'los artículos aplicables'} del ${legal.civilCode || 'Código Civil'}.`);
 
     // ── INVENTORY ANNEX ──
     doc.addPage();
@@ -178,10 +205,26 @@ export async function generateRentalContract(prisma: PrismaClient, applicationId
 
     signatureBlock(doc, `EL ARRENDADOR\n${landlord.name}`, `EL ARRENDATARIO\n${app.fullName}`);
 
+    addLogoFooter(doc);
     doc.fontSize(8).fillColor('grey').text('Contrato generado por CasaMX · Plataforma de bienes raíces · México', { align: 'center' });
 
     doc.end();
   });
+}
+
+/**
+ * Add CasaMX logo to the bottom of the last page.
+ */
+function addLogoFooter(doc: PDFKit.PDFDocument) {
+  try {
+    const logoPath = process.env.CONTRACT_LOGO_PATH || 'src/data/logo-horizontal.png';
+    const fs = require('fs');
+    if (fs.existsSync(logoPath)) {
+      doc.moveDown(1);
+      doc.image(logoPath, undefined, undefined, { width: 120, align: 'center' });
+      doc.y += 25;
+    }
+  } catch { /* skip */ }
 }
 
 // ────────────────────────────────────────────────────────
@@ -197,6 +240,7 @@ export async function generateSaleContract(prisma: PrismaClient, offerId: string
   if (!offer) throw new Error('Offer not found');
 
   const p = offer.property;
+  const legal = getStateLegal(p.estado);
   const sellerUser = await prisma.user.findUnique({ where: { id: p.sellerId }, select: { name: true, email: true } });
   const seller = sellerUser ?? { name: 'El Vendedor', email: '' };
   const address = [p.address, p.colonia, p.ciudad, p.estado].filter(Boolean).join(', ');
@@ -243,7 +287,7 @@ export async function generateSaleContract(prisma: PrismaClient, offerId: string
 
     clause(doc, 10, 'NOM-247 Y SERVICIOS INMOBILIARIOS', `Este servicio inmobiliario se presta de conformidad con la Norma Oficial Mexicana NOM-247-SE-2021. CasaMX actúa únicamente como testigo e intermediario tecnológico, sin representación legal de ninguna de las partes. Las partes reconocen que CasaMX no asume responsabilidad solidaria. Los honorarios de intermediación han sido cubiertos por EL VENDEDOR. Queda prohibida toda discriminación por motivos de género, origen étnico, preferencia sexual, religión, discapacidad o cualquier otra condición.`);
 
-    clause(doc, 11, 'JURISDICCIÓN', `Para la interpretación y cumplimiento del presente contrato, las partes se someten a las leyes y tribunales de ${p.estado ?? 'México'}, renunciando a cualquier otro fuero que pudiera corresponderles.`);
+    clause(doc, 11, 'JURISDICCIÓN Y LEGISLACIÓN APLICABLE', `Para la interpretación y cumplimiento del presente contrato, las partes se someten a los ${legal.court || 'tribunales competentes'} de ${legal.jurisdiction || p.estado || 'México'}, renunciando a cualquier otro fuero que pudiera corresponderles. La presente compraventa se rige por el ${legal.civilCode || 'Código Civil'}.`);
 
     if (offer.message) {
       doc.moveDown(0.5);
@@ -255,11 +299,13 @@ export async function generateSaleContract(prisma: PrismaClient, offerId: string
 
     signatureBlock(doc, `EL VENDEDOR\n${seller.name}`, `EL COMPRADOR\n${offer.buyerName}`);
 
+    addLogoFooter(doc);
     doc.fontSize(8).fillColor('grey').text('Contrato generado por CasaMX · Plataforma de bienes raíces · México', { align: 'center' });
 
     doc.end();
   });
 }
+
 
 // ────────────────────────────────────────────────────────
 // PROMESA DE COMPRAVENTA — Payment Plan Contract
@@ -274,6 +320,7 @@ export async function generatePromesaContract(prisma: PrismaClient, offerId: str
   if (!offer) throw new Error('Offer not found');
 
   const p = offer.property;
+  const legal = getStateLegal(p.estado);
   const sellerUser = await prisma.user.findUnique({ where: { id: p.sellerId }, select: { name: true, email: true } });
   const seller = sellerUser ?? { name: 'El Vendedor', email: '' };
   const address = [p.address, p.colonia, p.ciudad, p.estado].filter(Boolean).join(', ');
@@ -359,7 +406,7 @@ export async function generatePromesaContract(prisma: PrismaClient, offerId: str
 
     clause(doc, 9, 'NOM-247 Y SERVICIOS INMOBILIARIOS', `Este servicio inmobiliario se presta de conformidad con la Norma Oficial Mexicana NOM-247-SE-2021. CasaMX actúa únicamente como testigo e intermediario tecnológico, sin representación legal de ninguna de las partes. Queda prohibida toda discriminación por cualquier motivo conforme a la Constitución.`);
 
-    clause(doc, 10, 'JURISDICCIÓN', `Para la interpretación y cumplimiento, las partes se someten a las leyes y tribunales del Estado de ${p.estado ?? 'México'}.`);
+    clause(doc, 10, 'JURISDICCIÓN Y LEGISLACIÓN APLICABLE', `Para la interpretación y cumplimiento, las partes se someten a los ${legal.court || 'tribunales competentes'} de ${legal.jurisdiction || p.estado || 'México'}, bajo el ${legal.civilCode || 'Código Civil aplicable'}.`);
 
     if (offer.message) {
       doc.moveDown(0.3);
