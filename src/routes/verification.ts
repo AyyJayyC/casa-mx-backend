@@ -89,7 +89,14 @@ const verificationRoutes: FastifyPluginAsync = async (fastify) => {
 
     await sendVerificationEmail({ userEmail: user.email, userName: user.name, token });
 
-    return reply.send({ success: true, message: 'Correo de verificación enviado' });
+    const emailConfigured = Boolean(process.env.SENDGRID_API_KEY);
+    return reply.send({
+      success: true,
+      message: emailConfigured
+        ? 'Correo de verificación enviado. Revisa tu bandeja de entrada.'
+        : 'Correo de verificación generado — pendiente de envío (SENDGRID_API_KEY no configurada).',
+      emailSent: emailConfigured,
+    });
   });
 };
 
