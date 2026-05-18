@@ -269,7 +269,7 @@ export async function buildApp() {
   app.setErrorHandler(async (error, request, reply) => {
     const { errorObj, statusCode } = normalizeError(error);
     
-    // For 500 errors, log in structured JSON format (ready for Sentry/LogRocket)
+    // For 500 errors, log structured + send to Sentry if configured
     if (statusCode === 500) {
       const errorLog = {
         timestamp: new Date().toISOString(),
@@ -280,17 +280,22 @@ export async function buildApp() {
         statusCode,
         message: errorObj.message,
         stack: errorObj.stack,
-        // Placeholder for production logger integration
-        // TODO: Send to Sentry/Winston/LogRocket in production
         service: 'casa-mx-backend',
       };
       
-      console.error('[PRODUCTION ERROR]', JSON.stringify(errorLog, null, 2));
+      // Sentry capture (non-blocking)
+      if (env.SENTRY_DSN) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const Sentry: any = require('@sentry/node');
+          if (!Sentry.isInitialized?.()) {
+            Sentry.init?.({ dsn: env.SENTRY_DSN, environment: env.NODE_ENV, tracesSampleRate: 0.1 });
+          }
+          Sentry.captureException?.(error, { extra: errorLog });
+        } catch { /* Sentry not installed or unavailable */ }
+      }
       
-      // Note: In production, integrate with:
-      // - Sentry: Sentry.captureException(error, { extra: errorLog })
-      // - Winston: logger.error(errorLog)
-      // - LogRocket: LogRocket.captureException(error, { tags: errorLog })
+      app.log.error(errorLog, 'Unhandled server error');
     }
 
       // Send error response

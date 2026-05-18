@@ -10,7 +10,7 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post(
     '/reviews',
-    { onRequest: [verifyJWT, requireAnyRole(['tenant', 'landlord'])] },
+    { onRequest: [requireAnyRole(['tenant', 'landlord'])] },
     async (request, reply) => {
       try {
         const input = createReviewSchema.parse(request.body);
