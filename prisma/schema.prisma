@@ -17,6 +17,9 @@ model User {
   avatarUrl String?  // profile picture from OAuth provider
   phone     String?  // contact phone number (optional)
   whatsapp  String?  // WhatsApp number with country code, e.g. +525512345678
+  rfc          String?  // RFC for facturas (CFDI)
+  razonSocial  String?  // Razón social for facturas
+  usoCFDI      String?  @default("G03") // Uso de CFDI: G01-G03, P01
   emailVerified     Boolean  @default(false)
   verificationToken String?  @unique
   verificationTokenExpiresAt DateTime?
