@@ -311,6 +311,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           name: user.name,
           referralCode: (user as any).referralCode ?? null,
           emailVerified: (user as any).emailVerified ?? false,
+          phoneVerified: (user as any).phoneVerified ?? false,
           roles: user.roles.map((ur) => ({
             roleId: ur.roleId,
             roleName: ur.role.name,

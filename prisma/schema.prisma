@@ -17,6 +17,9 @@ model User {
   avatarUrl String?  // profile picture from OAuth provider
   phone     String?  // contact phone number (optional)
   whatsapp  String?  // WhatsApp number with country code, e.g. +525512345678
+  rfc       String?  // Mexican tax ID (RFC)
+  razonSocial String? // legal/business name for invoices
+  usoCFDI   String?  // CFDI usage code for invoices (G03, D01, etc.)
   emailVerified     Boolean  @default(false)
   phoneVerified     Boolean  @default(false)
   pendingEmail      String?  // email que el usuario quiere cambiar, pendiente de verificar
@@ -159,6 +162,8 @@ model Property {
   childrenWelcome  Boolean   @default(false)
   issuesInvoice    Boolean   @default(false)
   visibility       String    @default("public")  // public, private
+  mapsUrl           String?   // Google Maps embed URL
+  inventoryNotes    String?   @db.Text // inventory notes for contracts
   
   // Promotion / visibility tiers
   promotionTier String?  // null = none, "featured" = Destacado, "carousel" = Promocionado
@@ -172,6 +177,7 @@ model Property {
   reviews            Review[]
   propertyOffers     PropertyOffer[]
   documents          PropertyDocument[]
+  images             PropertyImage[]
 
   @@index([sellerId])
   @@index([status])
@@ -645,4 +651,23 @@ model PropertyOffer {
   @@index([buyerId])
   @@index([status])
   @@index([createdAt])
+}
+
+model PropertyImage {
+  id          String   @id @default(uuid())
+  propertyId  String
+  url         String?
+  key         String?
+  imageUrl    String?
+  fileName    String?
+  fileMimeType String?
+  caption     String?
+  width       Int?
+  height      Int?
+  size        Int?
+  order       Int      @default(0)
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([propertyId])
 }

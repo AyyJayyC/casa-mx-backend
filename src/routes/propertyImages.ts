@@ -96,7 +96,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const created = await fastify.prisma.propertyImage.create({
         data: {
-          propertyId,
+          property: { connect: { id: propertyId } },
           imageUrl: key,
           fileName,
           fileMimeType: mimeType,

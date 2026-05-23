@@ -1,12 +1,14 @@
 import { FastifyPluginAsync } from 'fastify';
 import crypto from 'crypto';
 import { sendVerificationEmail } from '../services/email.service.js';
+import { verifyJWT } from '../utils/guards.js';
 
 const verificationRoutes: FastifyPluginAsync = async (fastify) => {
 
   /**
    * GET /auth/verify-email?token=...
    * Called when user clicks the link in their email.
+   * Also handles pendingEmail swaps — replaces old email with pendingEmail.
    */
   fastify.get('/auth/verify-email', async (request, reply) => {
     const { token } = request.query as { token?: string };
@@ -17,21 +19,40 @@ const verificationRoutes: FastifyPluginAsync = async (fastify) => {
 
     const user = await fastify.prisma.user.findUnique({
       where: { verificationToken: token },
-      select: { id: true, emailVerified: true, verificationTokenExpiresAt: true },
+      select: { id: true, email: true, emailVerified: true, pendingEmail: true, verificationTokenExpiresAt: true },
     });
 
     if (!user) {
       return reply.code(400).send({ success: false, error: 'Token inválido o ya usado' });
     }
 
-    if (user.emailVerified) {
-      return reply.send({ success: true, message: 'Correo ya verificado' });
-    }
-
     if (user.verificationTokenExpiresAt && user.verificationTokenExpiresAt < new Date()) {
       return reply.code(400).send({ success: false, error: 'El enlace ha expirado. Solicita uno nuevo.' });
     }
 
+    // If there's a pending email swap, perform it
+    if (user.pendingEmail) {
+      const oldEmail = user.email;
+      await fastify.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          email: user.pendingEmail,
+          pendingEmail: null,
+          emailVerified: true,
+          verificationToken: null,
+          verificationTokenExpiresAt: null,
+        },
+      });
+
+      // Notify old email of the change
+      try {
+        await sendVerificationEmail({ userEmail: oldEmail, userName: '', token: 'email-changed' });
+      } catch {}
+
+      return reply.send({ success: true, message: 'Correo verificado y cambiado exitosamente.' });
+    }
+
+    // Normal verification
     await fastify.prisma.user.update({
       where: { id: user.id },
       data: {
@@ -97,6 +118,101 @@ const verificationRoutes: FastifyPluginAsync = async (fastify) => {
         : 'Correo de verificación generado — pendiente de envío (SENDGRID_API_KEY no configurada).',
       emailSent: emailConfigured,
     });
+  });
+
+  /**
+   * POST /users/me/change-email
+   * Initiate email change. Sends verification to NEW email. Old email gets notified.
+   * Rate limited: 1 change per 30 days.
+   */
+  fastify.post('/users/me/change-email', { onRequest: [verifyJWT] }, async (request, reply) => {
+    const userId = request.user.id;
+    const { newEmail } = (request.body || {}) as { newEmail?: string };
+
+    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      return reply.code(400).send({ success: false, error: 'Email inválido' });
+    }
+
+    const user = await fastify.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+    if (!user) return reply.code(404).send({ success: false, error: 'Usuario no encontrado' });
+
+    // Check if email is taken
+    const existing = await fastify.prisma.user.findUnique({ where: { email: newEmail } });
+    if (existing) {
+      return reply.code(409).send({ success: false, error: 'Este email ya está en uso' });
+    }
+
+    // Rate limit: 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recentChange = await fastify.prisma.auditLog.findFirst({
+      where: { actorUserId: userId, action: 'CHANGE_EMAIL', createdAt: { gte: thirtyDaysAgo } },
+    });
+    if (recentChange) {
+      return reply.code(429).send({ success: false, error: 'Solo puedes cambiar tu email una vez cada 30 días' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await fastify.prisma.user.update({
+      where: { id: userId },
+      data: {
+        pendingEmail: newEmail,
+        verificationToken: token,
+        verificationTokenExpiresAt: expiresAt,
+      },
+    });
+
+    await sendVerificationEmail({ userEmail: newEmail, userName: user.name, token });
+
+    await fastify.prisma.auditLog.create({
+      data: { actorUserId: userId, action: 'CHANGE_EMAIL_REQUESTED', newState: { oldEmail: user.email, newEmail } },
+    });
+
+    return reply.send({ success: true, message: 'Verifica tu nuevo email para completar el cambio.' });
+  });
+
+  /**
+   * POST /users/me/change-phone
+   * Changes the user's phone number and sets phoneVerified.
+   */
+  fastify.post('/users/me/change-phone', { onRequest: [verifyJWT] }, async (request, reply) => {
+    const userId = request.user.id;
+    const { phone } = (request.body || {}) as { phone?: string };
+
+    if (!phone || phone.replace(/[\s\-\(\)\+]/g, '').length < 10) {
+      return reply.code(400).send({ success: false, error: 'Teléfono inválido' });
+    }
+
+    const user = await fastify.prisma.user.findUnique({
+      where: { id: userId },
+      select: { phone: true },
+    });
+    if (!user) return reply.code(404).send({ success: false, error: 'Usuario no encontrado' });
+
+    // Rate limit: 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recentChange = await fastify.prisma.auditLog.findFirst({
+      where: { actorUserId: userId, action: 'CHANGE_PHONE', createdAt: { gte: thirtyDaysAgo } },
+    });
+    if (recentChange) {
+      return reply.code(429).send({ success: false, error: 'Solo puedes cambiar tu teléfono una vez cada 30 días' });
+    }
+
+    const clean = phone.replace(/[\s\-\(\)\+]/g, '');
+    await fastify.prisma.user.update({
+      where: { id: userId },
+      data: { phone: clean, phoneVerified: true },
+    });
+
+    await fastify.prisma.auditLog.create({
+      data: { actorUserId: userId, action: 'CHANGE_PHONE', newState: { phone: clean } },
+    });
+
+    return reply.send({ success: true, message: 'Teléfono actualizado y verificado.' });
   });
 };
 
