@@ -27,6 +27,12 @@ useDefault = true
     '''package-lock\.json''',
     '''OPERATIONS\.md''',
     '''tests/checkpoint3\.test\.ts''',
+    '''\.env\.example''',
+    '''tests/''',
+    '''prisma/seed\.ts''',
+    '''scripts/''',
+    '''SEEK\.md''',
+    '''\.github/''',
   ]
   regexes = [
     '''password123''',

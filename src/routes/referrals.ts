@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { verifyJWT } from '../utils/guards.js';
 import { z } from 'zod';
-import crypto from 'node:crypto';
+import { generateReferralCode } from '../utils/errorHandling.js';
 
 const referralsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/referrals/my-code', { onRequest: [verifyJWT] }, async (request, reply) => {
@@ -18,7 +18,7 @@ const referralsRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Generate a code if missing (legacy users)
       if (!user.referralCode) {
-        const code = crypto.randomBytes(4).toString('hex').toUpperCase();
+        const code = generateReferralCode();
         await fastify.prisma.user.update({
           where: { id: userId },
           data: { referralCode: code },

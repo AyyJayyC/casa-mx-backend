@@ -7,8 +7,15 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.prisma.$queryRaw`SELECT 1`;
 
       const cacheConfigured = Boolean(process.env.REDIS_URL);
-      const cacheHealthy = cacheConfigured ? cacheService.isAvailable() : true;
-      const overallHealthy = cacheHealthy;
+      let cacheHealthy = true;
+      if (cacheConfigured) {
+        try {
+          cacheHealthy = cacheService.isAvailable();
+        } catch {
+          fastify.log.warn('Redis configured but unreachable for health check');
+        }
+      }
+      const overallHealthy = true; // Redis is optional, don't degrade on cache alone
 
       if (!overallHealthy) {
         return reply.code(503).send({
@@ -46,8 +53,9 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       await fastify.prisma.$queryRaw`SELECT 1`;
       return reply.code(200).send({ ready: true });
-    } catch {
-      return reply.code(503).send({ ready: false });
+    } catch (err: any) {
+      fastify.log.error({ err }, 'Database readiness check failed');
+      return reply.code(503).send({ ready: false, error: 'Database unreachable' });
     }
   });
 

@@ -3,13 +3,19 @@ import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
 
 let app: FastifyInstance;
+let sellerUser: { id: string };
 
 describe('Checkpoint 1 - Mexico Location Fields', () => {
   beforeAll(async () => {
     app = await buildApp();
+    sellerUser = await app.prisma.user.create({
+      data: { email: `filter-seller-${Date.now()}@test.com`, name: 'Filter Seller', password: 'test' },
+    });
   });
 
   afterAll(async () => {
+    await app.prisma.property.deleteMany({ where: { sellerId: sellerUser.id } });
+    await app.prisma.user.delete({ where: { id: sellerUser.id } });
     await app.close();
   });
 
@@ -24,7 +30,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         ciudad: 'Guadalajara',
         colonia: 'Providencia',
         codigoPostal: '44630',
-        sellerId: 'seller-123',
+        sellerId: sellerUser.id,
       },
     });
 
@@ -43,7 +49,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         listingType: 'for_sale',
         price: 250000,
         estado: 'Ciudad de México',
-        sellerId: 'seller-456',
+        sellerId: sellerUser.id,
       },
     });
 
@@ -62,7 +68,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
           title: 'No Estado Property',
           listingType: 'for_sale',
           price: 300000,
-          sellerId: 'seller-789',
+          sellerId: sellerUser.id,
           // estado is NOT provided
         } as any,
       });
@@ -78,7 +84,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         title: 'Default Estado Property',
         listingType: 'for_sale',
         price: 400000,
-        sellerId: 'seller-default',
+        sellerId: sellerUser.id,
       } as any, // Allow missing estado to test default
     });
 
@@ -95,7 +101,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         listingType: 'for_sale',
         price: 500000,
         estado: 'Jalisco',
-        sellerId: 'seller-jalisco',
+        sellerId: sellerUser.id,
       },
     });
 
@@ -105,7 +111,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         listingType: 'for_sale',
         price: 600000,
         estado: 'Nuevo León',
-        sellerId: 'seller-nl',
+        sellerId: sellerUser.id,
       },
     });
 
@@ -130,7 +136,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         price: 500000,
         estado: 'Jalisco',
         ciudad: 'Guadalajara',
-        sellerId: 'seller-gdl1',
+        sellerId: sellerUser.id,
       },
     });
 
@@ -141,7 +147,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         price: 550000,
         estado: 'Jalisco',
         ciudad: 'Guadalajara',
-        sellerId: 'seller-gdl2',
+        sellerId: sellerUser.id,
       },
     });
 
@@ -166,7 +172,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         ciudad: 'Ciudad de México',
         colonia: 'Roma Norte',
         codigoPostal: '06700',
-        sellerId: 'seller-roma',
+        sellerId: sellerUser.id,
       },
     });
 
@@ -190,7 +196,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         ciudad: 'Ciudad de México',
         colonia: 'Polanco',
         codigoPostal: '11560',
-        sellerId: 'seller-polanco',
+        sellerId: sellerUser.id,
       },
     });
 
@@ -212,7 +218,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         listingType: 'for_sale',
         price: 250000,
         estado: 'Ciudad de México',
-        sellerId: 'seller-bc',
+        sellerId: sellerUser.id,
       },
     });
 
@@ -232,7 +238,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         ciudad: 'Guadalajara',
         colonia: 'Providencia',
         codigoPostal: '44630',
-        sellerId: 'seller-multi',
+        sellerId: sellerUser.id,
       },
     });
 
@@ -267,7 +273,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
         price: 500000,
         estado: 'Jalisco',
         ciudad: 'Guadalajara',
-        sellerId: 'seller-price',
+        sellerId: sellerUser.id,
       },
     });
 

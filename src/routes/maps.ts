@@ -91,7 +91,7 @@ const mapsRoutes: FastifyPluginAsync = async (fastify, opts) => {
       const result = await mapsService.geocodeAddress(parsedBody.data.address, { userId: (request as any).user?.id });
       return reply.send({ result });
     } catch (err: any) {
-      console.error('Geocode error:', err);
+      fastify.log.error({ err }, 'Geocode error');
       const mapped = mapServiceError(err);
       return reply.code(mapped.statusCode).send(mapped.payload);
     }

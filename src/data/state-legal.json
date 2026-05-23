@@ -1,0 +1,239 @@
+{
+  "states": {
+    "Aguascalientes": {
+      "civilCode": "Código Civil del Estado de Aguascalientes",
+      "rentalLaw": "Artículos 2078-2180",
+      "court": "Juzgados del Fuero Común del Estado de Aguascalientes",
+      "jurisdiction": "Estado de Aguascalientes",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Baja California": {
+      "civilCode": "Código Civil para el Estado de Baja California",
+      "rentalLaw": "Artículos 2257-2361",
+      "court": "Juzgados del Fuero Común del Estado de Baja California",
+      "jurisdiction": "Estado de Baja California",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Baja California Sur": {
+      "civilCode": "Código Civil para el Estado de Baja California Sur",
+      "rentalLaw": "Artículos 2080-2180",
+      "court": "Juzgados del Fuero Común del Estado de Baja California Sur",
+      "jurisdiction": "Estado de Baja California Sur",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Campeche": {
+      "civilCode": "Código Civil del Estado de Campeche",
+      "rentalLaw": "Artículos 2340-2440",
+      "court": "Juzgados del Fuero Común del Estado de Campeche",
+      "jurisdiction": "Estado de Campeche",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Chiapas": {
+      "civilCode": "Código Civil del Estado de Chiapas",
+      "rentalLaw": "Artículos 2145-2245",
+      "court": "Juzgados del Fuero Común del Estado de Chiapas",
+      "jurisdiction": "Estado de Chiapas",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Chihuahua": {
+      "civilCode": "Código Civil del Estado de Chihuahua",
+      "rentalLaw": "Artículos 2248-2352",
+      "court": "Juzgados del Fuero Común del Estado de Chihuahua",
+      "jurisdiction": "Estado de Chihuahua",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Ciudad de México": {
+      "civilCode": "Código Civil para el Distrito Federal (hoy Ciudad de México)",
+      "rentalLaw": "Artículos 2398-2496",
+      "court": "Juzgados del Fuero Común de la Ciudad de México",
+      "jurisdiction": "Ciudad de México",
+      "rentalCap": "Incremento máximo anual del 10% sobre la renta vigente (Art. 2448-D)",
+      "tenantProtections": "Prohibición de desalojo sin orden judicial. Depósito no mayor a un mes de renta. Obligación de entregar comprobante fiscal de arrendamiento (CFDI).",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Coahuila": {
+      "civilCode": "Código Civil del Estado de Coahuila de Zaragoza",
+      "rentalLaw": "Artículos 2248-2350",
+      "court": "Juzgados del Fuero Común del Estado de Coahuila",
+      "jurisdiction": "Estado de Coahuila de Zaragoza",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Colima": {
+      "civilCode": "Código Civil del Estado de Colima",
+      "rentalLaw": "Artículos 2150-2250",
+      "court": "Juzgados del Fuero Común del Estado de Colima",
+      "jurisdiction": "Estado de Colima",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Durango": {
+      "civilCode": "Código Civil del Estado de Durango",
+      "rentalLaw": "Artículos 2260-2360",
+      "court": "Juzgados del Fuero Común del Estado de Durango",
+      "jurisdiction": "Estado de Durango",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Estado de México": {
+      "civilCode": "Código Civil del Estado de México",
+      "rentalLaw": "Artículos 7.58-7.96",
+      "court": "Juzgados del Fuero Común del Estado de México",
+      "jurisdiction": "Estado de México",
+      "rentalCap": "Incremento máximo anual del 10% (Art. 7.86 Bis)",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Guanajuato": {
+      "civilCode": "Código Civil para el Estado de Guanajuato",
+      "rentalLaw": "Artículos 2180-2280",
+      "court": "Juzgados del Fuero Común del Estado de Guanajuato",
+      "jurisdiction": "Estado de Guanajuato",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Guerrero": {
+      "civilCode": "Código Civil del Estado de Guerrero",
+      "rentalLaw": "Artículos 2312-2412",
+      "court": "Juzgados del Fuero Común del Estado de Guerrero",
+      "jurisdiction": "Estado de Guerrero",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Hidalgo": {
+      "civilCode": "Código Civil para el Estado de Hidalgo",
+      "rentalLaw": "Artículos 2200-2300",
+      "court": "Juzgados del Fuero Común del Estado de Hidalgo",
+      "jurisdiction": "Estado de Hidalgo",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Jalisco": {
+      "civilCode": "Código Civil del Estado de Jalisco",
+      "rentalLaw": "Artículos 1788-1890",
+      "court": "Juzgados del Fuero Común del Estado de Jalisco",
+      "jurisdiction": "Estado de Jalisco",
+      "rentalCap": "Incremento anual libre siempre que sea pactado por escrito. En caso de silencio, aplica el índice inflacionario del Banco de México.",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Michoacán": {
+      "civilCode": "Código Civil para el Estado de Michoacán de Ocampo",
+      "rentalLaw": "Artículos 2270-2370",
+      "court": "Juzgados del Fuero Común del Estado de Michoacán",
+      "jurisdiction": "Estado de Michoacán de Ocampo",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Morelos": {
+      "civilCode": "Código Civil para el Estado de Morelos",
+      "rentalLaw": "Artículos 2120-2220",
+      "court": "Juzgados del Fuero Común del Estado de Morelos",
+      "jurisdiction": "Estado de Morelos",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Nayarit": {
+      "civilCode": "Código Civil para el Estado de Nayarit",
+      "rentalLaw": "Artículos 2150-2250",
+      "court": "Juzgados del Fuero Común del Estado de Nayarit",
+      "jurisdiction": "Estado de Nayarit",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Nuevo León": {
+      "civilCode": "Código Civil para el Estado de Nuevo León",
+      "rentalLaw": "Artículos 2350-2460",
+      "court": "Juzgados del Fuero Común del Estado de Nuevo León",
+      "jurisdiction": "Estado de Nuevo León",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Oaxaca": {
+      "civilCode": "Código Civil para el Estado de Oaxaca",
+      "rentalLaw": "Artículos 2230-2330",
+      "court": "Juzgados del Fuero Común del Estado de Oaxaca",
+      "jurisdiction": "Estado de Oaxaca",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Puebla": {
+      "civilCode": "Código Civil para el Estado de Puebla",
+      "rentalLaw": "Artículos 2156-2256",
+      "court": "Juzgados del Fuero Común del Estado de Puebla",
+      "jurisdiction": "Estado de Puebla",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Querétaro": {
+      "civilCode": "Código Civil del Estado de Querétaro",
+      "rentalLaw": "Artículos 2180-2280",
+      "court": "Juzgados del Fuero Común del Estado de Querétaro",
+      "jurisdiction": "Estado de Querétaro",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Quintana Roo": {
+      "civilCode": "Código Civil para el Estado de Quintana Roo",
+      "rentalLaw": "Artículos 2200-2300",
+      "court": "Juzgados del Fuero Común del Estado de Quintana Roo",
+      "jurisdiction": "Estado de Quintana Roo",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "San Luis Potosí": {
+      "civilCode": "Código Civil para el Estado de San Luis Potosí",
+      "rentalLaw": "Artículos 2280-2380",
+      "court": "Juzgados del Fuero Común del Estado de San Luis Potosí",
+      "jurisdiction": "Estado de San Luis Potosí",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Sinaloa": {
+      "civilCode": "Código Civil para el Estado de Sinaloa",
+      "rentalLaw": "Artículos 2190-2290",
+      "court": "Juzgados del Fuero Común del Estado de Sinaloa",
+      "jurisdiction": "Estado de Sinaloa",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Sonora": {
+      "civilCode": "Código Civil para el Estado de Sonora",
+      "rentalLaw": "Artículos 2240-2340",
+      "court": "Juzgados del Fuero Común del Estado de Sonora",
+      "jurisdiction": "Estado de Sonora",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Tabasco": {
+      "civilCode": "Código Civil para el Estado de Tabasco",
+      "rentalLaw": "Artículos 2180-2280",
+      "court": "Juzgados del Fuero Común del Estado de Tabasco",
+      "jurisdiction": "Estado de Tabasco",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Tamaulipas": {
+      "civilCode": "Código Civil para el Estado de Tamaulipas",
+      "rentalLaw": "Artículos 2310-2410",
+      "court": "Juzgados del Fuero Común del Estado de Tamaulipas",
+      "jurisdiction": "Estado de Tamaulipas",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Tlaxcala": {
+      "civilCode": "Código Civil para el Estado de Tlaxcala",
+      "rentalLaw": "Artículos 2100-2200",
+      "court": "Juzgados del Fuero Común del Estado de Tlaxcala",
+      "jurisdiction": "Estado de Tlaxcala",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Veracruz": {
+      "civilCode": "Código Civil para el Estado de Veracruz de Ignacio de la Llave",
+      "rentalLaw": "Artículos 2320-2420",
+      "court": "Juzgados del Fuero Común del Estado de Veracruz",
+      "jurisdiction": "Estado de Veracruz de Ignacio de la Llave",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Yucatán": {
+      "civilCode": "Código Civil del Estado de Yucatán",
+      "rentalLaw": "Artículos 2170-2270",
+      "court": "Juzgados del Fuero Común del Estado de Yucatán",
+      "jurisdiction": "Estado de Yucatán",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    },
+    "Zacatecas": {
+      "civilCode": "Código Civil para el Estado de Zacatecas",
+      "rentalLaw": "Artículos 2220-2320",
+      "court": "Juzgados del Fuero Común del Estado de Zacatecas",
+      "jurisdiction": "Estado de Zacatecas",
+      "notaryDeadline": "30 días hábiles posteriores a la firma"
+    }
+  },
+  "default": {
+    "civilCode": "Código Civil Federal (supletorio)",
+    "rentalLaw": "Artículos 2398-2496 del Código Civil Federal",
+    "court": "Juzgados del Fuero Común",
+    "jurisdiction": "Estado correspondiente",
+    "notaryDeadline": "30 días hábiles posteriores a la firma"
+  }
+}

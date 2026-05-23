@@ -209,5 +209,69 @@ export class CreditsService {
         await this.fulfillPayment(pi.id, userId, packageId);
       }
     }
+
+    if (event.type === 'charge.refunded') {
+      const charge = event.data.object as { id: string; payment_intent: string | null };
+      if (charge.payment_intent) {
+        await this.processRefund(charge.payment_intent as string);
+      }
+    }
+
+    if (event.type === 'charge.dispute.created') {
+      const dispute = event.data.object as {
+        id: string; charge: string; amount: number; reason: string; status: string;
+      };
+      console.error('[DISPUTE ALERT]', JSON.stringify({
+        disputeId: dispute.id, chargeId: dispute.charge,
+        amount: dispute.amount, reason: dispute.reason,
+        timestamp: new Date().toISOString(),
+      }));
+    }
+
+    if (event.type === 'payment_intent.payment_failed') {
+      const pi = event.data.object as StripePaymentIntentLike & {
+        last_payment_error?: { message: string; code: string };
+      };
+      const { userId } = pi.metadata ?? {};
+      console.warn('[PAYMENT FAILED]', JSON.stringify({
+        paymentIntentId: pi.id, userId,
+        error: pi.last_payment_error,
+        timestamp: new Date().toISOString(),
+      }));
+    }
+  }
+
+  async processRefund(paymentIntentId: string): Promise<void> {
+    const transaction = await this.prisma.creditTransaction.findUnique({
+      where: { stripePaymentIntentId: paymentIntentId },
+    });
+    if (!transaction) return;
+
+    const existingRefund = await this.prisma.creditTransaction.findFirst({
+      where: { userId: transaction.userId, type: 'refund', referenceId: paymentIntentId },
+    });
+    if (existingRefund) return;
+
+    const currentBalance = await this.prisma.creditBalance.findUnique({
+      where: { userId: transaction.userId },
+    });
+    const deductAmount = Math.min(Math.abs(transaction.amount), currentBalance?.balance ?? 0);
+    if (deductAmount <= 0) return;
+
+    await this.prisma.$transaction([
+      this.prisma.creditBalance.update({
+        where: { userId: transaction.userId },
+        data: { balance: { decrement: deductAmount } },
+      }),
+      this.prisma.creditTransaction.create({
+        data: {
+          userId: transaction.userId,
+          type: 'refund',
+          amount: -deductAmount,
+          description: `Reembolso — payment intent ${paymentIntentId}`,
+          referenceId: paymentIntentId,
+        },
+      }),
+    ]);
   }
 }

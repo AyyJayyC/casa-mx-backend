@@ -21,10 +21,8 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install runtime deps as root
+# Install runtime deps as root, then switch to non-root user
 RUN apt-get update && apt-get install -y curl libssl3 && rm -rf /var/lib/apt/lists/*
-
-# Run as non-root user
 RUN chown -R node:node /app
 USER node
 

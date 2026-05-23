@@ -264,7 +264,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         if (decoded?.jti) {
           await refreshTokenStoreService.revokeJti(decoded.jti);
         }
-      } catch {
+      } catch (err: any) {
+        fastify.log.warn({ err }, 'Failed to decode refresh token during logout');
       }
     }
 

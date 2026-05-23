@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { randomBytes } from 'crypto';
 
 /**
  * Type guard to check if an error is a Zod validation error
@@ -38,3 +39,32 @@ export const createServerErrorResponse = (message: string = 'Internal server err
     error: message,
   };
 };
+
+/**
+ * Normalize an unknown error into a structured object with status code.
+ * Extracted from app.ts and plugins/logging.ts to avoid duplication.
+ */
+export type ErrorWithStatusCode = Error & { statusCode?: number };
+
+export function normalizeError(error: unknown): { errorObj: Error; statusCode: number } {
+  if (error instanceof Error) {
+    const errorWithStatus = error as ErrorWithStatusCode;
+    return {
+      errorObj: error,
+      statusCode: typeof errorWithStatus.statusCode === 'number' ? errorWithStatus.statusCode : 500,
+    };
+  }
+
+  return {
+    errorObj: new Error('Internal server error'),
+    statusCode: 500,
+  };
+}
+
+/**
+ * Generate a short referral code.
+ * Extracted from auth.service.ts, referrals.ts, and agencies.ts.
+ */
+export function generateReferralCode(): string {
+  return randomBytes(4).toString('hex').toUpperCase();
+}

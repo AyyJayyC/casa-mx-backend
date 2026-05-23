@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { verifyJWT, requireAdmin } from '../utils/guards.js';
 import { z } from 'zod';
-import crypto from 'node:crypto';
+import { generateReferralCode } from '../utils/errorHandling.js';
 
 const agencyCreateSchema = z.object({
   name: z.string().min(1).max(200),
@@ -35,7 +35,7 @@ const agenciesRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         // Generate unique referral code
-        const referralCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+        const referralCode = generateReferralCode();
 
         const agency = await fastify.prisma.agency.create({
           data: {
