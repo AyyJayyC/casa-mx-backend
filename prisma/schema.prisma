@@ -18,6 +18,8 @@ model User {
   phone     String?  // contact phone number (optional)
   whatsapp  String?  // WhatsApp number with country code, e.g. +525512345678
   emailVerified     Boolean  @default(false)
+  phoneVerified     Boolean  @default(false)
+  pendingEmail      String?  // email que el usuario quiere cambiar, pendiente de verificar
   verificationToken String?  @unique
   verificationTokenExpiresAt DateTime?
   roles              UserRole[]
@@ -64,12 +66,20 @@ model Agency {
   referredBy     User?    @relation("AgencyReferrals", fields: [referredById], references: [id])
   referralCode   String   @unique
   members        User[]   @relation("AgencyMembers")
+
+  // Subscription plan
+  plan           String   @default("inactive") // inactive | basico | pro | empresarial
+  agentLimit     Int      @default(0)  // max agents allowed
+  billingActive  Boolean  @default(false)
+  subscriptionEnds DateTime?
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@index([ownerId])
   @@index([referredById])
   @@index([referralCode])
+  @@index([plan])
 }
 
 model Role {
@@ -132,6 +142,23 @@ model Property {
   availableFrom     DateTime?
   furnished         Boolean  @default(false)
   utilitiesIncluded Boolean  @default(false)
+  
+  // Extended property details (Casa MX v2)
+  condition        String?   // new, remodeled, needs_remodeling, good
+  parkingType      String?   // none, garage, driveway, street, covered
+  parkingSpaces    Int?      // number of parking spots
+  miniSplits       Int?      // number of mini split units
+  petFriendly      Boolean   @default(false)
+  petFee           Float?    // monthly pet fee
+  petDeposit       Float?   // one-time pet deposit
+  yearBuilt        Int?      // construction year
+  floors           Int?      // number of floors
+  lotSize          Int?      // land/lot size in m²
+  maintenanceFee   Float?    // monthly HOA/maintenance fee
+  halfBaths        Int?      // powder rooms
+  childrenWelcome  Boolean   @default(false)
+  issuesInvoice    Boolean   @default(false)
+  visibility       String    @default("public")  // public, private
   
   // Promotion / visibility tiers
   promotionTier String?  // null = none, "featured" = Destacado, "carousel" = Promocionado

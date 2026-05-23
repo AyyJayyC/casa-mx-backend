@@ -120,6 +120,9 @@ class PropertyService {
       orderBy,
       take: limit,
       skip: offset,
+      include: {
+        seller: { select: { agency: { select: { name: true } } } },
+      },
     });
 
     return { properties, total };
@@ -302,6 +305,21 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             availableFrom: input.availableFrom ? new Date(input.availableFrom) : null,
             furnished: input.furnished ?? false,
             utilitiesIncluded: ((input.includedServices?.length ?? 0) > 0) || (input.utilitiesIncluded ?? false),
+            condition: input.condition ?? null,
+            parkingType: input.parkingType ?? null,
+            parkingSpaces: input.parkingSpaces ?? null,
+            miniSplits: input.miniSplits ?? null,
+            petFriendly: input.petFriendly ?? false,
+            petFee: input.petFee ?? null,
+            petDeposit: input.petDeposit ?? null,
+            yearBuilt: input.yearBuilt ?? null,
+            floors: input.floors ?? null,
+            lotSize: input.lotSize ?? null,
+            maintenanceFee: input.maintenanceFee ?? null,
+            halfBaths: input.halfBaths ?? null,
+            childrenWelcome: input.childrenWelcome ?? false,
+            issuesInvoice: input.issuesInvoice ?? false,
+            visibility: input.visibility ?? 'public',
             sellerId: user.id,
           },
         });
@@ -517,6 +535,21 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             amenities: input.amenities,
             financeOptions: input.financeOptions,
             availableFrom: input.availableFrom ? new Date(input.availableFrom) : undefined,
+            condition: input.condition,
+            parkingType: input.parkingType,
+            parkingSpaces: input.parkingSpaces,
+            miniSplits: input.miniSplits,
+            petFriendly: input.petFriendly,
+            petFee: input.petFee,
+            petDeposit: input.petDeposit,
+            yearBuilt: input.yearBuilt,
+            floors: input.floors,
+            lotSize: input.lotSize,
+            maintenanceFee: input.maintenanceFee,
+            halfBaths: input.halfBaths,
+            childrenWelcome: input.childrenWelcome,
+            issuesInvoice: input.issuesInvoice,
+            visibility: input.visibility,
           },
         });
 
@@ -574,7 +607,17 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           return reply.code(403).send({ success: false, error: 'Solo el dueño puede promocionar' });
         }
 
-        const RATES: Record<string, number> = { featured: 300, carousel: 800 };
+        // Carousel slot limit (max 4)
+        if (tier === 'carousel') {
+          const activeCarousel = await app.prisma.property.count({
+            where: { promotionTier: 'carousel', featuredUntil: { gt: new Date() } },
+          });
+          if (activeCarousel >= 4 && property.promotionTier !== 'carousel') {
+            return reply.code(409).send({ success: false, error: 'El carrusel está lleno (máximo 4 propiedades). Espera a que se libere un espacio.' });
+          }
+        }
+
+        const RATES: Record<string, number> = { featured: 300, carousel: 2000 };
         const cost = RATES[tier] * days;
 
         const balance = await app.prisma.creditBalance.findUnique({ where: { userId: user.id } });
