@@ -14,6 +14,7 @@ import mapsMonitor from './plugins/mapsMonitor.js';
 import healthRoutes from './routes/health.js';
 import versionRoutes from './routes/version.js';
 import authRoutes from './routes/auth.js';
+import { bootstrapAdmin } from './plugins/bootstrapAdmin.js';
 import adminRoutes from './routes/admin.js';
 import adminMapsRoutes from './routes/admin/maps.js';
 import mapsRoutes from './routes/maps.js';
@@ -236,6 +237,9 @@ export async function buildApp() {
   await setupDebugRoutes(app);
   // Start maps usage monitor (alerts + hard-stop enforcement)
   await app.register(mapsMonitor);
+
+  // Bootstrap admin user if ADMIN_EMAIL is set
+  await bootstrapAdmin(app);
 
   // Register routes
   app.get('/', async (_request, reply) => {
