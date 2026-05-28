@@ -268,6 +268,9 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
   app.route({
     method: 'POST',
     url: '/properties',
+    config: {
+      rateLimit: { max: 10, timeWindow: '15 minutes' },
+    },
     onRequest: [verifyJWT, requireAnyRole(['seller', 'wholesaler', 'landlord', 'admin'])],
     handler: async (request, reply) => {
       try {
@@ -474,6 +477,9 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
   app.route({
     method: 'PATCH',
     url: '/properties/:id',
+    config: {
+      rateLimit: { max: 20, timeWindow: '15 minutes' },
+    },
     onRequest: [verifyJWT],
     handler: async (request, reply) => {
       try {
@@ -592,6 +598,9 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
   app.route({
     method: 'POST',
     url: '/properties/:id/promote',
+    config: {
+      rateLimit: { max: 5, timeWindow: '15 minutes' },
+    },
     onRequest: [verifyJWT],
     handler: async (request, reply) => {
       try {
@@ -662,6 +671,9 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
   app.route({
     method: 'DELETE',
     url: '/properties/:id',
+    config: {
+      rateLimit: { max: 10, timeWindow: '15 minutes' },
+    },
     onRequest: [verifyJWT],
     handler: async (request, reply) => {
       try {
