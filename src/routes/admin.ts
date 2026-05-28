@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { PrismaClient } from '@prisma/client';
+import { execSync } from 'node:child_process';
 import { requireAdmin, verifyJWT } from '../utils/guards.js';
 import { UserRoleIdParamSchema } from '../schemas/admin.js';
 
@@ -348,6 +349,49 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           success: false,
           error: 'Failed to promote property',
         });
+      }
+    }
+  );
+
+  // POST /admin/run-migrations — apply pending database migrations
+  // Secured by MIGRATION_SECRET env var (one-time use)
+  fastify.post<{ Body: { secret: string } }>(
+    '/admin/run-migrations',
+    async (request, reply) => {
+      try {
+        const expectedSecret = process.env.MIGRATION_SECRET?.trim();
+        if (!expectedSecret || request.body.secret !== expectedSecret) {
+          return reply.code(403).send({ success: false, error: 'Invalid secret' });
+        }
+
+        const output: string[] = [];
+
+        // Resolve any failed seed migration
+        try {
+          const result = execSync(
+            'npx prisma migrate resolve --applied 20260515010000_seed_admin_and_approve',
+            { cwd: '/app', timeout: 15000, encoding: 'utf8' }
+          );
+          output.push('resolve: ' + result.trim());
+        } catch (e: any) {
+          output.push('resolve: ' + (e.stdout || e.stderr || e.message));
+        }
+
+        // Apply all pending migrations
+        try {
+          const result = execSync(
+            'npx prisma migrate deploy',
+            { cwd: '/app', timeout: 30000, encoding: 'utf8' }
+          );
+          output.push('deploy: ' + result.trim());
+        } catch (e: any) {
+          output.push('deploy: ' + (e.stdout || e.stderr || e.message));
+        }
+
+        return reply.send({ success: true, output });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: error.message });
       }
     }
   );
