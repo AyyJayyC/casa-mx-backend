@@ -14,10 +14,7 @@ export class AuthService {
   }
 
   async getUserByEmail(email: string) {
-    return this.prisma.user.findUnique({
-      where: { email },
-      select: { id: true, email: true, name: true },
-    });
+    return this.prisma.user.findUnique({ where: { email } });
   }
 
   private generateReferralCode(): string {
@@ -80,13 +77,7 @@ export class AuthService {
           ),
         },
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        referralCode: true,
-        roles: { include: { role: true } },
-      },
+      include: { roles: { include: { role: true } } },
     });
 
     // Log referral events
@@ -117,23 +108,44 @@ export class AuthService {
   async login(data: LoginInput) {
     const user = await this.prisma.user.findUnique({
       where: { email: data.email },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        password: true,
-        roles: { include: { role: true } },
-      },
+      include: { roles: { include: { role: true } } },
     });
 
     if (!user) {
       throw new Error('Invalid email or password');
     }
 
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new Error('Account temporarily locked. Try again later.');
+    }
+
     const passwordMatch = await bcrypt.compare(data.password, user.password ?? '');
     if (!user.password || !passwordMatch) {
+      const attempts = (user.failedLoginAttempts || 0) + 1;
+      const lockedUntil = attempts >= 5
+        ? new Date(Date.now() + 15 * 60 * 1000)
+        : user.lockedUntil;
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: attempts,
+          lockedUntil,
+          lastFailedLoginAt: new Date(),
+        },
+      });
+
       throw new Error('Invalid email or password');
     }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        lastFailedLoginAt: null,
+      },
+    });
 
     return {
       id: user.id,
