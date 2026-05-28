@@ -49,7 +49,15 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /credits/spend - Seller spends 1 credit to unlock a lead's contact info
-  fastify.post('/credits/spend', { onRequest: [verifyJWT] }, async (request, reply) => {
+  fastify.post('/credits/spend', {
+    onRequest: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 20,
+        timeWindow: '15 minutes',
+      },
+    },
+  }, async (request, reply) => {
     try {
       const { leadId, leadType } = SpendCreditSchema.parse(request.body);
       const sellerId = request.user.id;
@@ -104,7 +112,15 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // POST /credits/payment-intent - Create Stripe PaymentIntent
-  fastify.post('/credits/payment-intent', { onRequest: [verifyJWT] }, async (request, reply) => {
+  fastify.post('/credits/payment-intent', {
+    onRequest: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 20,
+        timeWindow: '15 minutes',
+      },
+    },
+  }, async (request, reply) => {
     try {
       if (!env.STRIPE_SECRET_KEY) {
         return reply.code(503).send({ success: false, error: 'Payments not configured' });

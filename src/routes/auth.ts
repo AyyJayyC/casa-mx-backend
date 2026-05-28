@@ -150,6 +150,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post<{ Body: Record<string, any> }>(
     '/auth/refresh',
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
     async (request, reply) => {
       try {
         const parsedBody = RefreshSchema.safeParse(request.body ?? {});
@@ -247,7 +255,16 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  fastify.post<{ Body: Record<string, any> }>('/auth/logout', async (request, reply) => {
+  fastify.post<{ Body: Record<string, any> }>('/auth/logout',
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
     const maybeRefreshToken =
       request.body?.refreshToken ||
       (request as any).cookies?.refreshToken;
@@ -276,7 +293,16 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  fastify.get('/auth/me', async (request, reply) => {
+  fastify.get('/auth/me',
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
     try {
       const hasAuthorizationHeader = Boolean(request.headers?.authorization);
       const hasAccessCookie = Boolean((request as any).cookies?.accessToken);

@@ -48,7 +48,10 @@ export async function buildApp() {
     env.FRONTEND_URL.includes('0.0.0.0');
 
   const app = Fastify({
-    bodyLimit: 25 * 1024 * 1024,
+    bodyLimit: 5 * 1024 * 1024, // 5 MB
+    maxParamLength: 100,
+    connectionTimeout: 5000,
+    keepAliveTimeout: 10000,
     logger: {
       level: env.NODE_ENV === 'production' ? 'info' : 'debug',
       transport: env.NODE_ENV !== 'production'
