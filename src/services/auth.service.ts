@@ -36,6 +36,13 @@ export class AuthService {
   async register(data: RegisterInput) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const requestedRoles = [...new Set(data.roles ?? ['buyer'])];
+
+    // Auto-grant admin if registering with ADMIN_EMAIL
+    const adminEmail = process.env.ADMIN_EMAIL?.trim();
+    if (adminEmail && data.email === adminEmail && !requestedRoles.includes('admin')) {
+      requestedRoles.push('admin');
+    }
+
     const referralCode = await this.ensureUniqueReferralCode();
 
     const ref = data.ref?.trim();
@@ -68,7 +75,7 @@ export class AuthService {
           create: await Promise.all(
             requestedRoles.map(async (roleName) => ({
               roleId: await this.getRoleId(roleName),
-              status: this.getInitialRoleStatus(roleName),
+              status: this.getInitialRoleStatus(roleName, data.email),
             }))
           ),
         },
@@ -208,7 +215,7 @@ export class AuthService {
               create: await Promise.all(
                 defaultRoles.map(async (roleName) => ({
                   roleId: await this.getRoleId(roleName),
-                  status: this.getInitialRoleStatus(roleName),
+                  status: this.getInitialRoleStatus(roleName, data.email),
                 }))
               ),
             },
@@ -246,7 +253,10 @@ export class AuthService {
     return role.id;
   }
 
-  private getInitialRoleStatus(roleName: string): string {
+  private getInitialRoleStatus(roleName: string, email?: string): string {
+    // Auto-approve all roles for ADMIN_EMAIL
+    const adminEmail = process.env.ADMIN_EMAIL?.trim();
+    if (adminEmail && email === adminEmail) return 'approved';
     return AUTO_APPROVED_ROLES.has(roleName) ? 'approved' : 'pending';
   }
 }
