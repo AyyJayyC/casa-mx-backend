@@ -63,7 +63,13 @@ export async function buildApp() {
     },
   });
 
-  const allowedOrigins = new Set<string>([env.FRONTEND_URL]);
+  const frontendUrl = env.FRONTEND_URL.replace(/\/$/, '');
+
+  const allowedOrigins = new Set<string>([
+    frontendUrl,
+    'https://casa-mx.com',
+    'https://www.casa-mx.com',
+  ]);
   if (env.NODE_ENV !== 'production') {
     allowedOrigins.add('http://localhost:3000');
     allowedOrigins.add('http://127.0.0.1:3000');
