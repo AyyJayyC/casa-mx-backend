@@ -388,6 +388,17 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           output.push('deploy: ' + (e.stdout || e.stderr || e.message));
         }
 
+        // Sync schema directly (catches all columns added via prisma db push locally)
+        try {
+          const result = execSync(
+            'npx prisma db push --accept-data-loss',
+            { cwd: '/app', timeout: 60000, encoding: 'utf8' }
+          );
+          output.push('push: ' + result.trim());
+        } catch (e: any) {
+          output.push('push: ' + (e.stdout || e.stderr || e.message));
+        }
+
         return reply.send({ success: true, output });
       } catch (error: any) {
         fastify.log.error(error);
