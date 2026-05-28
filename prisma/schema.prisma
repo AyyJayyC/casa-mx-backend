@@ -25,6 +25,11 @@ model User {
   pendingEmail      String?  // email que el usuario quiere cambiar, pendiente de verificar
   verificationToken String?  @unique
   verificationTokenExpiresAt DateTime?
+  passwordResetToken          String?  @unique
+  passwordResetTokenExpiresAt DateTime?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastFailedLoginAt   DateTime?
   roles              UserRole[]
   reviewsWritten     Review[] @relation("ReviewAuthor")
   reviewsReceived    Review[] @relation("ReviewTarget")
@@ -53,6 +58,7 @@ model User {
   @@index([email])
   @@index([provider])
   @@index([verificationToken])
+  @@index([passwordResetToken])
   @@index([referralCode])
   @@index([referredById])
   @@index([agencyId])

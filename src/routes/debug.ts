@@ -66,10 +66,8 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const session = await loggingService.createDebugSession({
         userId: request.user?.id,
-        userEmail: request.user?.email,
         initialRoute: truncateString(request.body?.initialRoute, 500) || request.url,
         userAgent: truncateString(request.body?.userAgent, 500) || truncateString(request.headers['user-agent'], 500),
-        ipAddress: request.ip
       });
 
       if (!session?.id) {
@@ -119,7 +117,6 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
       const action = await loggingService.logAction({
         sessionId: truncateString(sessionId, 128),
         userId: request.user?.id,
-        userEmail: request.user?.email,
         actionType: truncateString(actionType, 128),
         actionName: truncateString(actionName, 256),
         componentName: truncateString(componentName, 256),
@@ -183,7 +180,6 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
       const error = await loggingService.logError({
         sessionId: truncateString(sessionId, 128),
         userId: request.user?.id,
-        userEmail: request.user?.email,
         errorType: truncateString(errorType, 128) || 'frontend',
         errorMessage: truncateString(errorMessage, 4000),
         errorStackTrace: truncateString(errorStackTrace, 8000),
@@ -451,7 +447,6 @@ function generateBugReport(session: any) {
     summary: {
       user: {
         id: session.userId,
-        email: session.userEmail,
         authenticated: !!session.userId
       },
       session: {

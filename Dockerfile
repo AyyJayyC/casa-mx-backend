@@ -6,13 +6,16 @@ WORKDIR /app
 ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public"
 ENV DATABASE_URL=${DATABASE_URL}
 
-COPY package*.json ./
-COPY tsconfig.json ./
+# Switch to non-root user for building
+RUN chown -R node:node /app
+USER node
 
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+COPY --chown=node:node package*.json ./
+COPY --chown=node:node tsconfig.json ./
+
 RUN npm ci
 
-COPY . .
+COPY --chown=node:node . .
 
 RUN npx prisma generate
 RUN npm run build

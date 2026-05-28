@@ -20,9 +20,6 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
       if (!overallHealthy) {
         return reply.code(503).send({
           status: 'degraded',
-          timestamp: new Date().toISOString(),
-          uptime: process.uptime(),
-          environment: process.env.NODE_ENV,
           checks: {
             database: 'ok',
             cache: 'down',
@@ -32,9 +29,6 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
 
       return reply.code(200).send({
         status: 'ok',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        environment: process.env.NODE_ENV,
         checks: {
           database: 'ok',
           cache: cacheConfigured ? 'ok' : 'not_configured',
@@ -44,7 +38,6 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(503).send({
         status: 'unhealthy',
         error: error?.message || 'health_check_failed',
-        timestamp: new Date().toISOString(),
       });
     }
   });

@@ -87,7 +87,7 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
             offeredMonthlyRent: input.offeredMonthlyRent,
             applicantId,
             status: 'pending',
-          } as any,
+          },
           include: {
             property: {
               select: {

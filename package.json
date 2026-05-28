@@ -32,6 +32,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1035.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
+    "@fastify/csrf-protection": "^7.1.0",
     "@fastify/helmet": "^13.0.2",
     "@fastify/multipart": "^10.0.0",
     "@fastify/rate-limit": "^10.3.0",

@@ -3,15 +3,15 @@ import { z } from 'zod';
 export const FINANCING_TYPES = ['cash', 'bankLoan', 'INFONAVIT', 'FOVISSSTE', 'paymentPlan', 'other'] as const;
 
 export const createPropertyOfferSchema = z.object({
-  offerAmount: z.number().positive('Offer amount must be positive'),
+  offerAmount: z.number().positive('Offer amount must be positive').max(999999999, 'Offer amount is too high'),
   financing: z.enum(FINANCING_TYPES, { errorMap: () => ({ message: 'Invalid financing type' }) }),
   closingDate: z.string().optional(), // ISO date string
   message: z.string().max(1000).optional(),
 
   // Payment plan (only when financing = paymentPlan)
-  enganche:     z.number().positive().optional(),
+  enganche:     z.number().positive().max(999999999).optional(),
   plazoMeses:   z.number().int().min(1).max(360).optional(),
-  cuotaMensual: z.number().positive().optional(),
+  cuotaMensual: z.number().positive().max(999999999).optional(),
 
   // Buyer contact info
   buyerName: z.string().min(1, 'Name is required'),
@@ -26,7 +26,7 @@ export const respondPropertyOfferSchema = z.object({
     errorMap: () => ({ message: 'Status must be accepted, rejected, or countered' }),
   }),
   sellerNote: z.string().max(1000).optional(),
-  counterAmount: z.number().positive().optional(),
+  counterAmount: z.number().positive().max(999999999).optional(),
 });
 
 export type RespondPropertyOfferInput = z.infer<typeof respondPropertyOfferSchema>;

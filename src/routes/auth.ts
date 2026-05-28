@@ -1,11 +1,12 @@
 import { FastifyPluginAsync } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import crypto from 'crypto';
-import { RegisterSchema, LoginSchema, RefreshSchema, OAuthGoogleSchema } from '../schemas/auth.js';
+import { RegisterSchema, LoginSchema, RefreshSchema, OAuthGoogleSchema, ForgotPasswordSchema, ResetPasswordSchema } from '../schemas/auth.js';
 import { AuthService } from '../services/auth.service.js';
 import { refreshTokenStoreService } from '../services/refreshTokenStore.service.js';
 import { env } from '../config/env.js';
 import { sendVerificationEmail } from '../services/email.service.js';
+import { sendPasswordResetEmail } from '../services/email.service.js';
 import { isZodError, createValidationErrorResponse, createServerErrorResponse } from '../utils/errorHandling.js';
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
@@ -124,13 +125,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 60 * 60 * 24 * 7,
           });
 
-        // NOTE: token returned in body for test compatibility only.
-        // Frontend authenticates via httpOnly cookies, not these values.
+        // NOTE: tokens are set via httpOnly cookies above. The response body
+        // contains only the user object to prevent token exfiltration via XSS.
         return reply.code(200).send({
           success: true,
           user,
-          token,
-          refreshToken,
         });
       } catch (error: any) {
         if (error.message === 'Invalid email or password') {
@@ -231,8 +230,6 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
           return reply.code(200).send({
             success: true,
-            token: newToken,
-            refreshToken: newRefreshToken,
           });
         } catch (verifyError) {
           return reply.code(401).send({
@@ -419,7 +416,6 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             provider: user.provider,
             roles: user.roles,
           },
-          token,
         });
       } catch (error: any) {
         if (error.constructor?.name === 'ZodError') {
@@ -427,6 +423,101 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         }
         fastify.log.error(error);
         return reply.code(500).send({ success: false, error: 'OAuth login failed' });
+      }
+    }
+  );
+
+  // POST /auth/forgot-password — sends reset link
+  fastify.post<{ Body: Record<string, any> }>(
+    '/auth/forgot-password',
+    {
+      config: {
+        rateLimit: {
+          max: 3,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { email } = ForgotPasswordSchema.parse(request.body);
+
+        const user = await authService.getUserByEmail(email);
+        if (!user) {
+          return reply.code(200).send({ success: true, message: 'If the email exists, a reset link has been sent.' });
+        }
+
+        const token = crypto.randomUUID();
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+        await fastify.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            passwordResetToken: token,
+            passwordResetTokenExpiresAt: expiresAt,
+          },
+        });
+
+        await sendPasswordResetEmail({
+          userEmail: user.email,
+          userName: user.name,
+          token,
+        });
+
+        return reply.code(200).send({ success: true, message: 'If the email exists, a reset link has been sent.' });
+      } catch (error: any) {
+        if (isZodError(error)) {
+          return reply.code(400).send(createValidationErrorResponse(error));
+        }
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to process request' });
+      }
+    }
+  );
+
+  // POST /auth/reset-password — resets password with token
+  fastify.post<{ Body: Record<string, any> }>(
+    '/auth/reset-password',
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { token, password } = ResetPasswordSchema.parse(request.body);
+
+        const user = await fastify.prisma.user.findUnique({
+          where: { passwordResetToken: token },
+        });
+
+        if (!user || !user.passwordResetTokenExpiresAt || user.passwordResetTokenExpiresAt < new Date()) {
+          return reply.code(400).send({ success: false, error: 'Invalid or expired reset token' });
+        }
+
+        const hashedPassword = await authService.hashPassword(password);
+
+        await fastify.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            password: hashedPassword,
+            passwordResetToken: null,
+            passwordResetTokenExpiresAt: null,
+            failedLoginAttempts: 0,
+            lockedUntil: null,
+          },
+        });
+
+        return reply.code(200).send({ success: true, message: 'Password reset successfully' });
+      } catch (error: any) {
+        if (isZodError(error)) {
+          return reply.code(400).send(createValidationErrorResponse(error));
+        }
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to reset password' });
       }
     }
   );

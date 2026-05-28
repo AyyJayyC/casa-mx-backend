@@ -9,6 +9,14 @@ const AUTO_APPROVED_ROLES = new Set(['buyer', 'tenant']);
 export class AuthService {
   constructor(private prisma: PrismaClient) {}
 
+  async hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, 10);
+  }
+
+  async getUserByEmail(email: string) {
+    return this.prisma.user.findUnique({ where: { email } });
+  }
+
   private generateReferralCode(): string {
     return genRefCode();
   }
@@ -100,10 +108,37 @@ export class AuthService {
       throw new Error('Invalid email or password');
     }
 
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new Error('Account temporarily locked. Try again later.');
+    }
+
     const passwordMatch = await bcrypt.compare(data.password, user.password ?? '');
     if (!user.password || !passwordMatch) {
+      const attempts = (user.failedLoginAttempts || 0) + 1;
+      const lockedUntil = attempts >= 5
+        ? new Date(Date.now() + 15 * 60 * 1000)
+        : user.lockedUntil;
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: attempts,
+          lockedUntil,
+          lastFailedLoginAt: new Date(),
+        },
+      });
+
       throw new Error('Invalid email or password');
     }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        lastFailedLoginAt: null,
+      },
+    });
 
     return {
       id: user.id,

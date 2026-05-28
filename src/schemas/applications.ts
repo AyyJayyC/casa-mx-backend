@@ -12,7 +12,7 @@ export const createApplicationSchema = z.object({
   // Employment Information
   employer: z.string().min(1, 'Employer is required'),
   jobTitle: z.string().min(1, 'Job title is required'),
-  monthlyIncome: z.number().positive('Monthly income must be positive'),
+  monthlyIncome: z.number().positive('Monthly income must be positive').max(999999999, 'Monthly income is too high'),
   employmentDuration: z.string().min(1, 'Employment duration is required'),
   
   // Rental Preferences
@@ -21,8 +21,8 @@ export const createApplicationSchema = z.object({
     const isDateTime = !Number.isNaN(Date.parse(value));
     return isDateOnly || isDateTime;
   }, 'Invalid move-in date'),
-  desiredLeaseTerm: z.number().int().min(1, 'Lease term must be at least 1 month'),
-  numberOfOccupants: z.number().int().positive('Number of occupants must be positive'),
+  desiredLeaseTerm: z.number().int().min(1, 'Lease term must be at least 1 month').max(60, 'Lease term is too long'),
+  numberOfOccupants: z.number().int().positive('Number of occupants must be positive').max(50, 'Too many occupants'),
   
   // References
   reference1Name: z.string().min(1, 'At least one reference is required'),
@@ -31,7 +31,7 @@ export const createApplicationSchema = z.object({
   reference2Phone: z.string().optional(),
 
   // Optional rent offer from tenant
-  offeredMonthlyRent: z.number().positive().optional(),
+  offeredMonthlyRent: z.number().positive().max(999999999).optional(),
 
   // Additional
   messageToLandlord: z.string().optional(),

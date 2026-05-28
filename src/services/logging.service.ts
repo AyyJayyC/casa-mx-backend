@@ -221,13 +221,7 @@ class LoggingService {
           requestHeaders: this.truncateObject(
             this.redactSensitiveData(data.requestHeaders)
           ),
-          requestBody: this.truncateObject(
-            this.redactSensitiveData(data.requestBody)
-          ),
           responseStatus: data.responseStatus,
-          responseBody: this.truncateObject(
-            this.redactSensitiveData(data.responseBody)
-          ),
           responseTimeMs: data.responseTimeMs || 0,
           errorMessage: data.errorMessage?.substring(0, 5000),
           timestamp: new Date()
@@ -239,7 +233,6 @@ class LoggingService {
         await this.logError({
           sessionId: data.sessionId,
           userId: data.userId,
-          userEmail: data.userEmail,
           errorType: 'api',
           errorMessage: `API Error: ${data.httpMethod} ${data.apiEndpoint} returned ${data.responseStatus}`,
           errorCode: data.responseStatus,

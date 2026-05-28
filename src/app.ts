@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
+import csrfProtection from '@fastify/csrf-protection';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
@@ -96,8 +97,8 @@ export async function buildApp() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com", "https://maps.googleapis.com"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com"],
+        scriptSrc: ["'self'", "'strict-dynamic'", "https://js.stripe.com", "https://maps.googleapis.com"],
+        styleSrc: ["'self'", "'strict-dynamic'", "https://fonts.googleapis.com"],
         imgSrc: ["'self'", "data:", "blob:", "https://*.unsplash.com", "https://*.tile.openstreetmap.org", "https://maps.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         connectSrc: ["'self'", "https://api.stripe.com", "https://*.tile.openstreetmap.org"],
@@ -132,6 +133,7 @@ export async function buildApp() {
   });
   await app.register(prismaPlugin);
   await app.register(cookie);
+  await app.register(csrfProtection, { cookieOpts: { signed: false } });
   await app.register(jwtPlugin);
 
   if (env.NODE_ENV === 'test') {

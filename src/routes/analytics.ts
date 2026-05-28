@@ -139,6 +139,140 @@ const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
   );
+
+  // ─── Market Analytics (Phase 6) ────────────────────────────────────
+
+  // GET /admin/analytics/market-summary — global market KPIs
+  fastify.get<{ Querystring: { listingType?: string } }>(
+    '/admin/analytics/market-summary',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const data = await analyticsService.getMarketSummary(request.query.listingType);
+        return reply.send({ success: true, data });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to fetch market summary' });
+      }
+    }
+  );
+
+  // GET /admin/analytics/market-by-city — per-city breakdown
+  fastify.get<{ Querystring: { estado?: string; listingType?: string } }>(
+    '/admin/analytics/market-by-city',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const data = await analyticsService.getMarketByCity(
+          request.query.estado,
+          request.query.listingType
+        );
+        return reply.send({ success: true, data });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to fetch market by city' });
+      }
+    }
+  );
+
+  // GET /admin/analytics/market-by-colonia — per-colonia drilldown
+  fastify.get<{ Querystring: { estado?: string; ciudad?: string; listingType?: string } }>(
+    '/admin/analytics/market-by-colonia',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        if (!request.query.estado || !request.query.ciudad) {
+          return reply.code(400).send({ success: false, error: 'estado and ciudad query parameters are required' });
+        }
+        const data = await analyticsService.getMarketByColonia(
+          request.query.estado,
+          request.query.ciudad,
+          request.query.listingType
+        );
+        return reply.send({ success: true, data });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to fetch market by colonia' });
+      }
+    }
+  );
+
+  // GET /admin/analytics/offer-trends — monthly offer value trend
+  fastify.get<{ Querystring: { estado?: string; ciudad?: string; colonia?: string; listingType?: string; months?: string } }>(
+    '/admin/analytics/offer-trends',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const months = request.query.months ? parseInt(request.query.months, 10) : 12;
+        const data = await analyticsService.getOfferTrends(
+          request.query.estado,
+          request.query.ciudad,
+          request.query.colonia,
+          request.query.listingType,
+          months
+        );
+        return reply.send({ success: true, data });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to fetch offer trends' });
+      }
+    }
+  );
+
+  // GET /admin/analytics/offer-analysis — offer behavior stats
+  fastify.get<{ Querystring: { estado?: string; ciudad?: string } }>(
+    '/admin/analytics/offer-analysis',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const data = await analyticsService.getOfferAnalysis(
+          request.query.estado,
+          request.query.ciudad
+        );
+        return reply.send({ success: true, data });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to fetch offer analysis' });
+      }
+    }
+  );
+
+  // GET /admin/analytics/opportunities — actionable alerts
+  fastify.get<{ Querystring: { listingType?: string } }>(
+    '/admin/analytics/opportunities',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const data = await analyticsService.getOpportunities(request.query.listingType);
+        return reply.send({ success: true, data });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to fetch opportunities' });
+      }
+    }
+  );
+
+  // GET /admin/analytics/comps — recent comparable offers
+  fastify.get<{ Querystring: { estado?: string; ciudad?: string; colonia?: string; listingType?: string; limit?: string } }>(
+    '/admin/analytics/comps',
+    { onRequest: [requireAdmin] },
+    async (request, reply) => {
+      try {
+        const limit = request.query.limit ? parseInt(request.query.limit, 10) : 20;
+        const data = await analyticsService.getComps(
+          request.query.estado,
+          request.query.ciudad,
+          request.query.colonia,
+          request.query.listingType,
+          limit
+        );
+        return reply.send({ success: true, data });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to fetch comps' });
+      }
+    }
+  );
 };
 
 export default analyticsRoutes;

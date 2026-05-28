@@ -33,10 +33,8 @@ export async function setupLoggingMiddleware(fastify: FastifyInstance) {
       // Create new session automatically
       const session = await loggingService.createDebugSession({
         userId: request.user?.id,
-        userEmail: request.user?.email,
         initialRoute: request.url,
         userAgent: request.headers['user-agent'],
-        ipAddress: request.ip
       });
 
       sessionId = session?.id;
@@ -68,11 +66,9 @@ export async function setupLoggingMiddleware(fastify: FastifyInstance) {
         sessionId,
         userId: request.user?.id,
         httpMethod: request.method,
-        apiEndpoint: request.url.split('?')[0], // Remove query string
+        apiEndpoint: request.url.split('?')[0],
         requestHeaders: sanitizeHeaders(request.headers),
-        requestBody: request.body,
         responseStatus: reply.statusCode,
-        responseBody: undefined, // reply.payload not available
         responseTimeMs: responseTime,
         currentRoute: request.url,
         userAgent: request.headers['user-agent'] as string
@@ -83,7 +79,6 @@ export async function setupLoggingMiddleware(fastify: FastifyInstance) {
         await loggingService.logError({
           sessionId,
           userId: request.user?.id,
-          userEmail: request.user?.email,
           errorType: 'api',
           errorMessage: `API Error: ${request.method} ${request.url} returned ${reply.statusCode}`,
           errorCode: reply.statusCode,
@@ -119,7 +114,6 @@ export async function setupLoggingMiddleware(fastify: FastifyInstance) {
     await loggingService.logError({
       sessionId,
       userId: request.user?.id,
-      userEmail: request.user?.email,
       errorType: 'backend',
       errorMessage: errorObj.message,
       errorStackTrace: errorObj.stack,
