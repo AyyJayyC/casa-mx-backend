@@ -399,6 +399,25 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           output.push('push: ' + (e.stdout || e.stderr || e.message));
         }
 
+        // Reset admin user password (action: reset-admin)
+        if (request.body.action === 'reset-admin') {
+          try {
+            const adminEmail = process.env.ADMIN_EMAIL?.trim();
+            if (!adminEmail) {
+              return reply.code(400).send({ success: false, error: 'ADMIN_EMAIL not set' });
+            }
+            const bcrypt = require('bcrypt');
+            const hashedPassword = await bcrypt.hash('CasaMX2026!', 10);
+            await fastify.prisma.user.update({
+              where: { email: adminEmail },
+              data: { password: hashedPassword, emailVerified: true },
+            });
+            output.push('reset-admin: password set for ' + adminEmail);
+          } catch (e: any) {
+            output.push('reset-admin: ' + (e.message));
+          }
+        }
+
         return reply.send({ success: true, output });
       } catch (error: any) {
         fastify.log.error(error);
