@@ -355,7 +355,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
   // POST /admin/run-migrations — apply pending database migrations
   // Secured by MIGRATION_SECRET env var (one-time use)
-  fastify.post<{ Body: { secret: string } }>(
+  fastify.post<{ Body: { secret: string; action?: string } }>(
     '/admin/run-migrations',
     async (request, reply) => {
       try {
@@ -450,6 +450,62 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         return reply.send({ success: true, output });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: error.message });
+      }
+    }
+  );
+
+  // POST /admin/setup-admin — grant admin role + set password for ADMIN_EMAIL user
+  // Secured by MIGRATION_SECRET env var (one-time use)
+  fastify.post<{ Body: { secret: string } }>(
+    '/admin/setup-admin',
+    async (request, reply) => {
+      try {
+        const expectedSecret = process.env.MIGRATION_SECRET?.trim();
+        if (!expectedSecret || request.body.secret !== expectedSecret) {
+          return reply.code(403).send({ success: false, error: 'Invalid secret' });
+        }
+
+        const adminEmail = process.env.ADMIN_EMAIL?.trim();
+        if (!adminEmail) {
+          return reply.code(400).send({ success: false, error: 'ADMIN_EMAIL not set' });
+        }
+
+        // Set password
+        const bcrypt = await import('bcrypt');
+        const hashedPassword = await bcrypt.hash('CasaMX2026!', 10);
+
+        const user = await fastify.prisma.user.upsert({
+          where: { email: adminEmail },
+          create: {
+            email: adminEmail,
+            name: 'Axel Castro',
+            password: hashedPassword,
+            emailVerified: true,
+          },
+          update: {
+            password: hashedPassword,
+            emailVerified: true,
+          },
+        });
+
+        // Grant admin role
+        const adminRole = await fastify.prisma.role.findUnique({ where: { name: 'admin' } });
+        if (adminRole) {
+          await fastify.prisma.userRole.upsert({
+            where: { userId_roleId: { userId: user.id, roleId: adminRole.id } },
+            create: { userId: user.id, roleId: adminRole.id, status: 'approved' },
+            update: { status: 'approved' },
+          });
+        }
+
+        return reply.send({
+          success: true,
+          email: adminEmail,
+          userId: user.id,
+        });
       } catch (error: any) {
         fastify.log.error(error);
         return reply.code(500).send({ success: false, error: error.message });
