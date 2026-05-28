@@ -661,20 +661,17 @@ model PropertyOffer {
 }
 
 model PropertyImage {
-  id          String   @id @default(uuid())
-  propertyId  String
-  url         String?
-  key         String?
-  imageUrl    String?
-  fileName    String?
-  fileMimeType String?
-  caption     String?
-  width       Int?
-  height      Int?
-  size        Int?
-  order       Int      @default(0)
-  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id           String   @id @default(uuid())
+  propertyId   String
+  imageUrl     String
+  fileName     String
+  fileMimeType String
+  caption      String?
+  order        Int      @default(0)
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([propertyId])
+  @@index([propertyId, order])
 }
