@@ -399,6 +399,37 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           output.push('push: ' + (e.stdout || e.stderr || e.message));
         }
 
+        // Grant admin role to ADMIN_EMAIL user (action: grant-admin)
+        if (request.body.action === 'grant-admin') {
+          try {
+            const adminEmail = process.env.ADMIN_EMAIL?.trim();
+            if (!adminEmail) {
+              return reply.code(400).send({ success: false, error: 'ADMIN_EMAIL not set' });
+            }
+            const user = await fastify.prisma.user.findUnique({
+              where: { email: adminEmail },
+              include: { roles: { include: { role: true } } },
+            });
+            if (!user) {
+              output.push('grant-admin: user not found for ' + adminEmail);
+            } else {
+              const adminRole = await fastify.prisma.role.findUnique({ where: { name: 'admin' } });
+              if (!adminRole) {
+                output.push('grant-admin: admin role not found in DB');
+              } else {
+                await fastify.prisma.userRole.upsert({
+                  where: { userId_roleId: { userId: user.id, roleId: adminRole.id } },
+                  create: { userId: user.id, roleId: adminRole.id, status: 'approved' },
+                  update: { status: 'approved' },
+                });
+                output.push('grant-admin: admin role granted to ' + adminEmail);
+              }
+            }
+          } catch (e: any) {
+            output.push('grant-admin: ' + (e.message || 'unknown error'));
+          }
+        }
+
         // Reset admin user password (action: reset-admin)
         if (request.body.action === 'reset-admin') {
           try {
