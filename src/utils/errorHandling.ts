@@ -22,12 +22,13 @@ export interface ErrorResponse {
 /**
  * Create a standardized error response for validation errors
  */
-export const createValidationErrorResponse = (error: z.ZodError): ErrorResponse => {
+export const createValidationErrorResponse = (error: z.ZodError, showDetails = false): ErrorResponse => {
   const isProduction = process.env.NODE_ENV === 'production';
+  const masked = isProduction && !showDetails;
   return {
     success: false,
     error: 'Validation error',
-    details: isProduction ? [{ message: 'Uno o más campos no son válidos' }] : (error.errors || error.message),
+    details: masked ? [{ message: 'Uno o más campos no son válidos' }] : (error.errors || error.message),
   };
 };
 

@@ -104,7 +104,7 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.send({ success: true, ...result });
     } catch (error: any) {
       if (isZodError(error)) {
-        return reply.code(400).send(createValidationErrorResponse(error));
+        return reply.code(400).send(createValidationErrorResponse(error, true));
       }
       fastify.log.error(error);
       return reply.code(500).send(createServerErrorResponse('Failed to spend credit'));

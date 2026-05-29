@@ -269,7 +269,11 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
     method: 'POST',
     url: '/properties',
     config: {
-      rateLimit: { max: 10, timeWindow: '15 minutes' },
+      rateLimit: {
+        max: 100,
+        timeWindow: '15 minutes',
+        keyGenerator: (req) => 'props:create:' + ((req as any).user?.id || req.ip),
+      },
     },
     onRequest: [verifyJWT, requireAnyRole(['seller', 'wholesaler', 'landlord', 'admin'])],
     handler: async (request, reply) => {
