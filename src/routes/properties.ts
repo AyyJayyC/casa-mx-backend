@@ -355,22 +355,20 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           });
 
           if (selfDuplicate) {
-            const retiredMeta = selfDuplicate.inventoryNotes
-              ? JSON.parse(selfDuplicate.inventoryNotes || '{}') : {};
-            const retiredAt = retiredMeta.retiredAt ? new Date(retiredMeta.retiredAt) : null;
-            const daysSinceRetired = retiredAt
-              ? Math.floor((Date.now() - retiredAt.getTime()) / (1000 * 60 * 60 * 24))
-              : 999;
+            const daysSinceCreated = Math.floor(
+              (Date.now() - selfDuplicate.createdAt.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            const daysRemaining = Math.max(0, 180 - daysSinceCreated);
 
-            if (daysSinceRetired < 180) {
-              // Free reactivation within 180 days
+            if (daysRemaining > 0) {
+              // Free reactivation within 180 days of original upload
               const updated = await app.prisma.property.update({
                 where: { id: selfDuplicate.id },
                 data: { status: 'incompleto', visibility: 'private' },
               });
               return reply.code(201).send({
                 success: true, data: updated,
-                duplicateSelf: true, reactivatedFree: true,
+                duplicateSelf: true, reactivatedFree: true, daysRemaining,
               });
             } else {
               // Charge 10 credits after 180 days
