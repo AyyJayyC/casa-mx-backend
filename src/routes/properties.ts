@@ -279,69 +279,114 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
     handler: async (request, reply) => {
       try {
         const user = (request as any).user;
+        const isSoft = (request.query as any)?.soft === 'true';
+        const body = request.body as any;
 
-        // Validate input with Zod
-        const input = createPropertySchema.parse(request.body);
+        let input: any;
+        let warnings: string[] = [];
+        let isIncomplete = false;
 
-        // Create property
-        const property = await app.prisma.property.create({
-          data: {
-            title: input.title,
-            description: input.description,
-            address: input.address,
-            imageUrls: input.imageUrls ?? [],
-            price: input.price ?? null,
-            lat: input.lat ?? null,
-            lng: input.lng ?? null,
-            estado: input.estado,
-            ciudad: input.ciudad,
-            colonia: input.colonia,
-            codigoPostal: input.codigoPostal,
-            propertyType: input.propertyType ?? null,
-            bedrooms: input.bedrooms ?? null,
-            bathrooms: input.bathrooms ?? null,
-            squareMeters: input.squareMeters ?? null,
-            includedServices: input.includedServices ?? [],
-            amenities: input.amenities ?? [],
-            financeOptions: input.financeOptions ?? [],
-            status: input.status,
-            listingType: input.listingType,
-            monthlyRent: input.monthlyRent ?? null,
-            securityDeposit: input.securityDeposit ?? null,
-            leaseTermMonths: input.leaseTermMonths ?? null,
-            availableFrom: input.availableFrom ? new Date(input.availableFrom) : null,
-            furnished: input.furnished ?? false,
-            utilitiesIncluded: ((input.includedServices?.length ?? 0) > 0) || (input.utilitiesIncluded ?? false),
-            condition: input.condition ?? null,
-            parkingType: input.parkingType ?? null,
-            parkingSpaces: input.parkingSpaces ?? null,
-            miniSplits: input.miniSplits ?? null,
-            petFriendly: input.petFriendly ?? false,
-            petFee: input.petFee ?? null,
-            petDeposit: input.petDeposit ?? null,
-            yearBuilt: input.yearBuilt ?? null,
-            floors: input.floors ?? null,
-            lotSize: input.lotSize ?? null,
-            maintenanceFee: input.maintenanceFee ?? null,
-            halfBaths: input.halfBaths ?? null,
-            childrenWelcome: input.childrenWelcome ?? false,
-            issuesInvoice: input.issuesInvoice ?? false,
-            visibility: input.visibility ?? 'public',
-            sellerId: user.id,
-          },
-        });
+        if (isSoft) {
+          const result = createPropertySchema.safeParse(body);
+          if (result.success) {
+            input = result.data;
+          } else {
+            // Extract valid fields, fill dangerous/invalid ones with safe defaults
+            warnings = result.error.errors.map(e =>
+              `${e.path.join('.')}: ${e.message}`
+            );
+            isIncomplete = true;
 
-        // If creating a rental property, add landlord role
+            // Build input from raw body with safe defaults for missing/invalid fields
+            const safeString = (v: any, min = 1, max = 200) =>
+              typeof v === 'string' && v.length >= min && v.length <= max ? v : 'Sin título';
+
+            input = {
+              title: safeString(body.title, 1, 200) || 'Propiedad importada',
+              description: typeof body.description === 'string' ? body.description : '',
+              address: typeof body.address === 'string' ? body.address : '',
+              estado: typeof body.estado === 'string' ? body.estado : 'Sonora',
+              ciudad: typeof body.ciudad === 'string' ? body.ciudad : '',
+              colonia: typeof body.colonia === 'string' ? body.colonia : '',
+              codigoPostal: body.codigoPostal || undefined,
+              propertyType: typeof body.propertyType === 'string' ? body.propertyType : 'Casa',
+              bedrooms: typeof body.bedrooms === 'number' && body.bedrooms >= 0 ? body.bedrooms : 0,
+              bathrooms: typeof body.bathrooms === 'number' && body.bathrooms >= 0 ? body.bathrooms : 0,
+              squareMeters: typeof body.squareMeters === 'number' && body.squareMeters >= 1 ? body.squareMeters : 1,
+              price: typeof body.price === 'number' && body.price > 0 ? body.price : undefined,
+              listingType: body.listingType === 'for_rent' ? 'for_rent' : 'for_sale',
+              status: 'incompleto',
+              visibility: 'private',
+              yearBuilt: typeof body.yearBuilt === 'number' && body.yearBuilt >= 1800 ? body.yearBuilt : undefined,
+              petFriendly: typeof body.petFriendly === 'boolean' ? body.petFriendly : false,
+            };
+          }
+        } else {
+          input = createPropertySchema.parse(body);
+        }
+
+        const data: any = {
+          title: input.title,
+          description: input.description || '',
+          address: input.address || '',
+          imageUrls: [],
+          price: input.price ?? null,
+          lat: input.lat ?? null,
+          lng: input.lng ?? null,
+          estado: input.estado,
+          ciudad: input.ciudad || '',
+          colonia: input.colonia || '',
+          codigoPostal: input.codigoPostal || null,
+          propertyType: input.propertyType || 'Casa',
+          bedrooms: input.bedrooms ?? 0,
+          bathrooms: input.bathrooms ?? 0,
+          squareMeters: input.squareMeters ?? 1,
+          includedServices: input.includedServices ?? [],
+          amenities: input.amenities ?? [],
+          financeOptions: input.financeOptions ?? [],
+          status: input.status || 'disponible',
+          listingType: input.listingType || 'for_sale',
+          monthlyRent: input.monthlyRent ?? null,
+          securityDeposit: input.securityDeposit ?? null,
+          leaseTermMonths: input.leaseTermMonths ?? null,
+          availableFrom: input.availableFrom ? new Date(input.availableFrom) : null,
+          furnished: input.furnished ?? false,
+          utilitiesIncluded: ((input.includedServices?.length ?? 0) > 0) || (input.utilitiesIncluded ?? false),
+          condition: input.condition ?? null,
+          parkingType: input.parkingType ?? null,
+          parkingSpaces: input.parkingSpaces ?? null,
+          miniSplits: input.miniSplits ?? null,
+          petFriendly: input.petFriendly ?? false,
+          petFee: input.petFee ?? null,
+          petDeposit: input.petDeposit ?? null,
+          yearBuilt: input.yearBuilt ?? null,
+          floors: input.floors ?? null,
+          lotSize: input.lotSize ?? null,
+          maintenanceFee: input.maintenanceFee ?? null,
+          halfBaths: input.halfBaths ?? null,
+          childrenWelcome: input.childrenWelcome ?? false,
+          issuesInvoice: input.issuesInvoice ?? false,
+          visibility: isIncomplete ? 'private' : (input.visibility ?? 'public'),
+          sellerId: user.id,
+        };
+
+        if (warnings.length > 0) {
+          data.inventoryNotes = JSON.stringify({ warnings, importedAt: new Date().toISOString() });
+        }
+
+        const property = await app.prisma.property.create({ data });
+
         if (input.listingType === 'for_rent') {
           await landlordService.addLandlordRoleIfNeeded(user.id);
         }
 
-        // Invalidate location filter cache since new location data added
         await cacheService.invalidate('location:filter:*');
 
         return reply.code(201).send({
           success: true,
           data: property,
+          warnings: warnings.length > 0 ? warnings : undefined,
+          isIncomplete,
         });
       } catch (error: any) {
         if (error instanceof z.ZodError) {

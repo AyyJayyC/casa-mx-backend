@@ -57,7 +57,7 @@ const basePropertySchema = z.object({
   childrenWelcome: z.boolean().optional(),
   issuesInvoice: z.boolean().optional(),
   visibility: z.enum(['public', 'private']).default('public'),
-  status: z.enum(['available', 'pending', 'sold', 'rented', 'disponible', 'preventa', 'en_remodelacion', 'bajo_promesa', 'vendido', 'rentado', 'retirado']).default('disponible'),
+  status: z.enum(['available', 'pending', 'sold', 'rented', 'disponible', 'preventa', 'en_remodelacion', 'bajo_promesa', 'vendido', 'rentado', 'retirado', 'incompleto']).default('disponible'),
   listingType: z.enum(['for_sale', 'for_rent']).default('for_sale'),
 });
 
@@ -129,7 +129,7 @@ export const updatePropertySchema = z.object({
   childrenWelcome: z.boolean().optional(),
   issuesInvoice: z.boolean().optional(),
   visibility: z.enum(['public', 'private']).optional(),
-  status: z.enum(['available', 'pending', 'sold', 'rented', 'disponible', 'preventa', 'en_remodelacion', 'bajo_promesa', 'vendido', 'rentado', 'retirado']).optional(),
+  status: z.enum(['available', 'pending', 'sold', 'rented', 'disponible', 'preventa', 'en_remodelacion', 'bajo_promesa', 'vendido', 'rentado', 'retirado', 'incompleto']).optional(),
   listingType: z.enum(['for_sale', 'for_rent']).optional(),
   monthlyRent: z.number().positive().max(999999999).optional(),
   securityDeposit: z.number().positive().max(999999999).optional(),
