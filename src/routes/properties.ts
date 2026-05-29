@@ -337,6 +337,86 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           input.visibility = 'private';
         }
 
+        // ─── Duplicate detection (soft upload only) ──────────────────
+        if (isSoft && input.address) {
+          const addr = input.address.trim().toLowerCase();
+          const colonia = (input.colonia || '').trim().toLowerCase();
+          const ciudad = (input.ciudad || '').trim().toLowerCase();
+
+          // Self-check: user's own properties with same address
+          const selfDuplicate = await app.prisma.property.findFirst({
+            where: {
+              sellerId: user.id,
+              colonia: input.colonia,
+              ciudad: input.ciudad,
+              address: { contains: addr, mode: 'insensitive' },
+            },
+            orderBy: { updatedAt: 'desc' },
+          });
+
+          if (selfDuplicate) {
+            const retiredMeta = selfDuplicate.inventoryNotes
+              ? JSON.parse(selfDuplicate.inventoryNotes || '{}') : {};
+            const retiredAt = retiredMeta.retiredAt ? new Date(retiredMeta.retiredAt) : null;
+            const daysSinceRetired = retiredAt
+              ? Math.floor((Date.now() - retiredAt.getTime()) / (1000 * 60 * 60 * 24))
+              : 999;
+
+            if (daysSinceRetired < 180) {
+              // Free reactivation within 180 days
+              const updated = await app.prisma.property.update({
+                where: { id: selfDuplicate.id },
+                data: { status: 'incompleto', visibility: 'private' },
+              });
+              return reply.code(201).send({
+                success: true, data: updated,
+                duplicateSelf: true, reactivatedFree: true,
+              });
+            } else {
+              // Charge 10 credits after 180 days
+              const balance = await app.prisma.creditBalance.findUnique({
+                where: { userId: user.id },
+              });
+              if (!balance || balance.balance < 10) {
+                return reply.code(402).send({
+                  success: false,
+                  error: 'Saldo insuficiente para reactivar. Se requieren 10 créditos.',
+                  duplicateId: selfDuplicate.id,
+                });
+              }
+              await app.prisma.creditBalance.update({
+                where: { userId: user.id },
+                data: { balance: { decrement: 10 } },
+              });
+              await app.prisma.property.update({
+                where: { id: selfDuplicate.id },
+                data: { status: 'incompleto', visibility: 'private' },
+              });
+              return reply.code(201).send({
+                success: true, data: { ...selfDuplicate, status: 'incompleto' },
+                duplicateSelf: true, reactivatedCharged: true, cost: 10,
+              });
+            }
+          }
+
+          // Cross-user check: other users' active properties
+          const crossDuplicate = await app.prisma.property.findFirst({
+            where: {
+              colonia: input.colonia,
+              ciudad: input.ciudad,
+              address: { contains: addr, mode: 'insensitive' },
+              NOT: { sellerId: user.id },
+              status: { notIn: ['retirado', 'vendido', 'rentado'] },
+            },
+            select: { id: true, title: true, colonia: true, ciudad: true, status: true },
+          });
+
+          if (crossDuplicate) {
+            // Still create the property, but flag it
+            warnings.push(`Ya existe en la plataforma: "${crossDuplicate.title}" en ${crossDuplicate.colonia}, ${crossDuplicate.ciudad}`);
+          }
+        }
+
         const data: any = {
           title: input.title,
           description: input.description || '',
