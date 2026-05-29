@@ -140,6 +140,8 @@ class PropertyService {
       minRent,
       maxRent,
       furnished,
+      status,
+      visibility,
       limit,
       offset,
     } = filters;
@@ -153,6 +155,8 @@ class PropertyService {
     if (colonia) where.colonia = colonia;
     if (codigoPostal) where.codigoPostal = codigoPostal;
     if (listingType) where.listingType = listingType;
+    if (status) where.status = status;
+    if (visibility) where.visibility = visibility;
 
     if (minPrice !== undefined || maxPrice !== undefined) {
       where.price = {};
