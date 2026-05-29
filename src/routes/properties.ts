@@ -325,6 +325,14 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           input = createPropertySchema.parse(body);
         }
 
+        // Soft upload: all imported properties stay private as drafts
+        // until the user manually adds photos and publishes
+        if (isSoft) {
+          isIncomplete = true;
+          input.status = 'incompleto';
+          input.visibility = 'private';
+        }
+
         const data: any = {
           title: input.title,
           description: input.description || '',
@@ -639,6 +647,40 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           success: false,
           error: 'Failed to update property',
         });
+      }
+    },
+  });
+
+  // POST /properties/:id/publish — publish a draft property (owner only)
+  app.route({
+    method: 'POST',
+    url: '/properties/:id/publish',
+    onRequest: [verifyJWT],
+    handler: async (request, reply) => {
+      try {
+        const user = (request as any).user;
+        const { id } = request.params as { id: string };
+
+        const property = await app.prisma.property.findUnique({ where: { id } });
+        if (!property) {
+          return reply.code(404).send({ success: false, error: 'Propiedad no encontrada' });
+        }
+        if (property.sellerId !== user.id) {
+          return reply.code(403).send({ success: false, error: 'No autorizado' });
+        }
+        if (!property.imageUrls || property.imageUrls.length === 0) {
+          return reply.code(400).send({ success: false, error: 'Se requiere al menos una foto para publicar' });
+        }
+
+        const updated = await app.prisma.property.update({
+          where: { id },
+          data: { status: 'disponible', visibility: 'public' },
+        });
+
+        return reply.send({ success: true, data: updated });
+      } catch (error: any) {
+        app.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Failed to publish property' });
       }
     },
   });
