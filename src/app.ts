@@ -37,6 +37,7 @@ import contractsRoutes from './routes/contracts.js';
 import verificationRoutes from './routes/verification.js';
 import referralsRoutes from './routes/referrals.js';
 import agenciesRoutes from './routes/agencies.js';
+import buyersRoutes from './routes/buyers.js';
 import setupDebugRoutes from './routes/debug.js';
 
 import { normalizeError, type ErrorWithStatusCode } from './utils/errorHandling.js';
@@ -279,6 +280,7 @@ export async function buildApp() {
   await app.register(verificationRoutes);
   await app.register(referralsRoutes);
   await app.register(agenciesRoutes);
+  await app.register(buyersRoutes);
 
   // Global error handler for production logging
   app.setErrorHandler(async (error, request, reply) => {

@@ -678,3 +678,20 @@ model PropertyImage {
 
   @@index([propertyId])
 }
+
+model Buyer {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String?
+  email       String?
+  budgetMin   Float?
+  budgetMax   Float?
+  preferredZones String[] @default([])
+  propertyType String?
+  notes       String?  @db.Text
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
