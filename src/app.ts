@@ -41,6 +41,8 @@ import buyersRoutes from './routes/buyers.js';
 import setupDebugRoutes from './routes/debug.js';
 
 import { normalizeError, type ErrorWithStatusCode } from './utils/errorHandling.js';
+import { MapsService } from './services/maps.service.js';
+import { LoggingService } from './services/logging.service.js';
 
 export async function buildApp() {
   const isLocalFrontend =
@@ -86,6 +88,13 @@ export async function buildApp() {
     }
   }
 
+  function isOriginAllowed(origin: string): boolean {
+    if (allowedOrigins.has(origin)) return true;
+    // Allow Vercel preview deployments in non-production (URLs change per deployment)
+    if (env.NODE_ENV !== 'production' && /^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
+    return false;
+  }
+
   // Register CORS
   await app.register(cors, {
     origin: (origin, callback) => {
@@ -94,7 +103,7 @@ export async function buildApp() {
         return;
       }
 
-      if (allowedOrigins.has(origin)) {
+      if (isOriginAllowed(origin)) {
         callback(null, true);
       } else {
         callback(null, false);
@@ -117,6 +126,7 @@ export async function buildApp() {
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         formAction: ["'self'", "https://hooks.stripe.com"],
+        upgradeInsecureRequests: [],
       },
     },
     global: true,
@@ -143,6 +153,11 @@ export async function buildApp() {
     }
   });
   await app.register(prismaPlugin);
+
+  // Initialize services with the Prisma instance from the plugin
+  MapsService.init(app.prisma);
+  LoggingService.init(app.prisma);
+
   await app.register(cookie);
   await app.register(csrfProtection, { cookieOpts: { signed: false } });
   await app.register(jwtPlugin);
