@@ -3,6 +3,7 @@ import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcrypt';
 import { refreshTokenStoreService } from '../src/services/refreshTokenStore.service.js';
+import { getCookie } from './utils/authHelpers.js';
 
 let app: FastifyInstance;
 
@@ -33,7 +34,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       payload: {
         email,
         name: 'Test User',
-        password: 'password123',
+        password: 'Password1',
         roles: ['tenant'],
       },
     });
@@ -65,7 +66,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       payload: {
         email,
         name: 'User 1',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -76,7 +77,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       payload: {
         email,
         name: 'User 2',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -92,7 +93,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       payload: {
         email: 'not-an-email',
         name: 'Test User',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -115,7 +116,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
 
   it('should allow login with valid credentials', async () => {
     const email = `test-login-${Date.now()}@example.com`;
-    const password = 'password123';
+    const password = 'Password1';
 
     // Register user
     await app.inject({
@@ -141,8 +142,8 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
     expect(response.statusCode).toBe(200);
     const body = response.json() as any;
     expect(body.success).toBe(true);
-    expect(body.token).toBeDefined();
-    expect(body.refreshToken).toBeDefined();
+    expect(getCookie(response, 'accessToken')).toBeDefined();
+    expect(getCookie(response, 'refreshToken')).toBeDefined();
   });
 
   it('should reject login with invalid password', async () => {
@@ -155,7 +156,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       payload: {
         email,
         name: 'Test User',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -180,7 +181,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       url: '/auth/login',
       payload: {
         email: 'nonexistent@example.com',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -196,7 +197,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       payload: {
         email,
         name: 'Test User',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -205,12 +206,12 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       url: '/auth/login',
       payload: {
         email,
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
     const loginBody = loginResponse.json() as any;
-    const token = loginBody.token;
+    const token = getCookie(loginResponse, 'accessToken') ?? loginBody.token;
 
     // Verify token is valid by using it
     const response = await app.inject({
@@ -235,7 +236,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       payload: {
         email,
         name: 'Test User',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -244,12 +245,12 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       url: '/auth/login',
       payload: {
         email,
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
     const loginBody = loginResponse.json() as any;
-    const refreshToken = loginBody.refreshToken;
+    const refreshToken = getCookie(loginResponse, 'refreshToken') ?? loginBody.refreshToken;
 
     // Use refresh token to get new access token
     const refreshResponse = await app.inject({
@@ -261,8 +262,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
     });
 
     expect(refreshResponse.statusCode).toBe(200);
-    const refreshBody = refreshResponse.json() as any;
-    expect(refreshBody.token).toBeDefined();
+    expect(getCookie(refreshResponse, 'accessToken')).toBeDefined();
   });
 
   it('should persist active refresh token jti in token store', async () => {
@@ -274,7 +274,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       payload: {
         email,
         name: 'Refresh Store User',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -283,13 +283,12 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       url: '/auth/login',
       payload: {
         email,
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
     const loginBody = loginResponse.json() as any;
-    const decodedRefresh = app.jwt.decode(loginBody.refreshToken) as any;
-
+    const decodedRefresh = app.jwt.decode(getCookie(loginResponse, 'refreshToken') ?? loginBody.refreshToken) as any;
     const activeJti = await refreshTokenStoreService.getActiveJtiForUser(loginBody.user.id);
 
     expect(decodedRefresh?.jti).toBeDefined();
@@ -305,7 +304,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       payload: {
         email,
         name: 'Refresh Rotate User',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -314,12 +313,12 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       url: '/auth/login',
       payload: {
         email,
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
     const loginBody = loginResponse.json() as any;
-    const firstRefreshToken = loginBody.refreshToken;
+    const firstRefreshToken = getCookie(loginResponse, 'refreshToken') ?? loginBody.refreshToken;
     const firstDecoded = app.jwt.decode(firstRefreshToken) as any;
 
     const refreshResponse = await app.inject({
@@ -331,8 +330,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
     });
 
     expect(refreshResponse.statusCode).toBe(200);
-    const refreshBody = refreshResponse.json() as any;
-    const secondDecoded = app.jwt.decode(refreshBody.refreshToken) as any;
+    const secondDecoded = app.jwt.decode(getCookie(refreshResponse, 'refreshToken')) as any;
 
     const wasRevoked = await refreshTokenStoreService.isJtiRevoked(firstDecoded.jti);
     const activeJti = await refreshTokenStoreService.getActiveJtiForUser(loginBody.user.id);
@@ -379,7 +377,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
 
     expect(response.statusCode).toBe(200);
     const body = response.json() as any;
-    expect(body.token).toBeDefined();
+    expect(getCookie(response, 'accessToken')).toBeDefined();
   });
 
   it('should retrieve authenticated user profile with valid token', async () => {
@@ -391,7 +389,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       payload: {
         email,
         name: 'Profile Test',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -400,7 +398,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       url: '/auth/login',
       payload: {
         email,
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -410,7 +408,7 @@ describe('Checkpoint 2 - Authentication & Admin Bootstrap', () => {
       method: 'GET',
       url: '/auth/me',
       headers: {
-        authorization: `Bearer ${loginBody.token}`,
+        authorization: `Bearer ${getCookie(loginResponse, 'accessToken') ?? loginBody.token}`,
       },
     });
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
-import { approveUserRole, loginAndGetToken } from './utils/authHelpers.js';
+import { approveUserRole, loginAndGetToken, getCookie } from './utils/authHelpers.js';
 
 /**
  * Checkpoint 2: Backend API - Rental Listings & Filtering
@@ -617,7 +617,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
         },
       });
 
-      const otherToken = otherLoginRes.json().token;
+      const otherToken = getCookie(otherLoginRes, 'accessToken') ?? otherLoginRes.json().token;
 
       await approveUserRole(app, otherUserRes.json().user.id, 'seller');
       const approvedOtherToken = await loginAndGetToken(

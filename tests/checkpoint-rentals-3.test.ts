@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
+import { getCookie } from './utils/authHelpers.js';
 
 describe('Checkpoint 3 - Rental Application Endpoints', () => {
   let app: FastifyInstance;
@@ -38,7 +39,7 @@ describe('Checkpoint 3 - Rental Application Endpoints', () => {
         password: 'TestPassword123!',
       },
     });
-    tenantToken = JSON.parse(tenantLogin.body).token;
+    tenantToken = getCookie(tenantLogin, 'accessToken') ?? JSON.parse(tenantLogin.body).token;
 
     // Approve buyer role for tenant
     const buyerRole = await app.prisma.role.findUnique({
@@ -84,7 +85,7 @@ describe('Checkpoint 3 - Rental Application Endpoints', () => {
         password: 'TestPassword123!',
       },
     });
-    landlordToken = JSON.parse(landlordLogin.body).token;
+    landlordToken = getCookie(landlordLogin, 'accessToken') ?? JSON.parse(landlordLogin.body).token;
 
     // Create rental property
     const rentalProperty = await app.prisma.property.create({
@@ -496,7 +497,7 @@ describe('Checkpoint 3 - Rental Application Endpoints', () => {
           password: 'TestPassword123!',
         },
       });
-      const otherLandlordToken = JSON.parse(otherLandlordLogin.body).token;
+      const otherLandlordToken = getCookie(otherLandlordLogin, 'accessToken') ?? JSON.parse(otherLandlordLogin.body).token;
 
       const response = await app.inject({
         method: 'GET',
@@ -624,7 +625,7 @@ describe('Checkpoint 3 - Rental Application Endpoints', () => {
           password: 'TestPassword123!',
         },
       });
-      const tenant2Token = JSON.parse(tenant2Login.body).token;
+      const tenant2Token = getCookie(tenant2Login, 'accessToken') ?? JSON.parse(tenant2Login.body).token;
 
       const app2Response = await app.inject({
         method: 'POST',

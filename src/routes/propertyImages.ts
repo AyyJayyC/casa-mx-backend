@@ -198,13 +198,18 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
         orderBy: { order: 'asc' },
       });
 
-      for (let i = 0; i < remaining.length; i++) {
-        if (remaining[i].order !== i) {
-          await fastify.prisma.propertyImage.update({
-            where: { id: remaining[i].id },
-            data: { order: i },
-          });
-        }
+      const updates = remaining
+        .map((img, i) => ({ id: img.id, currentOrder: img.order, expectedOrder: i }))
+        .filter(({ currentOrder, expectedOrder }) => currentOrder !== expectedOrder)
+        .map(({ id, expectedOrder }) =>
+          fastify.prisma.propertyImage.update({
+            where: { id },
+            data: { order: expectedOrder },
+          })
+        );
+
+      if (updates.length > 0) {
+        await fastify.prisma.$transaction(updates);
       }
 
       return reply.send({ success: true });

@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
+import { getCookie } from './utils/authHelpers.js';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
@@ -70,7 +71,7 @@ describe('Integrity Check - Adversarial Tests', () => {
       },
     });
 
-    adminToken = (adminLogin.json() as any).token;
+    adminToken = getCookie(adminLogin, 'accessToken') ?? (adminLogin.json() as any).token;
 
     // Create regular user (NOT admin)
     const userRegister = await app.inject({
@@ -96,7 +97,7 @@ describe('Integrity Check - Adversarial Tests', () => {
       },
     });
 
-    userToken = (userLogin.json() as any).token;
+    userToken = getCookie(userLogin, 'accessToken') ?? (userLogin.json() as any).token;
 
     // Create a rental property for state integrity tests
     const propertyCreate = await app.inject({
@@ -548,7 +549,7 @@ describe('Integrity Check - Adversarial Tests', () => {
         },
       });
 
-      const landlordToken = (landlordLogin.json() as any).token;
+      const landlordToken = getCookie(landlordLogin, 'accessToken') ?? (landlordLogin.json() as any).token;
 
       // Approve application
       await app.inject({

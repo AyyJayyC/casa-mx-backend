@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
 import jwt from '@fastify/jwt';
+import { getCookie, approveUserRole, loginAndGetToken } from './utils/authHelpers.js';
 
 let app: FastifyInstance;
 let prisma: PrismaClient;
@@ -103,7 +104,7 @@ beforeAll(async () => {
   });
   expect(adminLoginResponse.statusCode).toBe(200);
   const adminLoginData = JSON.parse(adminLoginResponse.payload);
-  adminToken = adminLoginData.token;
+  adminToken = getCookie(adminLoginResponse, 'accessToken') ?? adminLoginData.token;
 
   const userLoginResponse = await app.inject({
     method: 'POST',
@@ -115,7 +116,7 @@ beforeAll(async () => {
   });
   expect(userLoginResponse.statusCode).toBe(200);
   const userLoginData = JSON.parse(userLoginResponse.payload);
-  userToken = userLoginData.token;
+  userToken = getCookie(userLoginResponse, 'accessToken') ?? userLoginData.token;
 });
 
 afterAll(async () => {

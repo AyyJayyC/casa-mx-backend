@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
+import { getCookie } from './utils/authHelpers.js';
 
 let app: FastifyInstance;
 let adminToken: string;
@@ -23,7 +24,7 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
     });
 
     const adminLoginBody = adminLoginResponse.json() as any;
-    adminToken = adminLoginBody.token;
+    adminToken = getCookie(adminLoginResponse, 'accessToken') ?? adminLoginBody.token;
 
     // Setup: Create test user
     const testEmail = `authz-test-${Date.now()}@example.com`;
@@ -33,7 +34,7 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
       payload: {
         email: testEmail,
         name: 'Authorization Test User',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -43,12 +44,12 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
       url: '/auth/login',
       payload: {
         email: testEmail,
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
     const userLoginBody = userLoginResponse.json() as any;
-    userToken = userLoginBody.token;
+    userToken = getCookie(userLoginResponse, 'accessToken') ?? userLoginBody.token;
     userId = userLoginBody.user.id;
     userRoleId = userLoginBody.user.roles[0]?.id;
 
@@ -236,7 +237,7 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
       payload: {
         email: testEmail2,
         name: 'Pending Test',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -246,12 +247,12 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
       url: '/auth/login',
       payload: {
         email: testEmail2,
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
     const loginBody = loginResponse.json() as any;
-    const testToken = loginBody.token;
+    const testToken = getCookie(loginResponse, 'accessToken') ?? loginBody.token;
 
     // Try to access admin route
     const adminResponse = await app.inject({

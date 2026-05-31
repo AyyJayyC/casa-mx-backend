@@ -1,5 +1,17 @@
 import { FastifyInstance } from 'fastify';
 
+export function getCookie(response: any, name: string): string | undefined {
+  const raw = response.headers?.['set-cookie'];
+  if (!raw) return undefined;
+  const cookies = Array.isArray(raw) ? raw : [raw];
+  for (const cookieStr of cookies) {
+    if (cookieStr.startsWith(`${name}=`)) {
+      return cookieStr.split(';')[0]!.slice(name.length + 1);
+    }
+  }
+  return undefined;
+}
+
 export async function registerUser(
   app: FastifyInstance,
   payload: { name: string; email: string; password: string }
@@ -50,7 +62,7 @@ export async function loginAndGetToken(
     throw new Error(`Login failed for ${email}: ${loginRes.statusCode}`);
   }
 
-  return loginRes.json().token;
+  return getCookie(loginRes, 'accessToken') ?? loginRes.json().token;
 }
 
 export function signRoleToken(

@@ -140,7 +140,8 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /credits/fulfill - Manually confirm payment (dev/testing only)
   fastify.post('/credits/fulfill', { onRequest: [verifyJWT] }, async (request, reply) => {
     try {
-      if (env.NODE_ENV === 'production') {
+      const body = request.body as any;
+      if (env.NODE_ENV === 'production' || env.FULFILL_SECRET !== body.secret) {
         return reply.code(404).send({ success: false, error: 'Not found' });
       }
       const { stripePaymentIntentId, packageId } = FulfillPaymentSchema.parse(request.body);

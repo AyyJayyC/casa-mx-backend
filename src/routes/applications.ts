@@ -18,7 +18,12 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /applications - Create rental application (tenant submits)
   fastify.post(
     '/applications',
-    { onRequest: [verifyJWT] },
+    {
+      onRequest: [verifyJWT],
+      config: {
+        rateLimit: { max: 10, timeWindow: '15 minutes' },
+      },
+    },
     async (request, reply) => {
       try {
         const input = createApplicationSchema.parse(request.body);

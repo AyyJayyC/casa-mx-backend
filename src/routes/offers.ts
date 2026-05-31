@@ -23,7 +23,12 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.post(
     '/properties/:propertyId/offers',
-    { onRequest: [verifyJWT] },
+    {
+      onRequest: [verifyJWT],
+      config: {
+        rateLimit: { max: 10, timeWindow: '15 minutes' },
+      },
+    },
     async (request, reply) => {
       try {
         const { propertyId } = propertyIdParamSchema.parse(request.params);

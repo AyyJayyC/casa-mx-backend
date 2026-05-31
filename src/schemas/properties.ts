@@ -99,23 +99,23 @@ export const createPropertySchema = z.discriminatedUnion('listingType', [
 
 // Schema for updating properties (all fields optional except what's being changed)
 export const updatePropertySchema = z.object({
-  title: z.string().min(1).optional(),
-  description: z.string().optional(),
-  address: z.string().optional(),
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().max(5000).optional(),
+  address: z.string().max(500).optional(),
   imageUrls: imageUrlsSchema.optional(),
   price: z.number().positive().max(999999999).optional(),
   lat: z.number().min(-90).max(90).optional(),
   lng: z.number().min(-180).max(180).optional(),
-  estado: z.string().optional(),
-  ciudad: z.string().optional(),
-  colonia: z.string().optional(),
-  codigoPostal: z.string().optional(),
+  estado: z.string().max(100).optional(),
+  ciudad: z.string().max(100).optional(),
+  colonia: z.string().max(100).optional(),
+  codigoPostal: z.string().max(10).optional(),
   propertyType: propertyTypeSchema.optional(),
   bedrooms: z.number().int().min(0).max(50).optional(),
   bathrooms: z.number().int().min(0).max(50).optional(),
   squareMeters: z.number().int().positive().max(1000000).optional(),
-  condition: z.string().optional(),
-  parkingType: z.string().optional(),
+  condition: z.string().max(50).optional(),
+  parkingType: z.string().max(30).optional(),
   parkingSpaces: z.number().int().min(0).max(100).optional(),
   miniSplits: z.number().int().min(0).max(100).optional(),
   petFriendly: z.boolean().optional(),
@@ -134,7 +134,7 @@ export const updatePropertySchema = z.object({
   monthlyRent: z.number().positive().max(999999999).optional(),
   securityDeposit: z.number().positive().max(999999999).optional(),
   leaseTermMonths: z.number().int().positive().max(36).optional(),
-  availableFrom: z.string().optional(),
+  availableFrom: z.string().max(30).optional(),
   furnished: z.boolean().optional(),
   utilitiesIncluded: z.boolean().optional(),
   includedServices: includedServicesSchema.optional(),
@@ -163,9 +163,9 @@ export const propertyFilterSchema = z.object({
   minLotSize: z.coerce.number().positive().optional(),
   maxLotSize: z.coerce.number().positive().optional(),
   promoted: z.coerce.boolean().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: z.coerce.number().int().min(1).max(1000).default(20),
   offset: z.coerce.number().int().min(0).default(0),
-});
+}).passthrough();
 
 // Schema for promoting a property
 export const promotePropertySchema = z.object({

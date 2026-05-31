@@ -28,6 +28,16 @@ export const OAuthGoogleSchema = z.object({
   idToken: z.string().min(1, 'Google ID token is required').max(5000, 'Token is too long'),
 });
 
+export const OAuthFacebookSchema = z.object({
+  accessToken: z.string().min(1, 'Facebook access token is required').max(4096, 'Token is too long'),
+});
+
+export const OAuthAppleSchema = z.object({
+  identityToken: z.string().min(1, 'Apple identity token is required').max(5000, 'Token is too long'),
+  authorizationCode: z.string().min(1, 'Apple authorization code is required').max(1024, 'Code is too long'),
+  name: z.string().max(200).optional(),
+});
+
 export const ForgotPasswordSchema = z.object({
   email: z.string().email('Invalid email format').max(254, 'Email is too long'),
 });

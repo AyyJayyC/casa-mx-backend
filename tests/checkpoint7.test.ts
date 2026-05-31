@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildApp } from '../src/app';
 import { FastifyInstance } from 'fastify';
+import { getCookie } from './utils/authHelpers.js';
 
 describe('CHECKPOINT 7 — Hardening & Production Readiness (Core Tests)', () => {
   let app: FastifyInstance;
@@ -21,7 +22,7 @@ describe('CHECKPOINT 7 — Hardening & Production Readiness (Core Tests)', () =>
     });
 
     const adminData = JSON.parse(adminLogin.body);
-    adminToken = adminData.token;
+    adminToken = getCookie(adminLogin, 'accessToken') ?? adminData.token;
   });
 
   afterAll(async () => {
@@ -319,7 +320,7 @@ describe('CHECKPOINT 7 — Hardening & Production Readiness (Rate Limiting)', ()
     });
 
     const adminData = JSON.parse(adminLogin.body);
-    adminToken = adminData.token;
+    adminToken = getCookie(adminLogin, 'accessToken') ?? adminData.token;
   });
 
   afterAll(async () => {

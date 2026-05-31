@@ -1,12 +1,13 @@
 import { FastifyPluginAsync } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import crypto from 'crypto';
-import { RegisterSchema, LoginSchema, RefreshSchema, OAuthGoogleSchema, ForgotPasswordSchema, ResetPasswordSchema } from '../schemas/auth.js';
+import { RegisterSchema, LoginSchema, RefreshSchema, OAuthGoogleSchema, OAuthFacebookSchema, OAuthAppleSchema, ForgotPasswordSchema, ResetPasswordSchema } from '../schemas/auth.js';
 import { AuthService } from '../services/auth.service.js';
 import { refreshTokenStoreService } from '../services/refreshTokenStore.service.js';
 import { env } from '../config/env.js';
 import { sendVerificationEmail } from '../services/email.service.js';
 import { sendPasswordResetEmail } from '../services/email.service.js';
+import { generateAppleClientSecret } from '../services/apple.service.js';
 import { isZodError, createValidationErrorResponse, createServerErrorResponse } from '../utils/errorHandling.js';
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
@@ -97,7 +98,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               .filter((r) => r.status === 'approved')
               .map((r) => r.roleName),
           },
-          { expiresIn: '15m' }
+          { expiresIn: env.JWT_ACCESS_EXPIRY }
         );
 
         // Generate refresh token
@@ -124,6 +125,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             ...cookieOptions,
             maxAge: 60 * 60 * 24 * 7,
           });
+
+        reply.generateCsrf();
 
         // NOTE: tokens are set via httpOnly cookies above. The response body
         // contains only the user object to prevent token exfiltration via XSS.
@@ -207,7 +210,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
                 .filter((r) => r.role.name === 'admin' || r.status === 'approved')
                 .map((r) => r.role.name),
             },
-            { expiresIn: '15m' }
+            { expiresIn: env.JWT_ACCESS_EXPIRY }
           );
 
           await refreshTokenStoreService.revokeJti(decoded.jti);
@@ -235,6 +238,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               ...cookieOptions,
               maxAge: 60 * 60 * 24 * 7,
             });
+
+          reply.generateCsrf();
 
           return reply.code(200).send({
             success: true,
@@ -377,10 +382,12 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const { idToken } = OAuthGoogleSchema.parse(request.body);
 
-        // Verify Google ID token via Google tokeninfo endpoint (no extra deps)
-        const res = await fetch(
-          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
-        );
+        // Verify Google ID token via Google tokeninfo endpoint (POST for privacy)
+        const res = await fetch('https://oauth2.googleapis.com/tokeninfo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ id_token: idToken }).toString(),
+        });
 
         if (!res.ok) {
           return reply.code(401).send({ success: false, error: 'Invalid Google token' });
@@ -420,7 +427,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               .filter((r) => r.status === 'approved')
               .map((r) => r.roleName),
           },
-          { expiresIn: '15m' }
+          { expiresIn: env.JWT_ACCESS_EXPIRY }
         );
 
         const refreshToken = fastify.jwt.sign(
@@ -431,6 +438,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         reply
           .setCookie('accessToken', token, { ...cookieOptions, maxAge: 15 * 60 })
           .setCookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 });
+
+        reply.generateCsrf();
 
         return reply.code(200).send({
           success: true,
@@ -449,6 +458,178 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         }
         fastify.log.error(error);
         return reply.code(500).send({ success: false, error: 'OAuth login failed' });
+      }
+    }
+  );
+
+  // ─── Facebook OAuth ────────────────────────────────────────────────────────
+  fastify.post<{ Body: Record<string, any> }>(
+    '/auth/oauth/facebook',
+    {
+      config: {
+        rateLimit: {
+          max: env.NODE_ENV === 'test' ? 100 : isLocalFrontend ? 500 : 20,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { accessToken } = OAuthFacebookSchema.parse(request.body);
+
+        // Verify token by calling Facebook Graph API
+        const verifyRes = await fetch(
+          `https://graph.facebook.com/v19.0/me?fields=id,email,name,picture.type(large)&access_token=${encodeURIComponent(accessToken)}`
+        );
+
+        if (!verifyRes.ok) {
+          return reply.code(401).send({ success: false, error: 'Invalid Facebook token' });
+        }
+
+        const payload = (await verifyRes.json()) as {
+          id: string;
+          email?: string;
+          name: string;
+          picture?: { data: { url: string } };
+        };
+
+        // Verify app_id if configured
+        if (env.FACEBOOK_APP_ID && env.FACEBOOK_APP_SECRET) {
+          const debugRes = await fetch(
+            `https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${env.FACEBOOK_APP_ID}|${env.FACEBOOK_APP_SECRET}`
+          );
+          const debugData = (await debugRes.json()) as { data?: { app_id?: string; is_valid?: boolean } };
+          if (!debugData.data?.is_valid || (env.FACEBOOK_APP_ID && debugData.data.app_id !== env.FACEBOOK_APP_ID)) {
+            return reply.code(401).send({ success: false, error: 'Token not issued for this application' });
+          }
+        }
+
+        if (!payload.email) {
+          return reply.code(400).send({ success: false, error: 'Email permission not granted. Please allow email access.' });
+        }
+
+        const user = await authService.loginOrCreateOAuthUser({
+          provider: 'facebook',
+          providerId: payload.id,
+          email: payload.email,
+          name: payload.name,
+          avatarUrl: payload.picture?.data?.url,
+        });
+
+        const token = fastify.jwt.sign(
+          { id: user.id, email: user.email, roles: user.roles.filter((r) => r.status === 'approved').map((r) => r.roleName) },
+          { expiresIn: env.JWT_ACCESS_EXPIRY }
+        );
+        const refreshToken = fastify.jwt.sign(
+          { id: user.id, type: 'refresh', jti: randomUUID() },
+          { expiresIn: env.JWT_REFRESH_EXPIRY }
+        );
+
+        reply
+          .setCookie('accessToken', token, { ...cookieOptions, maxAge: 15 * 60 })
+          .setCookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 });
+
+        reply.generateCsrf();
+
+        return reply.code(200).send({
+          success: true,
+          user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, provider: user.provider, roles: user.roles },
+        });
+      } catch (error: any) {
+        if (error.constructor?.name === 'ZodError') {
+          return reply.code(400).send({ success: false, error: 'Validation error', details: error.errors });
+        }
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Facebook login failed' });
+      }
+    }
+  );
+
+  // ─── Apple OAuth ───────────────────────────────────────────────────────────
+  fastify.post<{ Body: Record<string, any> }>(
+    '/auth/oauth/apple',
+    {
+      config: {
+        rateLimit: {
+          max: env.NODE_ENV === 'test' ? 100 : isLocalFrontend ? 500 : 20,
+          timeWindow: '15 minutes',
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { identityToken, authorizationCode, name } = OAuthAppleSchema.parse(request.body);
+
+        // Generate Apple client secret (JWT signed with ES256)
+        const clientSecret = generateAppleClientSecret();
+
+        // Exchange authorization code for tokens
+        const tokenRes = await fetch('https://appleid.apple.com/auth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: env.APPLE_CLIENT_ID!,
+            client_secret: clientSecret,
+            code: authorizationCode,
+            grant_type: 'authorization_code',
+          }).toString(),
+        });
+
+        if (!tokenRes.ok) {
+          return reply.code(401).send({ success: false, error: 'Invalid Apple authorization code' });
+        }
+
+        const tokenData = (await tokenRes.json()) as { id_token: string };
+
+        // Decode the identity token (Apple returns a JWT)
+        const decoded = fastify.jwt.decode(tokenData.id_token) as any;
+        if (!decoded?.sub) {
+          return reply.code(401).send({ success: false, error: 'Invalid Apple identity token' });
+        }
+
+        // Verify audience matches our client ID
+        if (env.APPLE_CLIENT_ID && decoded.aud !== env.APPLE_CLIENT_ID) {
+          return reply.code(401).send({ success: false, error: 'Token audience mismatch' });
+        }
+
+        const email = decoded.email || '';
+        if (!email) {
+          return reply.code(400).send({ success: false, error: 'Email not available. Apple only shares email on first sign-in.' });
+        }
+
+        const user = await authService.loginOrCreateOAuthUser({
+          provider: 'apple',
+          providerId: decoded.sub,
+          email,
+          name: name || decoded.name || email.split('@')[0],
+          avatarUrl: undefined,
+        });
+
+        const token = fastify.jwt.sign(
+          { id: user.id, email: user.email, roles: user.roles.filter((r) => r.status === 'approved').map((r) => r.roleName) },
+          { expiresIn: env.JWT_ACCESS_EXPIRY }
+        );
+        const refreshToken = fastify.jwt.sign(
+          { id: user.id, type: 'refresh', jti: randomUUID() },
+          { expiresIn: env.JWT_REFRESH_EXPIRY }
+        );
+
+        reply
+          .setCookie('accessToken', token, { ...cookieOptions, maxAge: 15 * 60 })
+          .setCookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 });
+
+        reply.generateCsrf();
+
+        return reply.code(200).send({
+          success: true,
+          user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl, provider: user.provider, roles: user.roles },
+        });
+      } catch (error: any) {
+        if (error.constructor?.name === 'ZodError') {
+          return reply.code(400).send({ success: false, error: 'Validation error', details: error.errors });
+        }
+        fastify.log.error(error);
+        return reply.code(500).send({ success: false, error: 'Apple login failed' });
       }
     }
   );
@@ -473,7 +654,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.code(200).send({ success: true, message: 'If the email exists, a reset link has been sent.' });
         }
 
-        const token = crypto.randomUUID();
+        const token = crypto.randomBytes(32).toString('hex');
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
         await fastify.prisma.user.update({
@@ -516,28 +697,35 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       try {
         const { token, password } = ResetPasswordSchema.parse(request.body);
 
-        const user = await fastify.prisma.user.findUnique({
-          where: { passwordResetToken: token },
+        const result = await fastify.prisma.$transaction(async (tx) => {
+          const user = await tx.user.findUnique({
+            where: { passwordResetToken: token },
+          });
+
+          if (!user || !user.passwordResetTokenExpiresAt || user.passwordResetTokenExpiresAt < new Date()) {
+            return { success: false, error: 'Invalid or expired reset token' };
+          }
+
+          const hashedPassword = await authService.hashPassword(password);
+
+          await tx.user.update({
+            where: { id: user.id },
+            data: {
+              password: hashedPassword,
+              passwordResetToken: null,
+              passwordResetTokenExpiresAt: null,
+              failedLoginAttempts: 0,
+              lockedUntil: null,
+            },
+          });
+
+          return { success: true, message: 'Password reset successfully' };
         });
 
-        if (!user || !user.passwordResetTokenExpiresAt || user.passwordResetTokenExpiresAt < new Date()) {
-          return reply.code(400).send({ success: false, error: 'Invalid or expired reset token' });
+        if (result.success) {
+          return reply.code(200).send(result);
         }
-
-        const hashedPassword = await authService.hashPassword(password);
-
-        await fastify.prisma.user.update({
-          where: { id: user.id },
-          data: {
-            password: hashedPassword,
-            passwordResetToken: null,
-            passwordResetTokenExpiresAt: null,
-            failedLoginAttempts: 0,
-            lockedUntil: null,
-          },
-        });
-
-        return reply.code(200).send({ success: true, message: 'Password reset successfully' });
+        return reply.code(400).send(result);
       } catch (error: any) {
         if (isZodError(error)) {
           return reply.code(400).send(createValidationErrorResponse(error));

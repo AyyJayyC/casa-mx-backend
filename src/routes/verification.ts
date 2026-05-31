@@ -70,7 +70,11 @@ const verificationRoutes: FastifyPluginAsync = async (fastify) => {
    * Resends the verification email (rate limited by last send time).
    * Requires user to be logged in.
    */
-  fastify.post('/auth/resend-verification', async (request, reply) => {
+  fastify.post('/auth/resend-verification', {
+    config: {
+      rateLimit: { max: 5, timeWindow: '15 minutes' },
+    },
+  }, async (request, reply) => {
     let userId: string;
     try {
       await request.jwtVerify({ onlyCookie: true });

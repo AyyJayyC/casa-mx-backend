@@ -63,6 +63,7 @@ model User {
   @@index([referralCode])
   @@index([referredById])
   @@index([agencyId])
+  @@index([createdAt])
 }
 
 model Agency {
@@ -90,6 +91,7 @@ model Agency {
   @@index([referredById])
   @@index([referralCode])
   @@index([plan])
+  @@index([billingActive, subscriptionEnds])
 }
 
 model Role {
@@ -125,7 +127,7 @@ model Property {
   price       Float?   // Optional now - required only for sales
   lat         Float?
   lng         Float?
-  status      String   @default("available") // available, sold, pending, rented
+  status      String   @default("disponible") // disponible, preventa, vendido, rentado, etc
   estado      String   @default("Ciudad de México") // Mexican state (required)
   ciudad      String?  // City/Municipality (e.g., Guadalajara, Monterrey)
   colonia     String?  // Neighborhood (e.g., Roma Norte, Polanco)
@@ -194,6 +196,12 @@ model Property {
   @@index([colonia])
   @@index([codigoPostal])
   @@index([listingType])
+  @@index([promotionTier])
+  @@index([featuredUntil])
+  @@index([createdAt])
+  @@index([furnished])
+  @@index([visibility])
+  @@index([monthlyRent])
 }
 
 model PropertyDocument {
@@ -292,6 +300,7 @@ model RentalApplication {
   @@index([applicantId])
   @@index([status])
   @@index([createdAt])
+  @@unique([propertyId, applicantId])
 }
 
 model Review {
@@ -364,6 +373,7 @@ model AnalyticsEvent {
   @@index([eventName])
   @@index([userId])
   @@index([createdAt])
+  @@index([eventName, entityId])
 }
 
 model AuditLog {
@@ -568,6 +578,7 @@ model CreditTransaction {
   @@index([userId])
   @@index([type])
   @@index([createdAt])
+  @@index([referenceId])
 }
 
 model CreditPackage {

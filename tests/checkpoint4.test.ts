@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
+import { getCookie } from './utils/authHelpers.js';
 
 let app: FastifyInstance;
 let adminToken: string;
@@ -39,7 +40,7 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
     });
 
     const adminLoginBody = adminLoginResponse.json() as any;
-    adminToken = adminLoginBody.token;
+    adminToken = getCookie(adminLoginResponse, 'accessToken') ?? (adminLoginResponse.json() as any).token;
 
     // Setup: Create test user
     testEmail = `admin-test-${Date.now()}@example.com`;
@@ -49,7 +50,7 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
       payload: {
         email: testEmail,
         name: 'Admin Test User',
-        password: 'password123',
+        password: 'Password1',
         roles: ['seller'],
       },
     });
@@ -125,7 +126,7 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
       payload: {
         email: denyTestEmail,
         name: 'Deny Test User',
-        password: 'password123',
+        password: 'Password1',
         roles: ['seller'],
       },
     });
@@ -174,7 +175,7 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
       payload: {
         email: userEmail,
         name: 'Non-Admin User',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -183,12 +184,12 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
       url: '/auth/login',
       payload: {
         email: userEmail,
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
     const userLoginBody = userLoginResponse.json() as any;
-    const userToken = userLoginBody.token;
+    const userToken = getCookie(userLoginResponse, 'accessToken') ?? userLoginBody.token;
 
     // Try to approve
     const response = await app.inject({
@@ -211,7 +212,7 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
       payload: {
         email: userEmail,
         name: 'Deny Non-Admin',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -220,12 +221,12 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
       url: '/auth/login',
       payload: {
         email: userEmail,
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
     const userLoginBody = userLoginResponse.json() as any;
-    const userToken = userLoginBody.token;
+    const userToken = getCookie(userLoginResponse, 'accessToken') ?? userLoginBody.token;
 
     const response = await app.inject({
       method: 'POST',
@@ -281,7 +282,7 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
       payload: {
         email: userEmail,
         name: 'Audit Viewer',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -290,12 +291,12 @@ describe('Checkpoint 4 - Admin Authority & Audit Logs', () => {
       url: '/auth/login',
       payload: {
         email: userEmail,
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
     const userLoginBody = userLoginResponse.json() as any;
-    const userToken = userLoginBody.token;
+    const userToken = getCookie(userLoginResponse, 'accessToken') ?? userLoginBody.token;
 
     const response = await app.inject({
       method: 'GET',

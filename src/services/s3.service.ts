@@ -8,6 +8,28 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 import { env } from '../config/env.js';
 
+const ALLOWED_EXTENSIONS = new Set([
+  'jpg', 'jpeg', 'png', 'webp', 'pdf',
+]);
+
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/webp', 'application/pdf',
+]);
+
+export function validateUploadFile(mimeType: string, originalName: string, size: number, maxSize: number = 10 * 1024 * 1024): { valid: boolean; error?: string } {
+  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+    return { valid: false, error: 'File type not allowed. Use JPEG, PNG, WebP, or PDF.' };
+  }
+  const ext = (originalName.split('.').pop() ?? '').toLowerCase();
+  if (!ALLOWED_EXTENSIONS.has(ext)) {
+    return { valid: false, error: `File extension .${ext} not allowed.` };
+  }
+  if (size > maxSize) {
+    return { valid: false, error: `File too large. Maximum ${Math.round(maxSize / 1024 / 1024)}MB.` };
+  }
+  return { valid: true };
+}
+
 function getClient(): S3Client | null {
   if (!env.AWS_ACCESS_KEY_ID || !env.AWS_SECRET_ACCESS_KEY || !env.AWS_BUCKET) {
     return null;
@@ -42,7 +64,10 @@ export async function uploadToS3(
     throw new Error('S3 is not configured. Set AWS_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY in env.');
   }
 
-  const ext = originalName.split('.').pop() ?? 'bin';
+  const ext = (originalName.split('.').pop() ?? 'bin').toLowerCase();
+  if (!ALLOWED_EXTENSIONS.has(ext)) {
+    throw new Error(`File extension .${ext} not allowed`);
+  }
   const key = `${folder}/${randomUUID()}.${ext}`;
 
   await client.send(

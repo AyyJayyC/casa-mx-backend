@@ -29,6 +29,8 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
 
       return reply.code(200).send({
         status: 'ok',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
         checks: {
           database: 'ok',
           cache: cacheConfigured ? 'ok' : 'not_configured',

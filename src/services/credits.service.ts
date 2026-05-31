@@ -105,20 +105,18 @@ export class CreditsService {
       return { success: true, newBalance: balance, alreadyUnlocked: true, contact: contact ?? undefined };
     }
 
-    // Check balance (10 credits per contact unlock)
+    // Atomic check + deduct using interactive transaction to prevent race conditions
     const SPEND_AMOUNT = 10;
-    const balanceRecord = await this.prisma.creditBalance.findUnique({ where: { userId } });
-    if (!balanceRecord || balanceRecord.balance < SPEND_AMOUNT) {
-      return { success: false, newBalance: balanceRecord?.balance ?? 0 };
-    }
-
-    // Atomic deduct
-    const [updated] = await this.prisma.$transaction([
-      this.prisma.creditBalance.update({
+    const spendResult = await this.prisma.$transaction(async (tx) => {
+      const balance = await tx.creditBalance.findUnique({ where: { userId } });
+      if (!balance || balance.balance < SPEND_AMOUNT) {
+        return { success: false as const, newBalance: balance?.balance ?? 0 };
+      }
+      const updated = await tx.creditBalance.update({
         where: { userId },
         data: { balance: { decrement: SPEND_AMOUNT } },
-      }),
-      this.prisma.creditTransaction.create({
+      });
+      await tx.creditTransaction.create({
         data: {
           userId,
           type: 'spend',
@@ -126,11 +124,16 @@ export class CreditsService {
           description: `Contacto de interesado desbloqueado (${leadType})`,
           referenceId: leadId,
         },
-      }),
-    ]);
+      });
+      return { success: true as const, newBalance: updated.balance };
+    });
+
+    if (!spendResult.success) {
+      return spendResult;
+    }
 
     const contact = await resolveContact();
-    return { success: true, newBalance: updated.balance, contact: contact ?? undefined };
+    return { success: true, newBalance: spendResult.newBalance, contact: contact ?? undefined };
   }
 
   /**

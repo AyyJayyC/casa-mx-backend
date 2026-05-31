@@ -182,7 +182,7 @@ const agenciesRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(201).send({ success: true, data: user });
       } catch (error: any) {
         fastify.log.error(error);
-        return reply.code(500).send({ success: false, error: error.message || 'Error al crear el agente' });
+        return reply.code(500).send({ success: false, error: 'Error al crear el agente' });
       }
     }
   );

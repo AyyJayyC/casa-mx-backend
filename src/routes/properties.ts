@@ -32,35 +32,29 @@ class PropertyService {
       return cached;
     }
 
-    // Cache miss - fetch location filter options from database
-
-    // Get all unique estados
-    const estados = await this.prisma.property.findMany({
-      select: { estado: true },
-      distinct: ['estado'],
-      orderBy: { estado: 'asc' },
+    // Cache miss - fetch all estado+ciudad pairs in a single query
+    const allPairs = await this.prisma.property.findMany({
+      select: { estado: true, ciudad: true },
+      where: { ciudad: { not: null } },
+      distinct: ['estado', 'ciudad'],
+      orderBy: [{ estado: 'asc' }, { ciudad: 'asc' }],
     });
 
-    // For each estado, get its unique ciudades
+    // Group ciudades by estado in JavaScript
     const filterOptions: Record<string, any> = {
-      estados: [],
-      ciudades: {},
+      estados: [] as string[],
+      ciudades: {} as Record<string, string[]>,
     };
 
-    for (const { estado } of estados) {
-      if (estado) {
-        filterOptions.estados.push(estado);
-
-        const ciudades = await this.prisma.property.findMany({
-          select: { ciudad: true },
-          where: { estado },
-          distinct: ['ciudad'],
-          orderBy: { ciudad: 'asc' },
-        });
-
-        filterOptions.ciudades[estado] = ciudades
-          .map(c => c.ciudad)
-          .filter(c => c !== null);
+    const seenEstados = new Set<string>();
+    for (const { estado, ciudad } of allPairs) {
+      if (estado && ciudad) {
+        if (!seenEstados.has(estado)) {
+          seenEstados.add(estado);
+          filterOptions.estados.push(estado);
+          filterOptions.ciudades[estado] = [];
+        }
+        filterOptions.ciudades[estado].push(ciudad);
       }
     }
 
@@ -582,13 +576,24 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
       try {
         const { id } = request.params as { id: string };
 
+        let sellerId: string | null = null;
+        try {
+          const token = request.headers?.authorization?.replace('Bearer ', '') || (request as any).cookies?.accessToken;
+          if (token) {
+            const decoded = app.jwt.verify(token) as any;
+            sellerId = decoded.id;
+          }
+        } catch {
+          // Token invalid or expired — proceed as unauthenticated for public property view
+        }
+
         const property = await app.prisma.property.findUnique({
           where: { id },
-          include: {
+          include: sellerId ? {
             propertyRequests: {
               select: { id: true, buyerId: true, status: true },
             },
-          },
+          } : undefined,
         });
 
         if (!property) {
@@ -801,20 +806,19 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
 
         const RATES: Record<string, number> = { featured: 300, carousel: 2000 };
         const cost = RATES[tier] * days;
-
-        const balance = await app.prisma.creditBalance.findUnique({ where: { userId: user.id } });
-        if (!balance || balance.balance < cost) {
-          return reply.code(402).send({ success: false, error: `Saldo insuficiente. Necesitas ${cost} créditos.` });
-        }
-
         const featuredUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
-        await app.prisma.$transaction([
-          app.prisma.creditBalance.update({
+        // Atomic check + deduct using interactive transaction to prevent race conditions
+        const promoResult = await app.prisma.$transaction(async (tx) => {
+          const balance = await tx.creditBalance.findUnique({ where: { userId: user.id } });
+          if (!balance || balance.balance < cost) {
+            return { success: false, newBalance: balance?.balance ?? 0 };
+          }
+          const updated = await tx.creditBalance.update({
             where: { userId: user.id },
             data: { balance: { decrement: cost } },
-          }),
-          app.prisma.creditTransaction.create({
+          });
+          await tx.creditTransaction.create({
             data: {
               userId: user.id,
               type: 'promotion',
@@ -822,12 +826,17 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
               description: `Promoción ${tier === 'carousel' ? 'Promocionado' : 'Destacado'} × ${days} días`,
               referenceId: id,
             },
-          }),
-          app.prisma.property.update({
+          });
+          await tx.property.update({
             where: { id },
             data: { promotionTier: tier, featuredUntil },
-          }),
-        ]);
+          });
+          return { success: true, newBalance: updated.balance };
+        });
+
+        if (!promoResult.success) {
+          return reply.code(402).send({ success: false, error: `Saldo insuficiente. Necesitas ${cost} créditos.` });
+        }
 
         return reply.send({ success: true, cost, tier, days, featuredUntil });
       } catch (error: any) {

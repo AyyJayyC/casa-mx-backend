@@ -111,16 +111,21 @@ export class AuthService {
       include: { roles: { include: { role: true } } },
     });
 
+    // Constant-time: always run bcrypt compare even if user doesn't exist
+    const dummyHash = '$2b$10$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const isMatch = user
+      ? await bcrypt.compare(data.password, user.password ?? dummyHash)
+      : await bcrypt.compare(data.password, dummyHash);
+
     if (!user) {
       throw new Error('Invalid email or password');
     }
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new Error('Account temporarily locked. Try again later.');
+      throw new Error('Invalid email or password');
     }
 
-    const passwordMatch = await bcrypt.compare(data.password, user.password ?? '');
-    if (!user.password || !passwordMatch) {
+    if (!user.password || !isMatch) {
       const attempts = (user.failedLoginAttempts || 0) + 1;
       const lockedUntil = attempts >= 5
         ? new Date(Date.now() + 15 * 60 * 1000)

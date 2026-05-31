@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
+import { getCookie } from './utils/authHelpers.js';
 
 let app: FastifyInstance;
 let userToken: string;
@@ -18,7 +19,7 @@ describe('Users Routes', () => {
       payload: {
         email,
         name: 'Users Test',
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
@@ -27,12 +28,12 @@ describe('Users Routes', () => {
       url: '/auth/login',
       payload: {
         email,
-        password: 'password123',
+        password: 'Password1',
       },
     });
 
     const loginBody = loginResponse.json() as any;
-    userToken = loginBody.token;
+    userToken = getCookie(loginResponse, 'accessToken') ?? loginBody.token;
     userId = loginBody.user.id;
 
     const adminLoginResponse = await app.inject({
@@ -43,7 +44,7 @@ describe('Users Routes', () => {
         password: 'admin123',
       },
     });
-    adminToken = (adminLoginResponse.json() as any).token;
+    adminToken = getCookie(adminLoginResponse, 'accessToken') ?? (adminLoginResponse.json() as any).token;
   });
 
   afterAll(async () => {

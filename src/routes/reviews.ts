@@ -34,7 +34,7 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
           const statusCode = isClientError(error.message) ? 400 : 500;
           return reply.code(statusCode).send({
             success: false,
-            error: error.message,
+            error: statusCode === 400 ? error.message : 'Failed to submit review',
           });
         }
 
