@@ -1,10 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isConfiguredMapsKey } from '../config/env.js';
 
-const prisma = new PrismaClient();
+let prisma: PrismaClient;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -210,6 +210,10 @@ export class MapsService {
 
   setCache(key: string, value: any, ttlMs: number) {
     this.cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+  }
+
+  static init(db: PrismaClient) {
+    prisma = db;
   }
 
   constructor(apiKey?: string) {

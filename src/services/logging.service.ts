@@ -4,10 +4,10 @@
  * Checkpoint 2: Backend Logging Infrastructure
  */
 
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import pino from 'pino';
 
-const prisma = new PrismaClient();
+let prisma: PrismaClient;
 const logger = pino();
 
 // Configuration from environment
@@ -26,8 +26,12 @@ const SENSITIVE_FIELDS = [
   'passwd'
 ];
 
-class LoggingService {
+export class LoggingService {
   isEnabled: boolean;
+
+  static init(db: PrismaClient) {
+    prisma = db;
+  }
 
   constructor() {
     this.isEnabled = LOGGING_ENABLED && process.env.NODE_ENV !== 'test';
