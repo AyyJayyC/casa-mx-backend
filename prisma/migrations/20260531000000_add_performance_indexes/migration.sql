@@ -1,0 +1,13 @@
+-- Performance indexes (idempotent)
+CREATE INDEX IF NOT EXISTS "User_createdAt_idx" ON "User"("createdAt");
+CREATE INDEX IF NOT EXISTS "Agency_billingActive_subscriptionEnds_idx" ON "Agency"("billingActive", "subscriptionEnds");
+CREATE INDEX IF NOT EXISTS "Property_promotionTier_idx" ON "Property"("promotionTier");
+CREATE INDEX IF NOT EXISTS "Property_featuredUntil_idx" ON "Property"("featuredUntil");
+CREATE INDEX IF NOT EXISTS "Property_createdAt_idx" ON "Property"("createdAt");
+CREATE INDEX IF NOT EXISTS "Property_furnished_idx" ON "Property"("furnished");
+CREATE INDEX IF NOT EXISTS "Property_visibility_idx" ON "Property"("visibility");
+CREATE INDEX IF NOT EXISTS "Property_monthlyRent_idx" ON "Property"("monthlyRent");
+CREATE INDEX IF NOT EXISTS "AnalyticsEvent_eventName_entityId_idx" ON "AnalyticsEvent"("eventName", "entityId");
+CREATE INDEX IF NOT EXISTS "CreditTransaction_referenceId_idx" ON "CreditTransaction"("referenceId");
+
+ALTER TABLE "Property" ALTER COLUMN "status" SET DEFAULT 'disponible';
