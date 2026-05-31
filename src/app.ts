@@ -77,7 +77,9 @@ export async function buildApp() {
     'https://casa-mx.com',
     'https://www.casa-mx.com',
   ]);
-  if (env.NODE_ENV !== 'production') {
+  const allowPreview = env.NODE_ENV !== 'production' || process.env.ALLOW_PREVIEW_ORIGINS === 'true';
+
+  if (allowPreview) {
     allowedOrigins.add('http://localhost:3000');
     allowedOrigins.add('http://127.0.0.1:3000');
     allowedOrigins.add('http://0.0.0.0:3000');
@@ -90,8 +92,8 @@ export async function buildApp() {
 
   function isOriginAllowed(origin: string): boolean {
     if (allowedOrigins.has(origin)) return true;
-    // Allow Vercel preview deployments in non-production (URLs change per deployment)
-    if (env.NODE_ENV !== 'production' && /^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
+    // Allow Vercel preview deployments for staging/testing (URLs change per deployment)
+    if (allowPreview && /^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
     return false;
   }
 
