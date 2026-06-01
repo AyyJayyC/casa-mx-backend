@@ -24,8 +24,11 @@ async function gracefulShutdown(signal: string) {
 }
 
 async function start() {
+  console.log('[startup] Beginning server initialization...');
   try {
+    console.log('[startup] Building app...');
     appInstance = await buildApp();
+    console.log('[startup] App built, starting to listen...');
 
     await appInstance.listen({
       port: parseInt(env.PORT),
@@ -34,8 +37,9 @@ async function start() {
 
     appInstance.log.info(`Server listening on http://localhost:${env.PORT}`);
     appInstance.log.info(`Health check: http://localhost:${env.PORT}/health`);
+    console.log(`[startup] Server ready on port ${env.PORT}`);
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('[startup] Failed to start server:', error);
     process.exit(1);
   }
 }
