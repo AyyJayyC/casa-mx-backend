@@ -131,15 +131,17 @@ export async function buildApp() {
   // Register plugins
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } }); // 10 MB max
 
-  // Preserve raw body for Stripe webhook signature verification
-  app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
-    (req as any).rawBody = body;
-    try {
-      done(null, body.length ? JSON.parse(body.toString()) : {});
-    } catch (e: any) {
-      done(e, undefined);
-    }
-  });
+  // Preserve raw body for Stripe webhook signature verification (production only)
+  if (!isStaging) {
+    app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+      (req as any).rawBody = body;
+      try {
+        done(null, body.length ? JSON.parse(body.toString()) : {});
+      } catch (e: any) {
+        done(e, undefined);
+      }
+    });
+  }
   await app.register(prismaPlugin);
 
   // Initialize services with the Prisma instance from the plugin
