@@ -28,6 +28,14 @@ export default async function carouselRoutes(app: FastifyInstance) {
     return reply.send({ slides });
   });
 
+  // GET /admin/carousel — admin, returns all slides
+  app.get('/admin/carousel', { preHandler: [app.requireAdmin] }, async (_req, reply) => {
+    const slides = await app.prisma.carouselSlide.findMany({
+      orderBy: { order: 'asc' },
+    });
+    return reply.send({ slides });
+  });
+
   // POST /admin/carousel — admin, create slide
   app.post('/admin/carousel', { preHandler: [app.requireAdmin] }, async (req, reply) => {
     const body = carouselSlideSchema.parse(req.body);
