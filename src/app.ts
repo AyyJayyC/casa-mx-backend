@@ -93,7 +93,7 @@ export async function buildApp() {
         callback(null, false);
       }
     },
-    credentials: !isStaging,
+    credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
