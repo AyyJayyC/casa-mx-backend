@@ -19,6 +19,8 @@ COPY --chown=node:node . .
 
 RUN npx prisma generate
 RUN npm run build
+# Cache bust — keep this line unique on each deploy to force rebuild
+RUN echo "build:$(date +%s)" > /dev/null
 
 FROM node:20-slim
 
