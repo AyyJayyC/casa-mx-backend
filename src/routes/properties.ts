@@ -904,6 +904,48 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
       }
     },
   });
+
+  // GET /properties/most-viewed — public, top properties by page views
+  app.get('/properties/most-viewed', async (req, reply) => {
+    try {
+      const limit = Math.min(Number((req.query as any)?.limit) || 6, 20);
+
+      const topViewed = await app.prisma.analyticsEvent.groupBy({
+        by: ['entityId'],
+        where: {
+          eventName: 'property_view',
+          entityType: 'property',
+        },
+        _count: { entityId: true },
+        orderBy: { _count: { entityId: 'desc' } },
+        take: limit,
+      });
+
+      if (topViewed.length === 0) {
+        // Fallback: return latest properties
+        const latest = await app.prisma.property.findMany({
+          where: { status: 'disponible' },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        });
+        return reply.send({ properties: latest });
+      }
+
+      const ids = topViewed.map((e) => e.entityId);
+      const properties = await app.prisma.property.findMany({
+        where: { id: { in: ids }, status: 'disponible' },
+      });
+
+      // Sort by view count order
+      const viewCounts = new Map(topViewed.map((e) => [e.entityId, e._count.entityId]));
+      properties.sort((a, b) => (viewCounts.get(b.id) || 0) - (viewCounts.get(a.id) || 0));
+
+      return reply.send({ properties });
+    } catch (error: any) {
+      app.log.error(error);
+      return reply.code(500).send({ error: 'Failed to fetch most viewed properties' });
+    }
+  });
 };
 
 export default propertiesPlugin;

@@ -706,3 +706,16 @@ model Buyer {
 
   @@index([userId])
 }
+
+model CarouselSlide {
+  id         String   @id @default(uuid())
+  imageUrl   String
+  title      String
+  subtitle   String?
+  link       String
+  buttonText String?  @default("Ver más")
+  order      Int      @default(0)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
