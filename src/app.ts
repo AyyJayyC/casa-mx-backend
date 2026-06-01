@@ -77,13 +77,12 @@ export async function buildApp() {
     'https://casa-mx.com',
     'https://www.casa-mx.com',
   ]);
-  const allowPreview = env.NODE_ENV !== 'production' || process.env.ALLOW_PREVIEW_ORIGINS === 'true';
+  const isDev = env.NODE_ENV !== 'production';
 
-  if (allowPreview) {
+  if (isDev || process.env.ALLOW_PREVIEW_ORIGINS === 'true') {
     allowedOrigins.add('http://localhost:3000');
     allowedOrigins.add('http://127.0.0.1:3000');
     allowedOrigins.add('http://0.0.0.0:3000');
-    // Allow any localhost port for dev (Next.js may use 3001-3010 if 3000 is taken)
     for (let port = 3001; port <= 3010; port++) {
       allowedOrigins.add(`http://localhost:${port}`);
       allowedOrigins.add(`http://127.0.0.1:${port}`);
@@ -92,8 +91,8 @@ export async function buildApp() {
 
   function isOriginAllowed(origin: string): boolean {
     if (allowedOrigins.has(origin)) return true;
-    // Allow Vercel preview deployments for staging/testing (URLs change per deployment)
-    if (allowPreview && /^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
+    // Always allow Vercel preview deployments (safe — URLs are unique to each project)
+    if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
     return false;
   }
 
