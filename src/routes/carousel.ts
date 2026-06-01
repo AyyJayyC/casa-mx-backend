@@ -38,15 +38,15 @@ export default async function carouselRoutes(app: FastifyInstance) {
 
   // POST /admin/carousel — admin, create slide
   app.post('/admin/carousel', { onRequest: [requireAdmin] }, async (req, reply) => {
-    const body = carouselSlideSchema.parse(req.body);
-    const slide = await app.prisma.carouselSlide.create({ data: body });
+    const body = carouselSlideSchema.parse(req.body) as Record<string, unknown>;
+    const slide = await app.prisma.carouselSlide.create({ data: body as any });
     return reply.status(201).send({ slide });
   });
 
   // PUT /admin/carousel/:id — admin, update slide
   app.put('/admin/carousel/:id', { onRequest: [requireAdmin] }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const body = carouselUpdateSchema.parse(req.body) as Record<string, unknown>;
+    const body = carouselUpdateSchema.parse(req.body) as any;
     const slide = await app.prisma.carouselSlide.update({
       where: { id },
       data: body,
