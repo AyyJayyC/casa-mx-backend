@@ -51,6 +51,8 @@ export async function buildApp() {
     env.FRONTEND_URL.includes('127.0.0.1') ||
     env.FRONTEND_URL.includes('0.0.0.0');
 
+  const isStaging = !env.FRONTEND_URL.includes('casa-mx.com');
+
   const app = Fastify({
     bodyLimit: 5 * 1024 * 1024, // 5 MB
     maxParamLength: 100,
@@ -73,66 +75,50 @@ export async function buildApp() {
 
   const frontendUrl = env.FRONTEND_URL.replace(/\/$/, '');
 
-  const allowedOrigins = new Set<string>([
-    frontendUrl,
-    'https://casa-mx.com',
-    'https://www.casa-mx.com',
-  ]);
-  const isDev = env.NODE_ENV !== 'production';
-
-  if (isDev || process.env.ALLOW_PREVIEW_ORIGINS === 'true') {
-    allowedOrigins.add('http://localhost:3000');
-    allowedOrigins.add('http://127.0.0.1:3000');
-    allowedOrigins.add('http://0.0.0.0:3000');
-    for (let port = 3001; port <= 3010; port++) {
-      allowedOrigins.add(`http://localhost:${port}`);
-      allowedOrigins.add(`http://127.0.0.1:${port}`);
-    }
-  }
-
-  function isOriginAllowed(origin: string): boolean {
-    if (allowedOrigins.has(origin)) return true;
-    // Always allow Vercel preview deployments (safe — URLs are unique to each project)
-    if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
-    return false;
-  }
-
-  // Register CORS
+  // Register CORS — open on staging, strict on production
   await app.register(cors, {
-    origin: (origin, callback) => {
+    origin: isStaging ? true : (origin, callback) => {
       if (!origin) {
         callback(null, true);
         return;
       }
-
-      if (isOriginAllowed(origin)) {
+      const allowed = new Set<string>([
+        frontendUrl,
+        'https://casa-mx.com',
+        'https://www.casa-mx.com',
+      ]);
+      if (allowed.has(origin) || /^https:\/\/.*\.vercel\.app$/.test(origin)) {
         callback(null, true);
       } else {
         callback(null, false);
       }
     },
-    credentials: true,
+    credentials: !isStaging,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
-  await app.register(helmet, {
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'strict-dynamic'", "https://js.stripe.com", "https://maps.googleapis.com"],
-        styleSrc: ["'self'", "'strict-dynamic'", "https://fonts.googleapis.com"],
-        imgSrc: ["'self'", "data:", "blob:", "https://*.unsplash.com", "https://*.tile.openstreetmap.org", "https://maps.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        connectSrc: ["'self'", "https://api.stripe.com", "https://*.tile.openstreetmap.org"],
-        frameSrc: ["https://js.stripe.com", "https://hooks.stripe.com"],
-        objectSrc: ["'none'"],
-        baseUri: ["'self'"],
-        formAction: ["'self'", "https://hooks.stripe.com"],
-        upgradeInsecureRequests: [],
+  // Helmet — strict on production, disabled on staging
+  if (!isStaging) {
+    await app.register(helmet, {
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'strict-dynamic'", "https://js.stripe.com", "https://maps.googleapis.com"],
+          styleSrc: ["'self'", "'strict-dynamic'", "https://fonts.googleapis.com"],
+          imgSrc: ["'self'", "data:", "blob:", "https://*.unsplash.com", "https://*.tile.openstreetmap.org", "https://maps.googleapis.com"],
+          fontSrc: ["'self'", "https://fonts.gstatic.com"],
+          connectSrc: ["'self'", "https://api.stripe.com", "https://*.tile.openstreetmap.org"],
+          frameSrc: ["https://js.stripe.com", "https://hooks.stripe.com"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'", "https://hooks.stripe.com"],
+          upgradeInsecureRequests: [],
+        },
       },
-    },
-    global: true,
-  });
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      global: true,
+    });
+  }
 
   // Register rate limiting
   await app.register(rateLimit, {
@@ -161,7 +147,9 @@ export async function buildApp() {
   LoggingService.init(app.prisma);
 
   await app.register(cookie);
-  await app.register(csrfProtection, { cookieOpts: { signed: false } });
+  if (!isStaging) {
+    await app.register(csrfProtection, { cookieOpts: { signed: false } });
+  }
   await app.register(jwtPlugin);
 
   if (env.NODE_ENV === 'test') {
