@@ -910,19 +910,13 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
     try {
       const limit = Math.min(Number((req.query as any)?.limit) || 6, 20);
 
-      const topViewed = await app.prisma.analyticsEvent.groupBy({
-        by: ['entityId'],
-        where: {
-          eventName: 'property_view',
-          entityType: 'property',
-        },
-        _count: { entityId: true },
-        orderBy: { _count: { entityId: 'desc' } },
-        take: limit,
-      });
+      // Use raw query to avoid Prisma 5.22 groupBy circular type issue
+      const topViewed = await app.prisma.$queryRawUnsafe<Array<{ entityId: string; cnt: number }>>(
+        `SELECT "entityId", COUNT("entityId")::int as cnt FROM "AnalyticsEvent" WHERE "eventName" = 'property_view' AND "entityType" = 'property' GROUP BY "entityId" ORDER BY cnt DESC LIMIT $1`,
+        limit
+      );
 
       if (topViewed.length === 0) {
-        // Fallback: return latest properties
         const latest = await app.prisma.property.findMany({
           where: { status: 'disponible' },
           orderBy: { createdAt: 'desc' },
@@ -937,8 +931,8 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
       });
 
       // Sort by view count order
-      const viewCounts = new Map(topViewed.map((e) => [e.entityId, e._count.entityId]));
-      properties.sort((a, b) => (viewCounts.get(b.id) || 0) - (viewCounts.get(a.id) || 0));
+      const viewCounts = new Map(topViewed.map((e) => [e.entityId, e.cnt]));
+      properties.sort((a, b) => (viewCounts.get(b.id) ?? 0) - (viewCounts.get(a.id) ?? 0));
 
       return reply.send({ properties });
     } catch (error: any) {
