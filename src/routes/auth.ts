@@ -12,10 +12,11 @@ import { isZodError, createValidationErrorResponse, createServerErrorResponse } 
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authService = new AuthService(fastify.prisma);
+  const isProduction = env.NODE_ENV === 'production';
   const cookieOptions = {
     httpOnly: true,
-    sameSite: 'lax' as const,
-    secure: env.NODE_ENV === 'production',
+    sameSite: (isProduction ? 'lax' : 'none') as 'lax' | 'none',
+    secure: true,
     path: '/',
   };
   const isLocalFrontend =
