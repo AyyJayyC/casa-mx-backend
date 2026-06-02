@@ -126,7 +126,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 60 * 60 * 24 * 7,
           });
 
-        reply.generateCsrf();
+        try { reply.generateCsrf(); } catch {}
 
         // NOTE: tokens are set via httpOnly cookies above. The response body
         // contains only the user object to prevent token exfiltration via XSS.
@@ -239,7 +239,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               maxAge: 60 * 60 * 24 * 7,
             });
 
-          reply.generateCsrf();
+          try { reply.generateCsrf(); } catch {}
 
           return reply.code(200).send({
             success: true,
@@ -439,7 +439,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           .setCookie('accessToken', token, { ...cookieOptions, maxAge: 15 * 60 })
           .setCookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 });
 
-        reply.generateCsrf();
+        try { reply.generateCsrf(); } catch {}
 
         return reply.code(200).send({
           success: true,
@@ -529,7 +529,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           .setCookie('accessToken', token, { ...cookieOptions, maxAge: 15 * 60 })
           .setCookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 });
 
-        reply.generateCsrf();
+        try { reply.generateCsrf(); } catch {}
 
         return reply.code(200).send({
           success: true,
@@ -618,7 +618,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           .setCookie('accessToken', token, { ...cookieOptions, maxAge: 15 * 60 })
           .setCookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 });
 
-        reply.generateCsrf();
+        try { reply.generateCsrf(); } catch {}
 
         return reply.code(200).send({
           success: true,
