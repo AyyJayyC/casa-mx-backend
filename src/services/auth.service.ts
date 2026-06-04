@@ -204,6 +204,11 @@ export class AuthService {
       } else {
         // Create new user via OAuth
         const defaultRoles = ['buyer', 'tenant'];
+        // Auto-grant admin if registering with ADMIN_EMAIL
+        const adminEmail = process.env.ADMIN_EMAIL?.trim();
+        if (adminEmail && data.email === adminEmail && !defaultRoles.includes('admin')) {
+          defaultRoles.push('admin');
+        }
         const referralCode = await this.ensureUniqueReferralCode();
         user = await this.prisma.user.create({
           data: {
@@ -256,9 +261,13 @@ export class AuthService {
   }
 
   private getInitialRoleStatus(roleName: string, email?: string): string {
-    // Auto-approve all roles for ADMIN_EMAIL
+    // Admin role NEVER auto-approved — requires manual approval by existing admin
+    if (roleName === 'admin') return 'pending';
+
+    // All other roles auto-approved for ADMIN_EMAIL user
     const adminEmail = process.env.ADMIN_EMAIL?.trim();
     if (adminEmail && email === adminEmail) return 'approved';
+
     return AUTO_APPROVED_ROLES.has(roleName) ? 'approved' : 'pending';
   }
 }

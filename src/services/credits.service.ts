@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import Stripe from 'stripe';
+import { sendPaymentConfirmationEmail } from './email.service.js';
 
 interface StripePaymentIntentLike {
   id: string;
@@ -210,6 +211,13 @@ export class CreditsService {
       const { userId, packageId } = pi.metadata ?? {};
       if (userId && packageId) {
         await this.fulfillPayment(pi.id, userId, packageId);
+        try {
+          const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+          const pkg = await this.prisma.creditPackage.findUnique({ where: { id: packageId } });
+          if (user && pkg) {
+            await sendPaymentConfirmationEmail({ userEmail: user.email, userName: user.name, packageName: pkg.name, credits: pkg.credits, amount: ((pi as any).amount ?? 0) / 100, transactionDate: new Date().toISOString() });
+          }
+        } catch {}
       }
     }
 

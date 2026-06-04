@@ -4,6 +4,8 @@ import { mapsService } from '../services/maps.service.js';
 
 const geocodeBodySchema = z.object({
   address: z.string().trim().min(3).max(300),
+  biasLat: z.number().min(-90).max(90).optional(),
+  biasLng: z.number().min(-180).max(180).optional(),
 });
 
 const autocompleteQuerySchema = z.object({
@@ -88,7 +90,11 @@ const mapsRoutes: FastifyPluginAsync = async (fastify, opts) => {
     }
 
     try {
-      const result = await mapsService.geocodeAddress(parsedBody.data.address, { userId: (request as any).user?.id });
+      const result = await mapsService.geocodeAddress(parsedBody.data.address, {
+        userId: (request as any).user?.id,
+        biasLat: parsedBody.data.biasLat,
+        biasLng: parsedBody.data.biasLng,
+      });
       return reply.send({ result });
     } catch (err: any) {
       fastify.log.error({ err }, 'Geocode error');

@@ -5,6 +5,12 @@ import {
   CounterOfferSchema,
   RespondOfferSchema,
 } from '../schemas/negotiations.js';
+import {
+  sendNegotiationStartedEmail,
+  sendNegotiationCounterEmail,
+  sendNegotiationAcceptedEmail,
+  sendNegotiationRejectedEmail,
+} from '../services/email.service.js';
 
 const negotiationsRoutes: FastifyPluginAsync = async (fastify) => {
 
@@ -63,6 +69,15 @@ const negotiationsRoutes: FastifyPluginAsync = async (fastify) => {
         },
         include: { offers: true },
       });
+
+      // Notify landlord of new negotiation
+      try {
+        const landlord = await fastify.prisma.user.findUnique({ where: { id: application.property.sellerId }, select: { email: true, name: true } });
+        const tenant = await fastify.prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+        if (landlord) {
+          await sendNegotiationStartedEmail({ landlordEmail: landlord.email, landlordName: landlord.name, propertyTitle: application.property.title, proposedRent: input.proposedRent, tenantName: tenant?.name ?? 'Un inquilino' }).catch(() => {});
+        }
+      } catch {}
 
       return reply.code(201).send({ success: true, negotiation });
     } catch (error: any) {
@@ -188,6 +203,17 @@ const negotiationsRoutes: FastifyPluginAsync = async (fastify) => {
           },
         });
 
+        // Notify opposite party of counter-offer
+        try {
+          const recipientId = isApplicant ? negotiation.landlordId : negotiation.applicantId;
+          const recipient = await fastify.prisma.user.findUnique({ where: { id: recipientId }, select: { email: true, name: true } });
+          const author = await fastify.prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+          const property = await fastify.prisma.property.findUnique({ where: { id: negotiation.propertyId }, select: { title: true } });
+          if (recipient && property) {
+            await sendNegotiationCounterEmail({ recipientEmail: recipient.email, recipientName: recipient.name, propertyTitle: property.title, proposedRent: input.proposedRent, authorName: author?.name ?? 'Otro usuario' }).catch(() => {});
+          }
+        } catch {}
+
         return reply.code(201).send({ success: true, offer });
       } catch (error: any) {
         if (error.constructor?.name === 'ZodError') {
@@ -254,6 +280,23 @@ const negotiationsRoutes: FastifyPluginAsync = async (fastify) => {
             },
           }),
         ]);
+
+        // Notify opposite party of negotiation outcome
+        try {
+          const recipientId = latestOffer.authorId === userId
+            ? (negotiation.applicantId === userId ? negotiation.landlordId : negotiation.applicantId)
+            : latestOffer.authorId;
+          const recipient = await fastify.prisma.user.findUnique({ where: { id: recipientId }, select: { email: true, name: true } });
+          const responder = await fastify.prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+          const property = await fastify.prisma.property.findUnique({ where: { id: negotiation.propertyId }, select: { title: true } });
+          if (recipient && property) {
+            if (action === 'accept') {
+              await sendNegotiationAcceptedEmail({ recipientEmail: recipient.email, recipientName: recipient.name, propertyTitle: property.title, finalRent: latestOffer.proposedRent, authorName: responder?.name ?? 'Otro usuario' }).catch(() => {});
+            } else {
+              await sendNegotiationRejectedEmail({ recipientEmail: recipient.email, recipientName: recipient.name, propertyTitle: property.title, authorName: responder?.name ?? 'Otro usuario' }).catch(() => {});
+            }
+          }
+        } catch {}
 
         return reply.send({ success: true, status: negotiationStatus, finalRent: action === 'accept' ? latestOffer.proposedRent : undefined });
       } catch (error: any) {

@@ -13,6 +13,7 @@ import {
   sendOfferRejectedEmail,
   sendOfferCounteredEmail,
   sendOfferReceivedEmail,
+  sendOfferOutbidEmail,
 } from '../services/email.service.js';
 
 const offersRoutes: FastifyPluginAsync = async (fastify) => {
@@ -229,6 +230,18 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
             },
             data: { status: 'rejected', sellerNote: 'Another offer was accepted for this property' },
           });
+
+          // Notify other bidders their offer was outbid
+          const otherOffers = await fastify.prisma.propertyOffer.findMany({
+            where: { propertyId: offer.property.id, id: { not: id }, status: 'rejected' },
+            select: { offerAmount: true, buyerId: true },
+          });
+          for (const o of otherOffers) {
+            const buyer = await fastify.prisma.user.findUnique({ where: { id: o.buyerId }, select: { email: true, name: true } });
+            if (buyer?.email) {
+              await sendOfferOutbidEmail({ buyerEmail: buyer.email, buyerName: buyer.name, propertyTitle: offer.property.title, offeredAmount: Number(o.offerAmount) }).catch(() => {});
+            }
+          }
         }
 
         // Notify buyer of the outcome

@@ -1,31 +1,31 @@
-import sgMail from '@sendgrid/mail';
+import { Resend } from 'resend';
 import { env } from '../config/env.js';
 
-let initialized = false;
+let resend: Resend | null = null;
 
-function init() {
-  if (initialized) return;
-  if (!env.SENDGRID_API_KEY) return;
-  sgMail.setApiKey(env.SENDGRID_API_KEY);
-  initialized = true;
+function client(): Resend | null {
+  if (resend) return resend;
+  if (!env.RESEND_API_KEY) return null;
+  resend = new Resend(env.RESEND_API_KEY);
+  return resend;
 }
 
 async function sendEmail(to: string, subject: string, html: string, text: string) {
-  init();
-  if (!env.SENDGRID_API_KEY) {
-    console.warn('[email] SENDGRID_API_KEY not set — skipping email to', to);
+  const r = client();
+  if (!r) {
+    console.warn('[email] RESEND_API_KEY not set — skipping email to', to);
     return;
   }
   try {
-    await sgMail.send({
+    await r.emails.send({
+      from: `${env.RESEND_FROM_NAME} <${env.RESEND_FROM_EMAIL}>`,
       to,
-      from: { email: env.SENDGRID_FROM_EMAIL!, name: env.SENDGRID_FROM_NAME! },
       subject,
       html,
       text,
     });
   } catch (err: any) {
-    console.error('[email] SendGrid error:', err?.response?.body ?? err);
+    console.error('[email] Resend error:', err?.message ?? err);
     throw new Error(`Failed to send email to ${to}: ${err?.message ?? 'Unknown error'}`);
   }
 }
@@ -262,4 +262,220 @@ export async function sendPasswordResetEmail(opts: {
   `);
   const text = `Restablece tu contraseña aquí: ${resetUrl} (válido 1 hora)`;
   await sendEmail(opts.userEmail, subject, html, text);
+}
+
+// ── Payment confirmation ──────────────────────────────────────────────────────
+
+export async function sendPaymentConfirmationEmail(opts: {
+  userEmail: string; userName: string;
+  packageName: string; credits: number; amount: number; transactionDate: string;
+}) {
+  const subject = 'Confirmación de compra — CasaMX';
+  const amountFmt = opts.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+  const date = new Date(opts.transactionDate).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+  const html = wrap(subject, `
+    <h2>¡Gracias por tu compra, ${opts.userName}!</h2>
+    <p>Tu pago ha sido procesado exitosamente.</p>
+    <div class="highlight">
+      <strong>Paquete:</strong> ${opts.packageName}<br>
+      <strong>Créditos:</strong> ${opts.credits}<br>
+      <strong>Monto:</strong> $${amountFmt} MXN<br>
+      <strong>Fecha:</strong> ${date}
+    </div>
+    <p>Tus créditos ya están disponibles en tu cuenta. Puedes usarlos para publicar y destacar propiedades.</p>
+    <a class="btn" href="${env.FRONTEND_URL}/dashboard/credits">Ver mis créditos</a>
+  `);
+  const text = `Compra confirmada: ${opts.packageName} (${opts.credits} créditos) por $${amountFmt} MXN. Tus créditos ya están disponibles en ${env.FRONTEND_URL}/dashboard/credits`;
+  await sendEmail(opts.userEmail, subject, html, text);
+}
+
+// ── Outbid notification ────────────────────────────────────────────────────────
+
+export async function sendOfferOutbidEmail(opts: {
+  buyerEmail: string; buyerName: string;
+  propertyTitle: string; offeredAmount: number;
+}) {
+  const subject = `Tu oferta fue superada — ${opts.propertyTitle}`;
+  const amountFmt = opts.offeredAmount.toLocaleString('es-MX');
+  const html = wrap(subject, `
+    <h2>Hola, ${opts.buyerName}</h2>
+    <p>El vendedor ha aceptado otra oferta para la propiedad <strong>${opts.propertyTitle}</strong>.</p>
+    <div class="highlight">
+      <strong>Tu oferta:</strong> $${amountFmt} MXN
+    </div>
+    <p>No te desanimes — hay muchas otras propiedades disponibles en CasaMX.</p>
+    <a class="btn" href="${env.FRONTEND_URL}/properties">Explorar propiedades</a>
+  `);
+  const text = `Tu oferta de $${amountFmt} MXN para "${opts.propertyTitle}" fue superada. El vendedor aceptó otra oferta. Explora más en ${env.FRONTEND_URL}/properties`;
+  await sendEmail(opts.buyerEmail, subject, html, text);
+}
+
+// ── Welcome ────────────────────────────────────────────────────────────────────
+
+export async function sendWelcomeEmail(opts: {
+  userEmail: string; userName: string;
+}) {
+  const subject = '¡Bienvenido a CasaMX!';
+  const html = wrap(subject, `
+    <h2>¡Tu cuenta está verificada, ${opts.userName}!</h2>
+    <p>Gracias por unirte a CasaMX, la plataforma inmobiliaria de México. Ahora puedes:</p>
+    <ul style="text-align:left;padding-left:20px;line-height:2;">
+      <li>🔍 Buscar y explorar propiedades en todo México</li>
+      <li>💬 Contactar a vendedores y arrendadores</li>
+      <li>🏠 Publicar tus propias propiedades</li>
+      <li>📊 Gestionar ofertas y solicitudes desde tu dashboard</li>
+    </ul>
+    <a class="btn" href="${env.FRONTEND_URL}/dashboard">Ir a mi dashboard</a>
+    <p style="margin-top:20px;font-size:13px;color:#6b7280;">Si tienes dudas, contáctanos — estamos para ayudarte.</p>
+  `);
+  const text = `¡Bienvenido a CasaMX, ${opts.userName}! Tu cuenta está verificada. Ingresa a ${env.FRONTEND_URL}/dashboard para comenzar.`;
+  await sendEmail(opts.userEmail, subject, html, text);
+}
+
+// ── Login alert ────────────────────────────────────────────────────────────────
+
+export async function sendNewLoginAlert(opts: {
+  userEmail: string; userName: string;
+  ip: string; userAgent: string; timestamp: string;
+}) {
+  const subject = 'Nuevo inicio de sesión — CasaMX';
+  const date = new Date(opts.timestamp).toLocaleString('es-MX');
+  const html = wrap(subject, `
+    <h2>Hola, ${opts.userName}</h2>
+    <p>Detectamos un nuevo inicio de sesión en tu cuenta de CasaMX.</p>
+    <div class="highlight">
+      <strong>Fecha y hora:</strong> ${date}<br>
+      <strong>Dirección IP:</strong> ${opts.ip}<br>
+      <strong>Dispositivo:</strong> ${opts.userAgent.slice(0, 100)}<br>
+    </div>
+    <p style="color:#dc2626;">Si no fuiste tú, cambia tu contraseña de inmediato.</p>
+    <a class="btn" style="background:#dc2626;" href="${env.FRONTEND_URL}/reset-password">Restablecer contraseña</a>
+  `);
+  const text = `Nuevo inicio de sesión en tu cuenta: ${date} desde IP ${opts.ip}. Si no fuiste tú, restablece tu contraseña en ${env.FRONTEND_URL}/reset-password`;
+  await sendEmail(opts.userEmail, subject, html, text);
+}
+
+// ── Password changed ───────────────────────────────────────────────────────────
+
+export async function sendPasswordChangedEmail(opts: {
+  userEmail: string; userName: string;
+}) {
+  const subject = 'Contraseña actualizada — CasaMX';
+  const html = wrap(subject, `
+    <h2>Hola, ${opts.userName}</h2>
+    <p>Tu contraseña ha sido actualizada exitosamente.</p>
+    <p>Si no realizaste este cambio, contacta a soporte de inmediato.</p>
+    <a class="btn" href="${env.FRONTEND_URL}/dashboard">Ir a mi dashboard</a>
+  `);
+  const text = `Tu contraseña de CasaMX ha sido actualizada. Si no fuiste tú, contacta a soporte.`;
+  await sendEmail(opts.userEmail, subject, html, text);
+}
+
+// ── Role management ────────────────────────────────────────────────────────────
+
+export async function sendRoleApprovedEmail(opts: {
+  userEmail: string; userName: string; roleName: string;
+}) {
+  const roleLabel = opts.roleName === 'seller' ? 'Publicación de propiedades' : opts.roleName;
+  const subject = 'Solicitud de rol aprobada — CasaMX';
+  const html = wrap(subject, `
+    <h2>¡Buenas noticias, ${opts.userName}!</h2>
+    <p>Tu solicitud para el rol <strong>${roleLabel}</strong> ha sido aprobada.</p>
+    <p>Ahora puedes acceder a las funciones correspondientes desde tu dashboard.</p>
+    <a class="btn" href="${env.FRONTEND_URL}/dashboard">Ir a mi dashboard</a>
+  `);
+  const text = `Tu solicitud de rol "${roleLabel}" fue aprobada. Ingresa a ${env.FRONTEND_URL}/dashboard para comenzar.`;
+  await sendEmail(opts.userEmail, subject, html, text);
+}
+
+export async function sendRoleDeniedEmail(opts: {
+  userEmail: string; userName: string; roleName: string;
+}) {
+  const roleLabel = opts.roleName === 'seller' ? 'Publicación de propiedades' : opts.roleName;
+  const subject = 'Actualización de solicitud de rol — CasaMX';
+  const html = wrap(subject, `
+    <h2>Hola, ${opts.userName}</h2>
+    <p>Tu solicitud para el rol <strong>${roleLabel}</strong> no fue aprobada en esta ocasión.</p>
+    <p>Si tienes dudas, puedes contactar a nuestro equipo de soporte.</p>
+    <a class="btn" href="${env.FRONTEND_URL}/dashboard">Ir a mi dashboard</a>
+  `);
+  const text = `Tu solicitud de rol "${roleLabel}" no fue aprobada. Ingresa a ${env.FRONTEND_URL}/dashboard para más información.`;
+  await sendEmail(opts.userEmail, subject, html, text);
+}
+
+// ── Negotiations ───────────────────────────────────────────────────────────────
+
+export async function sendNegotiationStartedEmail(opts: {
+  landlordEmail: string; landlordName: string;
+  propertyTitle: string; proposedRent: number; tenantName: string;
+}) {
+  const subject = 'Nueva negociación iniciada — CasaMX';
+  const rentFmt = opts.proposedRent.toLocaleString('es-MX');
+  const html = wrap(subject, `
+    <h2>Hola, ${opts.landlordName}</h2>
+    <p><strong>${opts.tenantName}</strong> ha iniciado una negociación de renta para tu propiedad.</p>
+    <div class="highlight">
+      <strong>Propiedad:</strong> ${opts.propertyTitle}<br>
+      <strong>Renta propuesta:</strong> $${rentFmt} MXN/mes
+    </div>
+    <p>Entra a CasaMX para revisar y responder.</p>
+    <a class="btn" href="${env.FRONTEND_URL}/dashboard/rental-applications">Ver negociación</a>
+  `);
+  const text = `${opts.tenantName} inició una negociación de $${rentFmt}/mes para "${opts.propertyTitle}". Revísala en ${env.FRONTEND_URL}/dashboard/rental-applications`;
+  await sendEmail(opts.landlordEmail, subject, html, text);
+}
+
+export async function sendNegotiationCounterEmail(opts: {
+  recipientEmail: string; recipientName: string;
+  propertyTitle: string; proposedRent: number; authorName: string;
+}) {
+  const subject = 'Contraoferta de renta — CasaMX';
+  const rentFmt = opts.proposedRent.toLocaleString('es-MX');
+  const html = wrap(subject, `
+    <h2>Hola, ${opts.recipientName}</h2>
+    <p><strong>${opts.authorName}</strong> ha enviado una contraoferta en la negociación de renta.</p>
+    <div class="highlight">
+      <strong>Propiedad:</strong> ${opts.propertyTitle}<br>
+      <strong>Renta propuesta:</strong> $${rentFmt} MXN/mes
+    </div>
+    <p>Entra a CasaMX para revisar y responder.</p>
+    <a class="btn" href="${env.FRONTEND_URL}/dashboard/rental-applications">Ver negociación</a>
+  `);
+  const text = `${opts.authorName} contraofertó $${rentFmt}/mes para "${opts.propertyTitle}". Revísala en ${env.FRONTEND_URL}/dashboard/rental-applications`;
+  await sendEmail(opts.recipientEmail, subject, html, text);
+}
+
+export async function sendNegotiationAcceptedEmail(opts: {
+  recipientEmail: string; recipientName: string;
+  propertyTitle: string; finalRent: number; authorName: string;
+}) {
+  const subject = '¡Negociación aceptada! — CasaMX';
+  const rentFmt = opts.finalRent.toLocaleString('es-MX');
+  const html = wrap(subject, `
+    <h2>¡Felicidades, ${opts.recipientName}!</h2>
+    <p><strong>${opts.authorName}</strong> ha aceptado tu propuesta de renta.</p>
+    <div class="highlight">
+      <strong>Propiedad:</strong> ${opts.propertyTitle}<br>
+      <strong>Renta acordada:</strong> $${rentFmt} MXN/mes
+    </div>
+    <p>Entra a CasaMX para descargar tu contrato y continuar con el proceso.</p>
+    <a class="btn" href="${env.FRONTEND_URL}/dashboard/rental-applications">Ver negociación</a>
+  `);
+  const text = `¡Tu propuesta de $${rentFmt}/mes para "${opts.propertyTitle}" fue aceptada! Descarga tu contrato en ${env.FRONTEND_URL}/dashboard/rental-applications`;
+  await sendEmail(opts.recipientEmail, subject, html, text);
+}
+
+export async function sendNegotiationRejectedEmail(opts: {
+  recipientEmail: string; recipientName: string;
+  propertyTitle: string; authorName: string;
+}) {
+  const subject = 'Negociación cerrada — CasaMX';
+  const html = wrap(subject, `
+    <h2>Hola, ${opts.recipientName}</h2>
+    <p><strong>${opts.authorName}</strong> ha rechazado tu propuesta de renta para <strong>${opts.propertyTitle}</strong>.</p>
+    <p>Puedes explorar otras propiedades en renta disponibles en CasaMX.</p>
+    <a class="btn" href="${env.FRONTEND_URL}/properties?type=for_rent">Buscar propiedades en renta</a>
+  `);
+  const text = `Tu propuesta para "${opts.propertyTitle}" fue rechazada. Explora más rentas en ${env.FRONTEND_URL}/properties?type=for_rent`;
+  await sendEmail(opts.recipientEmail, subject, html, text);
 }

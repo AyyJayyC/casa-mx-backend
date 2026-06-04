@@ -5,8 +5,7 @@ import { RegisterSchema, LoginSchema, RefreshSchema, OAuthGoogleSchema, OAuthFac
 import { AuthService } from '../services/auth.service.js';
 import { refreshTokenStoreService } from '../services/refreshTokenStore.service.js';
 import { env } from '../config/env.js';
-import { sendVerificationEmail } from '../services/email.service.js';
-import { sendPasswordResetEmail } from '../services/email.service.js';
+import { sendVerificationEmail, sendPasswordResetEmail, sendNewLoginAlert, sendPasswordChangedEmail } from '../services/email.service.js';
 import { generateAppleClientSecret } from '../services/apple.service.js';
 import { isZodError, createValidationErrorResponse, createServerErrorResponse } from '../utils/errorHandling.js';
 
@@ -128,6 +127,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           });
 
         try { reply.generateCsrf(); } catch {}
+
+        // Notify user of new login
+        const ip = (request.headers['x-forwarded-for'] as string) || request.ip || 'unknown';
+        const ua = (request.headers['user-agent'] as string) || 'unknown';
+        await sendNewLoginAlert({ userEmail: user.email, userName: user.name, ip, userAgent: ua, timestamp: new Date().toISOString() }).catch(() => {});
 
         // NOTE: tokens are set via httpOnly cookies above. The response body
         // contains only the user object to prevent token exfiltration via XSS.
@@ -724,6 +728,10 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         });
 
         if (result.success) {
+          const user = await fastify.prisma.user.findUnique({ where: { passwordResetToken: token }, select: { email: true, name: true } });
+          if (user) {
+            await sendPasswordChangedEmail({ userEmail: user.email, userName: user.name }).catch(() => {});
+          }
           return reply.code(200).send(result);
         }
         return reply.code(400).send(result);

@@ -451,7 +451,7 @@ export class MapsService {
   }
 
   // Example wrapper for geocoding (server-side)
-  async geocodeAddress(address: string, opts?: { userId?: string }) {
+  async geocodeAddress(address: string, opts?: { userId?: string; biasLat?: number; biasLng?: number }) {
     const start = Date.now();
     try {
       if (!this.canUseGoogleMapsProvider() && this.isLocalFallbackEnabled()) {
@@ -474,7 +474,10 @@ export class MapsService {
         throw new Error('Google Maps provider unavailable. Set MAPS_API_KEY and ENABLE_BILLABLE_MAPS=true.');
       }
 
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&components=country:MX&region=mx&language=es&key=${key}`;
+      let url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&components=country:MX&region=mx&language=es&key=${key}`;
+      if (typeof opts?.biasLat === 'number' && typeof opts?.biasLng === 'number') {
+        url += `&location=${opts.biasLat},${opts.biasLng}`;
+      }
       const res = await fetch(url);
       const data = (await res.json()) as any;
       const took = Date.now() - start;

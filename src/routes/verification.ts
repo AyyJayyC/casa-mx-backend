@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import crypto from 'crypto';
-import { sendVerificationEmail } from '../services/email.service.js';
+import { sendVerificationEmail, sendWelcomeEmail } from '../services/email.service.js';
 import { verifyJWT } from '../utils/guards.js';
 
 const verificationRoutes: FastifyPluginAsync = async (fastify) => {
@@ -62,6 +62,12 @@ const verificationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     });
 
+    // Send welcome email
+    const verifiedUser = await fastify.prisma.user.findUnique({ where: { id: user.id }, select: { email: true, name: true } });
+    if (verifiedUser && !user.emailVerified) {
+      await sendWelcomeEmail({ userEmail: verifiedUser.email, userName: verifiedUser.name }).catch(() => {});
+    }
+
     return reply.send({ success: true, message: '¡Correo verificado exitosamente!' });
   });
 
@@ -114,12 +120,12 @@ const verificationRoutes: FastifyPluginAsync = async (fastify) => {
 
     await sendVerificationEmail({ userEmail: user.email, userName: user.name, token });
 
-    const emailConfigured = Boolean(process.env.SENDGRID_API_KEY);
+    const emailConfigured = Boolean(process.env.RESEND_API_KEY);
     return reply.send({
       success: true,
       message: emailConfigured
         ? 'Correo de verificación enviado. Revisa tu bandeja de entrada.'
-        : 'Correo de verificación generado — pendiente de envío (SENDGRID_API_KEY no configurada).',
+        : 'Correo de verificación generado — pendiente de envío (RESEND_API_KEY no configurada).',
       emailSent: emailConfigured,
     });
   });

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { verifyJWT, requireAnyRole } from '../utils/guards.js';
 import { LandlordService } from '../services/landlord.service.js';
 import { cacheService } from '../services/cache.service.js';
+import { mapsService } from '../services/maps.service.js';
 import {
   propertyFilterSchema,
   createPropertySchema,
@@ -459,6 +460,59 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         }
 
         const property = await app.prisma.property.create({ data });
+
+        // Auto-geocode address to populate lat/lng
+        if (!input.lat || !input.lng) {
+          const locationTypeRank: Record<string, number> = {
+            ROOFTOP: 1, RANGE_INTERPOLATED: 2, GEOMETRIC_CENTER: 3, APPROXIMATE: 4,
+          };
+
+          // Strategy 1: full address with city/state context (precise)
+          const fullAddress = [
+            input.address, input.colonia, input.ciudad, input.estado, 'México', input.codigoPostal,
+          ].filter(Boolean).join(', ');
+
+          // Strategy 2: minimal address (lets Google figure out location)
+          const minimalAddress = [input.address, 'México', input.codigoPostal].filter(Boolean).join(', ');
+
+          const attempts: Array<{ address: string }> = [
+            { address: fullAddress },
+          ];
+          if (minimalAddress !== fullAddress) {
+            attempts.push({ address: minimalAddress });
+          }
+
+          let bestResult: { lat: number; lng: number } | null = null;
+          let bestRank = 99;
+
+          for (const attempt of attempts) {
+            try {
+              const geoResult = await mapsService.geocodeAddress(attempt.address);
+              const geoLat = geoResult?.geometry?.location?.lat;
+              const geoLng = geoResult?.geometry?.location?.lng;
+              const locationType = geoResult?.geometry?.location_type as string ?? '';
+              const partialMatch = geoResult?.partial_match as boolean | undefined;
+              const rank = (locationTypeRank[locationType] ?? 99) + (partialMatch ? 1 : 0);
+
+              if (typeof geoLat === 'number' && typeof geoLng === 'number' && rank < bestRank) {
+                bestRank = rank;
+                bestResult = { lat: geoLat, lng: geoLng };
+              }
+              if (locationType === 'ROOFTOP' && !partialMatch) break; // perfect match, stop
+            } catch (geoErr) {
+              app.log.warn({ geoErr, address: attempt.address }, 'Geocoding attempt failed');
+            }
+          }
+
+          if (bestResult) {
+            await app.prisma.property.update({
+              where: { id: property.id },
+              data: { lat: bestResult.lat, lng: bestResult.lng },
+            });
+            property.lat = bestResult.lat;
+            property.lng = bestResult.lng;
+          }
+        }
 
         if (input.listingType === 'for_rent') {
           await landlordService.addLandlordRoleIfNeeded(user.id);

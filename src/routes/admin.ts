@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { execSync } from 'node:child_process';
 import { requireAdmin, verifyJWT } from '../utils/guards.js';
 import { UserRoleIdParamSchema } from '../schemas/admin.js';
+import { sendRoleApprovedEmail, sendRoleDeniedEmail } from '../services/email.service.js';
 
 export class AdminService {
   constructor(private prisma: PrismaClient) {}
@@ -163,6 +164,12 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
         const updated = await adminService.approveRole(adminId, userRoleId);
 
+        // Send role approval email
+        const userRole = await fastify.prisma.userRole.findUnique({ where: { id: userRoleId }, include: { user: { select: { email: true, name: true } }, role: { select: { name: true } } } });
+        if (userRole?.user?.email) {
+          await sendRoleApprovedEmail({ userEmail: userRole.user.email, userName: userRole.user.name, roleName: userRole.role.name }).catch(() => {});
+        }
+
         return reply.code(200).send({
           success: true,
           data: updated,
@@ -211,6 +218,12 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         const adminId = (request.user as any).id;
 
         const updated = await adminService.denyRole(adminId, userRoleId);
+
+        // Send role denied email
+        const deniedUserRole = await fastify.prisma.userRole.findUnique({ where: { id: userRoleId }, include: { user: { select: { email: true, name: true } }, role: { select: { name: true } } } });
+        if (deniedUserRole?.user?.email) {
+          await sendRoleDeniedEmail({ userEmail: deniedUserRole.user.email, userName: deniedUserRole.user.name, roleName: deniedUserRole.role.name }).catch(() => {});
+        }
 
         return reply.code(200).send({
           success: true,
