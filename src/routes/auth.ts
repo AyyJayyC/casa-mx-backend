@@ -89,6 +89,23 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         const input = LoginSchema.parse(request.body);
         const user = await authService.login(input);
 
+        // Auto-approve pending admin role for ADMIN_EMAIL user on login (self-healing)
+        const adminEmail = process.env.ADMIN_EMAIL?.trim();
+        if (adminEmail && input.email === adminEmail) {
+          const pendingAdmin = user.roles.find(
+            (r) => r.roleName === 'admin' && r.status === 'pending'
+          );
+          if (pendingAdmin) {
+            await fastify.prisma.userRole.update({
+              where: {
+                userId_roleId: { userId: user.id, roleId: pendingAdmin.roleId },
+              },
+              data: { status: 'approved' },
+            });
+            pendingAdmin.status = 'approved';
+          }
+        }
+
         // Generate JWT token
         const token = fastify.jwt.sign(
           {

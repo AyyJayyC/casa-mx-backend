@@ -261,12 +261,12 @@ export class AuthService {
   }
 
   private getInitialRoleStatus(roleName: string, email?: string): string {
-    // Admin role NEVER auto-approved — requires manual approval by existing admin
-    if (roleName === 'admin') return 'pending';
-
-    // All other roles auto-approved for ADMIN_EMAIL user
+    // ADMIN_EMAIL user gets all roles auto-approved, including admin
     const adminEmail = process.env.ADMIN_EMAIL?.trim();
     if (adminEmail && email === adminEmail) return 'approved';
+
+    // Admin role requires manual approval by existing admin for non-ADMIN_EMAIL users
+    if (roleName === 'admin') return 'pending';
 
     return AUTO_APPROVED_ROLES.has(roleName) ? 'approved' : 'pending';
   }
