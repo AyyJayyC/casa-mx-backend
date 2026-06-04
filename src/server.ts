@@ -1,6 +1,7 @@
 import { buildApp } from './app.js';
 import { env } from './config/env.js';
 import { cacheService } from './services/cache.service.js';
+import { isConfigured as isEmailConfigured, verifyConnection as verifyEmail } from './services/email.service.js';
 
 let appInstance: Awaited<ReturnType<typeof buildApp>> | null = null;
 
@@ -23,9 +24,75 @@ async function gracefulShutdown(signal: string) {
   }
 }
 
+async function runStartupChecks() {
+  const checks: string[] = [];
+  let critical = false;
+
+  console.log('[startup] Running pre-flight checks...');
+
+  // Email service
+  if (isEmailConfigured()) {
+    console.log('[startup] Verifying email service (Resend)...');
+    const emailResult = await verifyEmail();
+    if (!emailResult.ok) {
+      console.error('[startup] Email service check FAILED:', emailResult.error);
+      checks.push(`Email: FAILED — ${emailResult.error}`);
+      critical = true;
+    } else {
+      console.log('[startup] Email service: OK');
+      checks.push('Email: OK');
+    }
+  } else {
+    if (env.NODE_ENV === 'production') {
+      console.error('[startup] RESEND_API_KEY not configured — emails will NOT be sent');
+      checks.push('Email: NOT CONFIGURED (CRITICAL)');
+      critical = true;
+    } else {
+      console.warn('[startup] RESEND_API_KEY not configured (non-production, continuing)');
+      checks.push('Email: not configured (dev OK)');
+    }
+  }
+
+  // Stripe
+  if (env.STRIPE_SECRET_KEY) {
+    checks.push('Stripe: configured');
+  } else {
+    if (env.NODE_ENV === 'production') {
+      console.error('[startup] STRIPE_SECRET_KEY not configured');
+      checks.push('Stripe: NOT CONFIGURED (CRITICAL)');
+      critical = true;
+    } else {
+      checks.push('Stripe: not configured (dev OK)');
+    }
+  }
+
+  // DB reachability
+  try {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    await prisma.$queryRaw`SELECT 1`;
+    await prisma.$disconnect();
+    checks.push('Database: OK');
+  } catch (err: any) {
+    console.error('[startup] Database unreachable:', err.message);
+    checks.push('Database: UNREACHABLE');
+    critical = true;
+  }
+
+  console.log('[startup] Pre-flight results:');
+  checks.forEach(c => console.log(`  ${c}`));
+
+  if (critical && env.NODE_ENV === 'production') {
+    console.error('[startup] Critical service failures — aborting startup');
+    process.exit(1);
+  }
+}
+
 async function start() {
   console.log('[startup] Beginning server initialization...');
   try {
+    await runStartupChecks();
+
     console.log('[startup] Building app...');
     appInstance = await buildApp();
     console.log('[startup] App built, starting to listen...');

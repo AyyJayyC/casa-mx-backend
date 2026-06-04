@@ -10,6 +10,25 @@ function client(): Resend | null {
   return resend;
 }
 
+export function isConfigured(): boolean {
+  return Boolean(env.RESEND_API_KEY && !env.RESEND_API_KEY.startsWith('re_placeholder'));
+}
+
+export async function verifyConnection(): Promise<{ ok: boolean; error?: string }> {
+  if (!isConfigured()) {
+    return { ok: false, error: 'RESEND_API_KEY not configured' };
+  }
+  try {
+    const r = client();
+    if (!r) return { ok: false, error: 'Failed to initialize Resend client' };
+    // Resend doesn't have a dedicated ping endpoint — check domains list as liveness probe
+    await r.domains.list();
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message ?? 'Unknown error' };
+  }
+}
+
 async function sendEmail(to: string, subject: string, html: string, text: string) {
   const r = client();
   if (!r) {

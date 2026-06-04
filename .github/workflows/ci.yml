@@ -74,6 +74,20 @@ jobs:
           REDIS_URL: redis://localhost:6379
         run: npm test -- --run
 
+  # Notify deploy readiness (Railway auto-deploys from GitHub repo watch)
+  deploy-notify:
+    needs: [test, build]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy notification
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          echo "Tests passed for branch: $BRANCH"
+          echo "Railway should auto-deploy if branch watch is configured at https://railway.com"
+
+
   build:
     runs-on: ubuntu-latest
 

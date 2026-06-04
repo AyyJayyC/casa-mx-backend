@@ -1,5 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { cacheService } from '../services/cache.service.js';
+import { verifyConnection, isConfigured } from '../services/email.service.js';
+import { env } from '../config/env.js';
 
 const healthRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/health', async (request, reply) => {
@@ -7,34 +9,41 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
       await fastify.prisma.$queryRaw`SELECT 1`;
 
       const cacheConfigured = Boolean(process.env.REDIS_URL);
-      let cacheHealthy = true;
+      let cacheStatus: 'ok' | 'down' | 'not_configured' = 'not_configured';
       if (cacheConfigured) {
         try {
-          cacheHealthy = cacheService.isAvailable();
+          const healthy = cacheService.isAvailable();
+          cacheStatus = healthy ? 'ok' : 'down';
         } catch {
           fastify.log.warn('Redis configured but unreachable for health check');
+          cacheStatus = 'down';
         }
       }
-      const overallHealthy = true; // Redis is optional, don't degrade on cache alone
 
-      if (!overallHealthy) {
-        return reply.code(503).send({
-          status: 'degraded',
-          checks: {
-            database: 'ok',
-            cache: 'down',
-          },
-        });
+      // Email service check
+      let emailStatus: 'ok' | 'degraded' | 'not_configured' = 'not_configured';
+      if (isConfigured()) {
+        const emailResult = await verifyConnection();
+        emailStatus = emailResult.ok ? 'ok' : 'degraded';
       }
 
-      return reply.code(200).send({
-        status: 'ok',
+      // Stripe check
+      const stripeStatus = env.STRIPE_SECRET_KEY ? 'ok' : 'not_configured';
+
+      const checks: Record<string, string> = {
+        database: 'ok',
+        cache: cacheStatus,
+        email: emailStatus,
+        stripe: stripeStatus,
+      };
+
+      const hasDegradation = Object.values(checks).some(s => s === 'down' || s === 'degraded');
+
+      return reply.code(hasDegradation ? 503 : 200).send({
+        status: hasDegradation ? 'degraded' : 'ok',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        checks: {
-          database: 'ok',
-          cache: cacheConfigured ? 'ok' : 'not_configured',
-        },
+        checks,
       });
     } catch (error: any) {
       return reply.code(503).send({

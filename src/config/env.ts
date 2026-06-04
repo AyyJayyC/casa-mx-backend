@@ -53,20 +53,39 @@ const envSchema = z
       return;
     }
 
-    if (env.NODE_ENV === 'production' && !isConfiguredMapsKey(env.MAPS_API_KEY)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['MAPS_API_KEY'],
-        message: 'MAPS_API_KEY must be set to a real Google Maps server-side key for address search.',
-      });
-    }
+    // Production-required services
+    if (env.NODE_ENV === 'production') {
+      if (!env.RESEND_API_KEY || env.RESEND_API_KEY.startsWith('re_placeholder')) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['RESEND_API_KEY'],
+          message: 'RESEND_API_KEY must be set to a real Resend API key (all emails silently fail without it)',
+        });
+      }
 
-    if (env.NODE_ENV === 'production' && env.ENABLE_BILLABLE_MAPS !== 'true') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['ENABLE_BILLABLE_MAPS'],
-        message: 'ENABLE_BILLABLE_MAPS must be true for Google-only address search.',
-      });
+      if (!env.STRIPE_SECRET_KEY) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['STRIPE_SECRET_KEY'],
+          message: 'STRIPE_SECRET_KEY must be set in production for payment processing',
+        });
+      }
+
+      if (!isConfiguredMapsKey(env.MAPS_API_KEY)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['MAPS_API_KEY'],
+          message: 'MAPS_API_KEY must be set to a real Google Maps server-side key for address search.',
+        });
+      }
+
+      if (env.ENABLE_BILLABLE_MAPS !== 'true') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['ENABLE_BILLABLE_MAPS'],
+          message: 'ENABLE_BILLABLE_MAPS must be true for Google-only address search.',
+        });
+      }
     }
   });
 
