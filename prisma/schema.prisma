@@ -152,7 +152,7 @@ model Property {
   securityDeposit   Float?   // Typically 1-2 months rent
   leaseTermMonths   Int?     // 6, 12, 24 months
   availableFrom     DateTime?
-  furnished         Boolean  @default(false)
+  furnished         String?   // unfurnished, semi_furnished, furnished, equipada
   utilitiesIncluded Boolean  @default(false)
   
   // Extended property details (Casa MX v2)
@@ -721,4 +721,20 @@ model CarouselSlide {
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+model TagSubscription {
+  id           String   @id @default(uuid())
+  userId       String
+  tagType      String   // 'ciudad' | 'colonia'
+  tagName      String   // display: "Hermosillo"
+  tagNormal    String   // normalized: "hermosillo"
+  estado       String?
+  notifyInApp  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, tagType, tagNormal])
+  @@index([tagType, tagNormal])
+  @@index([userId])
 }

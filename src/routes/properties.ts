@@ -5,6 +5,7 @@ import { verifyJWT, requireAnyRole } from '../utils/guards.js';
 import { LandlordService } from '../services/landlord.service.js';
 import { cacheService } from '../services/cache.service.js';
 import { mapsService } from '../services/maps.service.js';
+import { notifyTagSubscribers } from '../services/notification.service.js';
 import {
   propertyFilterSchema,
   createPropertySchema,
@@ -447,7 +448,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           securityDeposit: input.securityDeposit ?? null,
           leaseTermMonths: input.leaseTermMonths ?? null,
           availableFrom: input.availableFrom ? new Date(input.availableFrom) : null,
-          furnished: input.furnished ?? false,
+          furnished: input.furnished ?? 'unfurnished',
           utilitiesIncluded: ((input.includedServices?.length ?? 0) > 0) || (input.utilitiesIncluded ?? false),
           condition: input.condition ?? null,
           parkingType: input.parkingType ?? null,
@@ -837,6 +838,15 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           where: { id },
           data: { status: 'disponible', visibility: 'public' },
         });
+
+        // Notify users subscribed to this ciudad/colonia area
+        notifyTagSubscribers(
+          app.prisma,
+          updated.id,
+          updated.title,
+          updated.ciudad,
+          updated.colonia,
+        ).catch((err: any) => app.log.warn({ err }, 'Failed to send tag notifications'));
 
         return reply.send({ success: true, data: updated });
       } catch (error: any) {

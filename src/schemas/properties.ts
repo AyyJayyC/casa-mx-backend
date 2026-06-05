@@ -3,6 +3,7 @@ import {
   PROPERTY_TYPE_OPTIONS,
   RENTAL_AMENITY_OPTIONS,
   RENTAL_INCLUDED_SERVICE_OPTIONS,
+  FURNISHED_OPTIONS,
 } from '../constants/propertyOptions.js';
 
 /**
@@ -69,7 +70,7 @@ export const createSalePropertySchema = basePropertySchema.extend({
   securityDeposit: z.number().optional(),
   leaseTermMonths: z.number().optional(),
   availableFrom: z.string().optional(),
-  furnished: z.boolean().optional(),
+  furnished: z.enum(FURNISHED_OPTIONS).optional(),
   utilitiesIncluded: z.boolean().optional(),
   includedServices: includedServicesSchema.optional(),
   amenities: amenitiesSchema.optional(),
@@ -84,7 +85,7 @@ export const createRentalPropertySchema = basePropertySchema.extend({
   securityDeposit: z.number().positive('Security deposit must be positive').max(999999999, 'Deposit is too high').optional(),
   leaseTermMonths: z.number().int().positive('Lease term must be positive').optional(),
   availableFrom: z.string().optional(), // ISO date string
-  furnished: z.boolean().default(false),
+  furnished: z.enum(FURNISHED_OPTIONS).default('unfurnished'),
   utilitiesIncluded: z.boolean().default(false),
   includedServices: includedServicesSchema.optional(),
   amenities: amenitiesSchema.optional(),
@@ -135,7 +136,7 @@ export const updatePropertySchema = z.object({
   securityDeposit: z.number().positive().max(999999999).optional(),
   leaseTermMonths: z.number().int().positive().max(36).optional(),
   availableFrom: z.string().max(30).optional(),
-  furnished: z.boolean().optional(),
+  furnished: z.enum(FURNISHED_OPTIONS).optional(),
   utilitiesIncluded: z.boolean().optional(),
   includedServices: includedServicesSchema.optional(),
   amenities: amenitiesSchema.optional(),

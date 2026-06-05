@@ -28,11 +28,13 @@ export const RENTAL_AMENITY_OPTIONS = [
   'Aire acondicionado',
   'Aire central',
   'Calefacción',
-  'Mini split',
   'Mini splits',
   'Terraza',
   'Jardín',
   'Piscina',
+  'Piscina privada',
+  'Piscina común',
+  'Alberca',
   'Gimnasio',
   'Salón de eventos',
   'Seguridad 24h',
@@ -40,8 +42,10 @@ export const RENTAL_AMENITY_OPTIONS = [
   'Elevador',
   'Closet grande',
   'Amueblado',
+  'Equipado',
   'Walk-in closet',
   'Balcón',
   'Patio',
-  'Seguridad 24/7',
 ] as const;
+
+export const FURNISHED_OPTIONS = ['unfurnished', 'semi_furnished', 'furnished', 'equipada'] as const;
