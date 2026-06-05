@@ -89,21 +89,48 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         const input = LoginSchema.parse(request.body);
         const user = await authService.login(input);
 
-        // Auto-approve pending admin role for ADMIN_EMAIL user on login (self-healing)
+        // ─── Self-healing: ensure ADMIN_EMAIL has all roles approved ──────────
         const adminEmail = process.env.ADMIN_EMAIL?.trim();
-        if (adminEmail && input.email === adminEmail) {
-          const pendingAdmin = user.roles.find(
-            (r) => r.roleName === 'admin' && r.status === 'pending'
-          );
-          if (pendingAdmin) {
-            await fastify.prisma.userRole.update({
-              where: {
-                userId_roleId: { userId: user.id, roleId: pendingAdmin.roleId },
-              },
-              data: { status: 'approved' },
-            });
-            pendingAdmin.status = 'approved';
+        fastify.log.info({ email: input.email, adminEmail }, '[login] ADMIN_EMAIL check');
+        if (adminEmail && input.email.toLowerCase() === adminEmail.toLowerCase()) {
+          const allRoles = await fastify.prisma.role.findMany();
+          const adminRole = allRoles.find(r => r.name === 'admin');
+          fastify.log.info({ userId: user.id, currentRoles: user.roles.map(r => `${r.roleName}:${r.status}`) }, '[login] ADMIN_EMAIL user — running self-healing');
+
+          // 1. Create missing admin role if it doesn't exist
+          if (adminRole) {
+            const hasAdmin = user.roles.find(r => r.roleName === 'admin');
+            if (hasAdmin && hasAdmin.status === 'pending') {
+              await fastify.prisma.userRole.update({
+                where: { userId_roleId: { userId: user.id, roleId: hasAdmin.roleId } },
+                data: { status: 'approved' },
+              });
+              hasAdmin.status = 'approved';
+              fastify.log.info('[login] Self-heal: approved pending admin role');
+            } else if (!hasAdmin) {
+              const newRole = await fastify.prisma.userRole.create({
+                data: { userId: user.id, roleId: adminRole.id, status: 'approved' },
+              });
+              user.roles.push({ roleId: adminRole.id, roleName: 'admin', status: 'approved' });
+              fastify.log.info({ roleId: newRole.id }, '[login] Self-heal: created missing admin role');
+            }
           }
+
+          // 2. Approve ALL other pending roles
+          for (const role of user.roles) {
+            if (role.status === 'pending') {
+              await fastify.prisma.userRole.update({
+                where: { userId_roleId: { userId: user.id, roleId: role.roleId } },
+                data: { status: 'approved' },
+              });
+              role.status = 'approved';
+              fastify.log.info({ roleName: role.roleName }, '[login] Self-heal: approved pending role');
+            }
+          }
+
+          fastify.log.info({ finalRoles: user.roles.map(r => `${r.roleName}:${r.status}`) }, '[login] Self-healing complete');
+        } else {
+          fastify.log.info('[login] Not ADMIN_EMAIL user — skipping self-healing');
         }
 
         // Generate JWT token

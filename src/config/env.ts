@@ -40,7 +40,7 @@ const envSchema = z
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
-    RESEND_FROM_EMAIL: z.string().email().optional().default('noreply@send.casa-mx.com'),
+    RESEND_FROM_EMAIL: z.string().email().optional().default('noreply@casa-mx.com'),
     RESEND_FROM_NAME: z.string().optional().default('CasaMX'),
     AWS_REGION: z.string().optional().default('us-east-1'),
     AWS_BUCKET: z.string().optional(),
@@ -60,14 +60,6 @@ const envSchema = z
           code: z.ZodIssueCode.custom,
           path: ['RESEND_API_KEY'],
           message: 'RESEND_API_KEY must be set to a real Resend API key (all emails silently fail without it)',
-        });
-      }
-
-      if (!env.STRIPE_SECRET_KEY) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['STRIPE_SECRET_KEY'],
-          message: 'STRIPE_SECRET_KEY must be set in production for payment processing',
         });
       }
 

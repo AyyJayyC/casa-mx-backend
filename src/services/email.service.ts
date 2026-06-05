@@ -32,19 +32,24 @@ export async function verifyConnection(): Promise<{ ok: boolean; error?: string 
 async function sendEmail(to: string, subject: string, html: string, text: string) {
   const r = client();
   if (!r) {
-    console.warn('[email] RESEND_API_KEY not set — skipping email to', to);
+    console.error('[email] RESEND_API_KEY not set — CRITICAL: email not sent to', to, '| subject:', subject);
     return;
   }
   try {
-    await r.emails.send({
+    const result = await r.emails.send({
       from: `${env.RESEND_FROM_NAME} <${env.RESEND_FROM_EMAIL}>`,
       to,
       subject,
       html,
       text,
     });
+    if (result.error) {
+      console.error('[email] Resend delivery error:', JSON.stringify(result.error), '| to:', to, '| subject:', subject);
+      throw new Error(`Failed to send email to ${to}: ${result.error.message || 'Unknown delivery error'}`);
+    }
+    console.log('[email] Sent successfully to', to, '| subject:', subject, '| id:', result.data?.id);
   } catch (err: any) {
-    console.error('[email] Resend error:', err?.message ?? err);
+    console.error('[email] Resend error:', err?.message ?? err, '| to:', to, '| subject:', subject);
     throw new Error(`Failed to send email to ${to}: ${err?.message ?? 'Unknown error'}`);
   }
 }
