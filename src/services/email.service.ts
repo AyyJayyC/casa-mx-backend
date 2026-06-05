@@ -23,13 +23,13 @@ export async function verifyConnection(): Promise<{ ok: boolean; error?: string;
     if (!r) return { ok: false, error: 'Failed to initialize Resend client' };
     const domains: any = await r.domains.list();
     const fromDomain = env.RESEND_FROM_EMAIL.split('@')[1];
-    // Response wrapper: { data: { data: Domain[], ... }, error: null, headers: ... }
-    const innerData: any = domains?.data ?? domains;
-    const domainList: any[] = innerData?.data ?? innerData ?? [];
-    console.error('[email:debug] Raw response structure:', JSON.stringify({ hasData: !!domains?.data, hasInnerData: !!innerData?.data, isArray: Array.isArray(domainList), listLength: Array.isArray(domainList) ? domainList.length : 'not_array', keys: domains ? Object.keys(domains) : 'null', innerKeys: innerData ? Object.keys(innerData) : 'null' }));
-    if (Array.isArray(domainList) && domainList.length > 0) {
-      console.error('[email:debug] Domains found:', JSON.stringify(domainList.map((d: any) => ({ name: d.name, status: d.status }))));
+    console.error('[email:debug] Full response:', JSON.stringify({ error: domains?.error, hasData: !!domains?.data, dataKeys: domains?.data ? Object.keys(domains.data) : 'no_data', headers: domains?.headers ? 'present' : 'null' }));
+    // Response wrapper: { data: { data: Domain[], ... } | null, error: ErrorResponse | null, headers: ... }
+    if (domains?.error) {
+      return { ok: false, error: `Resend API error: ${JSON.stringify(domains.error)}`, domain: fromDomain, domainStatus: 'api_error' };
     }
+    const innerData: any = domains?.data ?? {};
+    const domainList: any[] = innerData?.data ?? [];
     const domain = Array.isArray(domainList) ? domainList.find((d: any) => d.name === fromDomain) : null;
     if (!domain) {
       return { ok: false, error: `Domain ${fromDomain} not found in Resend — add it at https://resend.com/domains`, domain: fromDomain, domainStatus: 'not_found' };
