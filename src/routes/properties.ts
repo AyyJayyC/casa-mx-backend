@@ -36,7 +36,7 @@ class PropertyService {
     // Cache miss - fetch all estado+ciudad pairs in a single query
     const allPairs = await this.prisma.property.findMany({
       select: { estado: true, ciudad: true },
-      where: { ciudad: { not: null } },
+      where: { ciudad: { not: null }, visibility: 'public', status: { not: 'incompleto' } },
       distinct: ['estado', 'ciudad'],
       orderBy: [{ estado: 'asc' }, { ciudad: 'asc' }],
     });
@@ -81,7 +81,10 @@ class PropertyService {
       data: { promotionTier: null, featuredUntil: null },
     });
 
-    const where: any = {};
+    const where: any = {
+      visibility: 'public',
+      status: { not: 'incompleto' },
+    };
 
     if (estado) where.estado = estado;
     if (ciudad) where.ciudad = ciudad;
@@ -327,6 +330,15 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         // Soft upload: all imported properties stay private as drafts
         // until the user manually adds photos and publishes
         if (isSoft) {
+          isIncomplete = true;
+          input.status = 'incompleto';
+          input.visibility = 'private';
+        }
+
+        // Non-soft upload without images: force draft (private + incomplete)
+        // User must add photos then call POST /:id/publish to go public
+        const hasImages = Array.isArray(input.imageUrls) && input.imageUrls.length > 0;
+        if (!isSoft && !hasImages) {
           isIncomplete = true;
           input.status = 'incompleto';
           input.visibility = 'private';
@@ -588,6 +600,8 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           where: {
             lat: { not: null },
             lng: { not: null },
+            visibility: 'public',
+            status: { not: 'incompleto' },
           },
           select: {
             id: true,
@@ -641,8 +655,14 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           // Token invalid or expired — proceed as unauthenticated for public property view
         }
 
+        let where: any = { id };
+        if (!sellerId) {
+          where.visibility = 'public';
+          where.status = { not: 'incompleto' };
+        }
+
         const property = await app.prisma.property.findUnique({
-          where: { id },
+          where,
           include: sellerId ? {
             propertyRequests: {
               select: { id: true, buyerId: true, status: true },
@@ -972,7 +992,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
 
       if (topViewed.length === 0) {
         const latest = await app.prisma.property.findMany({
-          where: { status: 'disponible' },
+          where: { status: 'disponible', visibility: 'public' },
           orderBy: { createdAt: 'desc' },
           take: limit,
         });
@@ -981,7 +1001,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
 
       const ids = topViewed.map((e) => e.entityId);
       const properties = await app.prisma.property.findMany({
-        where: { id: { in: ids }, status: 'disponible' },
+        where: { id: { in: ids }, status: 'disponible', visibility: 'public' },
       });
 
       // Sort by view count order
