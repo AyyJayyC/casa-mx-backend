@@ -177,11 +177,23 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         const ua = (request.headers['user-agent'] as string) || 'unknown';
         await sendNewLoginAlert({ userEmail: user.email, userName: user.name, ip, userAgent: ua, timestamp: new Date().toISOString() }).catch(() => {});
 
+        // Check official ID status for login response
+        const officialIdDoc = await fastify.prisma.userDocument.findFirst({
+          where: { userId: user.id, documentType: 'official_id' },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, isVerified: true, reviewStatus: true },
+        });
+
         // NOTE: tokens are set via httpOnly cookies above. The response body
         // contains only the user object to prevent token exfiltration via XSS.
         return reply.code(200).send({
           success: true,
-          user,
+          user: {
+            ...user,
+            officialIdUploaded: !!officialIdDoc,
+            officialIdVerified: officialIdDoc?.isVerified ?? false,
+            officialIdReviewStatus: officialIdDoc?.reviewStatus ?? null,
+          },
         });
       } catch (error: any) {
         if (error.message === 'Invalid email or password') {
@@ -380,6 +392,13 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         select: { id: true, name: true, referralCode: true },
       });
 
+      // Check if user has uploaded an official ID
+      const officialIdDoc = await fastify.prisma.userDocument.findFirst({
+        where: { userId: user.id, documentType: 'official_id' },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, isVerified: true, reviewStatus: true },
+      });
+
       return reply.code(200).send({
         success: true,
         user: {
@@ -389,6 +408,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           referralCode: (user as any).referralCode ?? null,
           emailVerified: (user as any).emailVerified ?? false,
           phoneVerified: (user as any).phoneVerified ?? false,
+          officialIdUploaded: !!officialIdDoc,
+          officialIdVerified: officialIdDoc?.isVerified ?? false,
+          officialIdReviewStatus: officialIdDoc?.reviewStatus ?? null,
           roles: user.roles.map((ur) => ({
             roleId: ur.roleId,
             roleName: ur.role.name,

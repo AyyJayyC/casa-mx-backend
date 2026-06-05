@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { verifyJWT } from '../utils/guards.js';
-import { uploadToS3, getPresignedUrl, deleteFromS3, isS3Configured } from '../services/s3.service.js';
+import { uploadToS3, getPresignedUrl, deleteFromS3, isS3Configured, validateFileContent, formatS3Error } from '../services/s3.service.js';
 
 const ALLOWED_TYPES = new Set([
   'application/pdf',
@@ -8,6 +8,8 @@ const ALLOWED_TYPES = new Set([
   'image/png',
   'image/webp',
 ]);
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 const VALID_DOC_TYPES = new Set(['official_id', 'other']);
 
@@ -46,13 +48,20 @@ const userDocumentsRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(400).send({ error: 'Invalid or missing documentType. Must be one of: ' + [...VALID_DOC_TYPES].join(', ') });
     }
     if (!fileBuffer || fileBuffer.length === 0) {
-      return reply.code(400).send({ error: 'No file uploaded' });
+      return reply.code(400).send({ error: 'No file uploaded. Please select a file to upload.' });
     }
     if (!ALLOWED_TYPES.has(fileMimeType)) {
-      return reply.code(400).send({ error: 'File type not allowed. Use PDF, JPEG, PNG, or WebP.' });
+      return reply.code(400).send({ error: `File type "${fileMimeType}" not allowed. Accepted types: PDF, JPEG, PNG, WebP.` });
     }
-    if (fileBuffer.length > 10 * 1024 * 1024) {
-      return reply.code(400).send({ error: 'File too large. Maximum 10MB.' });
+    if (fileBuffer.length > MAX_FILE_SIZE) {
+      const sizeMB = (fileBuffer.length / (1024 * 1024)).toFixed(1);
+      return reply.code(400).send({ error: `File too large (${sizeMB} MB). Maximum allowed: 10 MB.` });
+    }
+
+    // Verify file content matches its declared type (magic bytes check)
+    const contentCheck = validateFileContent(fileBuffer, fileMimeType);
+    if (!contentCheck.valid) {
+      return reply.code(400).send({ error: contentCheck.error });
     }
 
     let fileUrl = `local/user-docs/${userId}/${documentType}/${Date.now()}-${fileName}`;
@@ -62,9 +71,10 @@ const userDocumentsRoutes: FastifyPluginAsync = async (app) => {
       try {
         const uploaded = await uploadToS3(fileBuffer, fileName, fileMimeType, folder);
         fileUrl = uploaded.key;
-      } catch (err) {
-        app.log.error({ err }, 'S3 upload failed for user document');
-        return reply.code(500).send({ error: 'Upload failed. Please try again.' });
+      } catch (err: any) {
+        const detail = formatS3Error(err);
+        app.log.error({ err, userId, documentType, fileName, fileMimeType }, 'S3 upload failed for user document');
+        return reply.code(500).send({ error: detail });
       }
     }
 
@@ -103,8 +113,8 @@ const userDocumentsRoutes: FastifyPluginAsync = async (app) => {
         if (isS3Configured() && doc.fileUrl && !doc.fileUrl.startsWith('local/')) {
           try {
             viewUrl = await getPresignedUrl(doc.fileUrl);
-          } catch {
-            // non-fatal
+          } catch (err: any) {
+            app.log.error({ err, docId: doc.id }, 'Failed to generate presigned URL for document');
           }
         }
         return {
@@ -114,6 +124,9 @@ const userDocumentsRoutes: FastifyPluginAsync = async (app) => {
           fileMimeType: doc.fileMimeType,
           createdAt: doc.createdAt,
           viewUrl,
+          isVerified: doc.isVerified ?? false,
+          reviewStatus: doc.reviewStatus ?? null,
+          reviewNote: doc.reviewNote ?? null,
         };
       })
     );
@@ -139,8 +152,8 @@ const userDocumentsRoutes: FastifyPluginAsync = async (app) => {
     if (isS3Configured() && doc.fileUrl && !doc.fileUrl.startsWith('local/')) {
       try {
         await deleteFromS3(doc.fileUrl);
-      } catch (err) {
-        app.log.error({ err }, 'S3 delete failed — removing DB record anyway');
+      } catch (err: any) {
+        app.log.error({ err, docId }, 'S3 delete failed — removing DB record anyway');
       }
     }
 

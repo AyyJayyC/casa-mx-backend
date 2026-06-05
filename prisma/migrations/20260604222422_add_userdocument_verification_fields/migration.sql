@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "UserDocument" ADD COLUMN IF NOT EXISTS "isVerified" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "UserDocument" ADD COLUMN IF NOT EXISTS "reviewStatus" TEXT;
+ALTER TABLE "UserDocument" ADD COLUMN IF NOT EXISTS "reviewNote" TEXT;

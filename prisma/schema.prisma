@@ -227,6 +227,9 @@ model UserDocument {
   fileUrl      String   // S3 key (not public URL)
   fileName     String
   fileMimeType String
+  isVerified   Boolean  @default(false)
+  reviewStatus String?   // pending | approved | rejected
+  reviewNote   String?
   user         User     @relation("UserDocuments", fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
 

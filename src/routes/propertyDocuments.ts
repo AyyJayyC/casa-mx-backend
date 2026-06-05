@@ -1,6 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { verifyJWT } from '../utils/guards.js';
-import { uploadToS3, getPresignedUrl, deleteFromS3, isS3Configured } from '../services/s3.service.js';
+import { uploadToS3, getPresignedUrl, deleteFromS3, isS3Configured, validateFileContent, formatS3Error } from '../services/s3.service.js';
 import { sendVerificationApprovedEmail, sendVerificationRejectedEmail } from '../services/email.service.js';
 
 const ALLOWED_TYPES = new Set([
@@ -115,21 +115,34 @@ const propertyDocumentsRoutes: FastifyPluginAsync = async (fastify) => {
       for await (const chunk of filePart.file) chunks.push(chunk);
       const buffer = Buffer.concat(chunks);
 
-      const { key, fileName, mimeType } = await uploadToS3(
-        buffer,
-        filePart.filename,
-        filePart.mimetype,
-        `property-docs/${propertyId}`,
-      );
+      // Verify file content matches its declared type
+      const contentCheck = validateFileContent(buffer, filePart.mimetype);
+      if (!contentCheck.valid) {
+        return reply.code(400).send({ success: false, error: contentCheck.error });
+      }
+
+      let uploadResult: { key: string; fileName: string; mimeType: string };
+      try {
+        uploadResult = await uploadToS3(
+          buffer,
+          filePart.filename,
+          filePart.mimetype,
+          `property-docs/${propertyId}`,
+        );
+      } catch (err: any) {
+        const detail = formatS3Error(err);
+        fastify.log.error({ err, propertyId, userId, fileName: filePart.filename }, 'S3 upload failed for property document');
+        return reply.code(500).send({ success: false, error: detail });
+      }
 
       const createdDoc = await fastify.prisma.propertyDocument.create({
         data: {
           propertyId,
           uploaderId: userId,
           documentType,
-          fileUrl: key,
-          fileName,
-          fileMimeType: mimeType,
+          fileUrl: uploadResult.key,
+          fileName: uploadResult.fileName,
+          fileMimeType: uploadResult.mimeType,
         },
       });
 
