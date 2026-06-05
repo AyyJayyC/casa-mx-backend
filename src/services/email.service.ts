@@ -21,9 +21,10 @@ export async function verifyConnection(): Promise<{ ok: boolean; error?: string;
   try {
     const r = client();
     if (!r) return { ok: false, error: 'Failed to initialize Resend client' };
-    const domains = await r.domains.list();
+    const domains: any = await r.domains.list();
     const fromDomain = env.RESEND_FROM_EMAIL.split('@')[1];
-    const domain = domains.data?.find((d: any) => d.name === fromDomain);
+    const domainList: any[] = domains?.data ?? [];
+    const domain = domainList.find((d: any) => d.name === fromDomain);
     if (!domain) {
       return { ok: false, error: `Domain ${fromDomain} not found in Resend — add it at https://resend.com/domains`, domain: fromDomain, domainStatus: 'not_found' };
     }
