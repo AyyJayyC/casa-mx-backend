@@ -154,7 +154,7 @@ export const propertyFilterSchema = z.object({
   maxPrice: z.coerce.number().positive().optional(),
   minRent: z.coerce.number().positive().optional(),
   maxRent: z.coerce.number().positive().optional(),
-  furnished: z.coerce.boolean().optional(),
+  furnished: z.enum(['unfurnished', 'semi_furnished', 'furnished', 'equipada']).optional(),
   condition: z.string().optional(),
   status: z.string().optional(),
   visibility: z.string().optional(),

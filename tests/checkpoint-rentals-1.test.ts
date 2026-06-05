@@ -50,7 +50,7 @@ describe('Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
         monthlyRent: 15000,
         securityDeposit: 30000,
         leaseTermMonths: 12,
-        furnished: true,
+      furnished: 'furnished',
         utilitiesIncluded: false,
         estado: 'Ciudad de México',
         sellerId: seller.id,
@@ -98,7 +98,7 @@ describe('Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
       expect(rentalProperty.monthlyRent).toBe(15000);
       expect(rentalProperty.securityDeposit).toBe(30000);
       expect(rentalProperty.leaseTermMonths).toBe(12);
-      expect(rentalProperty.furnished).toBe(true);
+      expect(rentalProperty.furnished).toBe('furnished');
       expect(rentalProperty.utilitiesIncluded).toBe(false);
     });
 

@@ -76,7 +76,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
           monthlyRent: 25000,
           securityDeposit: 50000,
           leaseTermMonths: 12,
-          furnished: true,
+          furnished: 'furnished',
           utilitiesIncluded: false,
           includedServices: ['Agua', 'Internet'],
           amenities: ['Refrigerador', 'Mini splits'],
@@ -89,7 +89,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(data.data.listingType).toBe('for_rent');
       expect(data.data.monthlyRent).toBe(25000);
       expect(data.data.securityDeposit).toBe(50000);
-      expect(data.data.furnished).toBe(true);
+      expect(data.data.furnished).toBe('furnished');
       expect(data.data.propertyType).toBe('Departamento');
       expect(data.data.includedServices).toEqual(['Agua', 'Internet']);
       expect(data.data.amenities).toEqual(['Refrigerador', 'Mini splits']);
@@ -277,7 +277,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
     it('should filter by furnished status', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/properties?listingType=for_rent&furnished=true',
+        url: '/properties?listingType=for_rent&furnished=furnished',
       });
 
       expect(response.statusCode).toBe(200);
@@ -286,7 +286,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       
       // All returned properties should be furnished
       data.data.forEach((property: any) => {
-        expect(property.furnished).toBe(true);
+        expect(property.furnished).toBe('furnished');
       });
     });
   });
@@ -301,7 +301,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
         },
         payload: {
           monthlyRent: 28000,
-          furnished: false,
+          furnished: 'unfurnished',
           utilitiesIncluded: true,
         },
       });

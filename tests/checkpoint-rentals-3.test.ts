@@ -95,7 +95,7 @@ describe('Checkpoint 3 - Rental Application Endpoints', () => {
         monthlyRent: 20000,
         securityDeposit: 40000,
         leaseTermMonths: 12,
-        furnished: true,
+        furnished: 'furnished',
         estado: 'Jalisco',
         sellerId: landlordId,
       },
