@@ -75,15 +75,16 @@ describe('Auth Roles - Admin auto-approval & self-healing', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/auth/register',
-        payload: { email, name: 'Regular User', password: 'Password1', roles: ['buyer', 'admin'] },
+        payload: { email, name: 'Regular User', password: 'Password1', roles: ['buyer'] },
       });
 
       expect(response.statusCode).toBe(201);
       const body = response.json() as any;
       expect(body.success).toBe(true);
 
+      // Non-ADMIN_EMAIL users cannot register with admin role (not in allowed enum)
       const adminRole = body.user.roles.find((r: any) => r.roleName === 'admin');
-      expect(adminRole.status).toBe('pending');
+      expect(adminRole).toBeUndefined();
 
       const buyerRole = body.user.roles.find((r: any) => r.roleName === 'buyer');
       expect(buyerRole.status).toBe('approved');
@@ -185,22 +186,22 @@ describe('Auth Roles - Admin auto-approval & self-healing', () => {
       const email = `test-noauto-${Date.now()}@example.com`;
       const password = 'Password1';
 
-      // Register as non-admin-email user with admin role
+      // Register as non-admin-email user with buyer role only
       const regRes = await app.inject({
         method: 'POST',
         url: '/auth/register',
-        payload: { email, name: 'No Auto', password, roles: ['buyer', 'admin'] },
+        payload: { email, name: 'No Auto', password, roles: ['buyer'] },
       });
 
       expect(regRes.statusCode).toBe(201);
 
-      // Verify admin is pending in DB
+      // Verify admin was not created for non-ADMIN_EMAIL user
       const dbUser = await app.prisma.user.findUnique({
         where: { email },
         include: { roles: { include: { role: true } } },
       });
       const adminRoleDb = dbUser?.roles.find(r => r.role.name === 'admin');
-      expect(adminRoleDb?.status).toBe('pending');
+      expect(adminRoleDb).toBeUndefined();
 
       // Login
       const loginRes = await app.inject({
@@ -211,11 +212,11 @@ describe('Auth Roles - Admin auto-approval & self-healing', () => {
 
       expect(loginRes.statusCode).toBe(200);
 
-      // Admin role should still be pending
-      const userRoleAfter = await app.prisma.userRole.findUnique({
-        where: { userId_roleId: { userId: dbUser!.id, roleId: adminRoleDb!.roleId } },
+      // Admin role should still not exist for non-ADMIN_EMAIL user after login
+      const adminRoleAfter = await app.prisma.userRole.findFirst({
+        where: { userId: dbUser!.id, role: { name: 'admin' } },
       });
-      expect(userRoleAfter?.status).toBe('pending');
+      expect(adminRoleAfter).toBeNull();
     });
   });
 });

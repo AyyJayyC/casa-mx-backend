@@ -310,7 +310,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       const data = response.json();
       expect(data.success).toBe(true);
       expect(data.data.monthlyRent).toBe(28000);
-      expect(data.data.furnished).toBe(false);
+      expect(data.data.furnished).toBe('unfurnished');
       expect(data.data.utilitiesIncluded).toBe(true);
     });
 

@@ -207,7 +207,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           maxPrice: { type: 'number' },
           minRent: { type: 'number' }, // NEW
           maxRent: { type: 'number' }, // NEW
-          furnished: { type: 'boolean' }, // NEW
+          furnished: { type: 'string', enum: ['unfurnished', 'semi_furnished', 'furnished', 'equipada'] },
           limit: { type: 'number', default: 20 },
           offset: { type: 'number', default: 0 },
         },
