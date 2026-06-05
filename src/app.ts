@@ -308,18 +308,6 @@ export async function buildApp() {
         service: 'casa-mx-backend',
       };
       
-      // Sentry capture (non-blocking)
-      if (env.SENTRY_DSN) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const Sentry: any = require('@sentry/node');
-          if (!Sentry.isInitialized?.()) {
-            Sentry.init?.({ dsn: env.SENTRY_DSN, environment: env.NODE_ENV, tracesSampleRate: 0.1 });
-          }
-          Sentry.captureException?.(error, { extra: errorLog });
-        } catch { /* Sentry not installed or unavailable */ }
-      }
-      
       app.log.error(errorLog, 'Unhandled server error');
     }
 

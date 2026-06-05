@@ -256,7 +256,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               id: user.id,
               email: user.email,
               roles: user.roles
-                .filter((r) => r.role.name === 'admin' || r.status === 'approved')
+                .filter((r) => r.status === 'approved')
                 .map((r) => r.role.name),
             },
             { expiresIn: env.JWT_ACCESS_EXPIRY }

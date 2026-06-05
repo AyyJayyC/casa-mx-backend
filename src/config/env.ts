@@ -44,7 +44,6 @@ const envSchema = z
     RESEND_FROM_NAME: z.string().optional().default('CasaMX'),
     AWS_REGION: z.string().optional().default('us-east-1'),
     AWS_BUCKET: z.string().optional(),
-    SENTRY_DSN: z.string().optional(),
     AWS_ACCESS_KEY_ID: z.string().optional(),
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
   })

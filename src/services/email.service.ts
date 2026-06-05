@@ -14,16 +14,23 @@ export function isConfigured(): boolean {
   return Boolean(env.RESEND_API_KEY && !env.RESEND_API_KEY.startsWith('re_placeholder'));
 }
 
-export async function verifyConnection(): Promise<{ ok: boolean; error?: string }> {
+export async function verifyConnection(): Promise<{ ok: boolean; error?: string; domain?: string; domainStatus?: string }> {
   if (!isConfigured()) {
     return { ok: false, error: 'RESEND_API_KEY not configured' };
   }
   try {
     const r = client();
     if (!r) return { ok: false, error: 'Failed to initialize Resend client' };
-    // Resend doesn't have a dedicated ping endpoint — check domains list as liveness probe
-    await r.domains.list();
-    return { ok: true };
+    const domains = await r.domains.list();
+    const fromDomain = env.RESEND_FROM_EMAIL.split('@')[1];
+    const domain = domains.data?.find((d: any) => d.name === fromDomain);
+    if (!domain) {
+      return { ok: false, error: `Domain ${fromDomain} not found in Resend — add it at https://resend.com/domains`, domain: fromDomain, domainStatus: 'not_found' };
+    }
+    if (domain.status !== 'verified') {
+      return { ok: false, error: `Domain ${fromDomain} is not verified (status: ${domain.status}) — check DNS records`, domain: fromDomain, domainStatus: domain.status };
+    }
+    return { ok: true, domain: fromDomain, domainStatus: domain.status };
   } catch (err: any) {
     return { ok: false, error: err?.message ?? 'Unknown error' };
   }
