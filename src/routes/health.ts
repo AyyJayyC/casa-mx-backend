@@ -20,14 +20,17 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      // Email service check
       let emailStatus: 'ok' | 'degraded' | 'not_configured' = 'not_configured';
       if (isConfigured()) {
-        const emailResult = await verifyConnection();
-        emailStatus = emailResult.ok ? 'ok' : 'degraded';
+        try {
+          const emailResult = await verifyConnection();
+          emailStatus = emailResult.ok ? 'ok' : 'degraded';
+        } catch (err: any) {
+          fastify.log.warn({ err }, 'Email health check threw — marking degraded');
+          emailStatus = 'degraded';
+        }
       }
 
-      // Stripe check
       const stripeStatus = env.STRIPE_SECRET_KEY ? 'ok' : 'not_configured';
 
       const checks: Record<string, string> = {
@@ -37,10 +40,14 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
         stripe: stripeStatus,
       };
 
-      const hasDegradation = Object.values(checks).some(s => s === 'down' || s === 'degraded');
+      const dbDown = false; // reached this point means DB is ok
 
-      return reply.code(hasDegradation ? 503 : 200).send({
-        status: hasDegradation ? 'degraded' : 'ok',
+      // Always return 200 while DB is up. Other services report their
+      // status in `checks` for monitoring dashboards — degrading the HTTP
+      // status triggers Railway to kill the deploy, which causes outages
+      // for non-critical service issues (e.g. Resend domain not verified).
+      return reply.code(200).send({
+        status: dbDown ? 'unhealthy' : 'ok',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         checks,
