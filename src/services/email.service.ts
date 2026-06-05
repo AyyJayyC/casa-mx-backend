@@ -26,6 +26,10 @@ export async function verifyConnection(): Promise<{ ok: boolean; error?: string;
     // Response wrapper: { data: { data: Domain[], ... }, error: null, headers: ... }
     const innerData: any = domains?.data ?? domains;
     const domainList: any[] = innerData?.data ?? innerData ?? [];
+    console.error('[email:debug] Raw response structure:', JSON.stringify({ hasData: !!domains?.data, hasInnerData: !!innerData?.data, isArray: Array.isArray(domainList), listLength: Array.isArray(domainList) ? domainList.length : 'not_array', keys: domains ? Object.keys(domains) : 'null', innerKeys: innerData ? Object.keys(innerData) : 'null' }));
+    if (Array.isArray(domainList) && domainList.length > 0) {
+      console.error('[email:debug] Domains found:', JSON.stringify(domainList.map((d: any) => ({ name: d.name, status: d.status }))));
+    }
     const domain = Array.isArray(domainList) ? domainList.find((d: any) => d.name === fromDomain) : null;
     if (!domain) {
       return { ok: false, error: `Domain ${fromDomain} not found in Resend — add it at https://resend.com/domains`, domain: fromDomain, domainStatus: 'not_found' };
