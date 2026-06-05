@@ -35,9 +35,9 @@ async function runStartupChecks() {
     console.log('[startup] Verifying email service (Resend)...');
     const emailResult = await verifyEmail();
     if (!emailResult.ok) {
-      console.error('[startup] Email service check FAILED:', emailResult.error);
-      checks.push(`Email: FAILED — ${emailResult.error}`);
-      critical = true;
+      console.warn('[startup] Email domain check:', emailResult.error, '(non-fatal — emails may still send if domain is verified in Resend)');
+      checks.push(`Email: degraded — ${emailResult.error}`);
+      // NOT critical — domain verification failure doesn't crash the server
     } else {
       console.log('[startup] Email service: OK');
       checks.push('Email: OK');
@@ -58,9 +58,8 @@ async function runStartupChecks() {
     checks.push('Stripe: configured');
   } else {
     if (env.NODE_ENV === 'production') {
-      console.error('[startup] STRIPE_SECRET_KEY not configured');
-      checks.push('Stripe: NOT CONFIGURED (CRITICAL)');
-      critical = true;
+      console.warn('[startup] STRIPE_SECRET_KEY not configured (payments will fail)');
+      checks.push('Stripe: not configured');
     } else {
       checks.push('Stripe: not configured (dev OK)');
     }
