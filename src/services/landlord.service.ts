@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 /**
  * Service for managing landlord role assignment
@@ -13,12 +13,12 @@ export class LandlordService {
   async addLandlordRoleIfNeeded(userId: string): Promise<void> {
     // Check if user already has landlord role
     let landlordRole = await this.prisma.role.findUnique({
-      where: { name: 'landlord' },
+      where: { name: "landlord" },
     });
 
     if (!landlordRole) {
       landlordRole = await this.prisma.role.create({
-        data: { name: 'landlord' },
+        data: { name: "landlord" },
       });
     }
 
@@ -35,7 +35,7 @@ export class LandlordService {
         data: {
           userId,
           roleId: landlordRole.id,
-          status: 'approved', // Auto-approve landlord role
+          status: "approved", // Auto-approve landlord role
         },
       });
     }
@@ -49,14 +49,14 @@ export class LandlordService {
     const rentalCount = await this.prisma.property.count({
       where: {
         sellerId: userId,
-        listingType: 'for_rent',
+        listingType: "for_rent",
       },
     });
 
     // If no rental properties remain, remove landlord role
     if (rentalCount === 0) {
       const landlordRole = await this.prisma.role.findUnique({
-        where: { name: 'landlord' },
+        where: { name: "landlord" },
       });
 
       if (landlordRole) {
@@ -77,7 +77,7 @@ export class LandlordService {
     const rentalCount = await this.prisma.property.count({
       where: {
         sellerId: userId,
-        listingType: 'for_rent',
+        listingType: "for_rent",
       },
     });
 

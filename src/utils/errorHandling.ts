@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { randomBytes } from 'crypto';
+import { z } from "zod";
+import { randomBytes } from "crypto";
 
 /**
  * Type guard to check if an error is a Zod validation error
@@ -22,20 +22,27 @@ export interface ErrorResponse {
 /**
  * Create a standardized error response for validation errors
  */
-export const createValidationErrorResponse = (error: z.ZodError, showDetails = false): ErrorResponse => {
-  const isProduction = process.env.NODE_ENV === 'production';
+export const createValidationErrorResponse = (
+  error: z.ZodError,
+  showDetails = false,
+): ErrorResponse => {
+  const isProduction = process.env.NODE_ENV === "production";
   const masked = isProduction && !showDetails;
   return {
     success: false,
-    error: 'Validation error',
-    details: masked ? [{ message: 'Uno o más campos no son válidos' }] : (error.errors || error.message),
+    error: "Validation error",
+    details: masked
+      ? [{ message: "Uno o más campos no son válidos" }]
+      : error.errors || error.message,
   };
 };
 
 /**
  * Create a standardized error response for server errors
  */
-export const createServerErrorResponse = (message: string = 'Internal server error'): ErrorResponse => {
+export const createServerErrorResponse = (
+  message: string = "Internal server error",
+): ErrorResponse => {
   return {
     success: false,
     error: message,
@@ -48,17 +55,23 @@ export const createServerErrorResponse = (message: string = 'Internal server err
  */
 export type ErrorWithStatusCode = Error & { statusCode?: number };
 
-export function normalizeError(error: unknown): { errorObj: Error; statusCode: number } {
+export function normalizeError(error: unknown): {
+  errorObj: Error;
+  statusCode: number;
+} {
   if (error instanceof Error) {
     const errorWithStatus = error as ErrorWithStatusCode;
     return {
       errorObj: error,
-      statusCode: typeof errorWithStatus.statusCode === 'number' ? errorWithStatus.statusCode : 500,
+      statusCode:
+        typeof errorWithStatus.statusCode === "number"
+          ? errorWithStatus.statusCode
+          : 500,
     };
   }
 
   return {
-    errorObj: new Error('Internal server error'),
+    errorObj: new Error("Internal server error"),
     statusCode: 500,
   };
 }
@@ -68,5 +81,5 @@ export function normalizeError(error: unknown): { errorObj: Error; statusCode: n
  * Extracted from auth.service.ts, referrals.ts, and agencies.ts.
  */
 export function generateReferralCode(): string {
-  return randomBytes(4).toString('hex').toUpperCase();
+  return randomBytes(4).toString("hex").toUpperCase();
 }

@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import { AnalyticsEventInput } from '../schemas/analytics.js';
+import { PrismaClient } from "@prisma/client";
+import { AnalyticsEventInput } from "../schemas/analytics.js";
 
 export class AnalyticsService {
   constructor(private prisma: PrismaClient) {}
@@ -23,7 +23,7 @@ export class AnalyticsService {
         acc[event.eventName]++;
         return acc;
       },
-      {} as Record<string, number>
+      {} as Record<string, number>,
     );
 
     return {
@@ -59,16 +59,16 @@ export class AnalyticsService {
       this.prisma.propertyOffer.count(),
       this.prisma.creditTransaction.aggregate({
         _sum: { amount: true },
-        where: { type: 'purchase' },
+        where: { type: "purchase" },
       }),
-      this.prisma.referralEvent.count({ where: { eventType: 'click' } }),
-      this.prisma.referralEvent.count({ where: { eventType: 'signup' } }),
+      this.prisma.referralEvent.count({ where: { eventType: "click" } }),
+      this.prisma.referralEvent.count({ where: { eventType: "signup" } }),
       this.prisma.userRole.findMany({
-        where: { status: 'approved' },
+        where: { status: "approved" },
         include: { role: { select: { name: true } } },
       }),
       this.prisma.property.groupBy({
-        by: ['status'],
+        by: ["status"],
         _count: true,
       }),
     ]);
@@ -86,7 +86,11 @@ export class AnalyticsService {
 
     return {
       users: { total: totalUsers, newThisWeek: newUsersWeek },
-      properties: { total: totalProperties, newThisWeek: newPropertiesWeek, byStatus: propertiesByStatus },
+      properties: {
+        total: totalProperties,
+        newThisWeek: newPropertiesWeek,
+        byStatus: propertiesByStatus,
+      },
       transactions: { totalRequests, totalOffers },
       revenue: { totalCreditsPurchased: totalRevenue._sum.amount || 0 },
       referrals: { clicks: referralClicks, signups: referralSignups },
@@ -97,34 +101,39 @@ export class AnalyticsService {
   async getTimeline(days: number = 30) {
     const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-    const [dailyUsers, dailyProperties, dailyRequests, dailyReferralEvents, dailyCreditPurchases] =
-      await Promise.all([
-        this.prisma.user.findMany({
-          where: { createdAt: { gte: start } },
-          select: { createdAt: true },
-          orderBy: { createdAt: 'asc' },
-        }),
-        this.prisma.property.findMany({
-          where: { createdAt: { gte: start } },
-          select: { createdAt: true },
-          orderBy: { createdAt: 'asc' },
-        }),
-        this.prisma.propertyRequest.findMany({
-          where: { createdAt: { gte: start } },
-          select: { createdAt: true },
-          orderBy: { createdAt: 'asc' },
-        }),
-        this.prisma.referralEvent.findMany({
-          where: { createdAt: { gte: start } },
-          select: { createdAt: true, eventType: true },
-          orderBy: { createdAt: 'asc' },
-        }),
-        this.prisma.creditTransaction.findMany({
-          where: { createdAt: { gte: start }, type: 'purchase' },
-          select: { createdAt: true, amount: true },
-          orderBy: { createdAt: 'asc' },
-        }),
-      ]);
+    const [
+      dailyUsers,
+      dailyProperties,
+      dailyRequests,
+      dailyReferralEvents,
+      dailyCreditPurchases,
+    ] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { createdAt: { gte: start } },
+        select: { createdAt: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      this.prisma.property.findMany({
+        where: { createdAt: { gte: start } },
+        select: { createdAt: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      this.prisma.propertyRequest.findMany({
+        where: { createdAt: { gte: start } },
+        select: { createdAt: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      this.prisma.referralEvent.findMany({
+        where: { createdAt: { gte: start } },
+        select: { createdAt: true, eventType: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      this.prisma.creditTransaction.findMany({
+        where: { createdAt: { gte: start }, type: "purchase" },
+        select: { createdAt: true, amount: true },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
 
     const bucket = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -147,7 +156,7 @@ export class AnalyticsService {
     const referralClickByDate = () => {
       const map: Record<string, number> = {};
       dailyReferralEvents
-        .filter((e) => e.eventType === 'click')
+        .filter((e) => e.eventType === "click")
         .forEach((e) => {
           const key = bucket(e.createdAt);
           map[key] = (map[key] || 0) + 1;
@@ -158,7 +167,7 @@ export class AnalyticsService {
     const referralSignupByDate = () => {
       const map: Record<string, number> = {};
       dailyReferralEvents
-        .filter((e) => e.eventType === 'signup')
+        .filter((e) => e.eventType === "signup")
         .forEach((e) => {
           const key = bucket(e.createdAt);
           map[key] = (map[key] || 0) + 1;
@@ -185,7 +194,7 @@ export class AnalyticsService {
   async getTopProperties(limit: number = 10) {
     const properties = await this.prisma.property.findMany({
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         title: true,
@@ -206,8 +215,8 @@ export class AnalyticsService {
 
     const propertyIds = properties.map((p) => p.id);
     const viewEvents = await this.prisma.analyticsEvent.groupBy({
-      by: ['entityId'],
-      where: { eventName: 'PropertyViewed', entityId: { in: propertyIds } },
+      by: ["entityId"],
+      where: { eventName: "PropertyViewed", entityId: { in: propertyIds } },
       _count: true,
     });
 
@@ -233,19 +242,24 @@ export class AnalyticsService {
 
   async getReferralSummary() {
     const events = await this.prisma.referralEvent.findMany({
-      select: { referralCode: true, eventType: true, referrerId: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
+      select: {
+        referralCode: true,
+        eventType: true,
+        referrerId: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
     });
 
-    const totalClicks = events.filter((e) => e.eventType === 'click').length;
-    const totalSignups = events.filter((e) => e.eventType === 'signup').length;
+    const totalClicks = events.filter((e) => e.eventType === "click").length;
+    const totalSignups = events.filter((e) => e.eventType === "signup").length;
 
     const referrerMap: Record<string, { clicks: number; signups: number }> = {};
     events.forEach((e) => {
       const key = e.referralCode;
       if (!referrerMap[key]) referrerMap[key] = { clicks: 0, signups: 0 };
-      if (e.eventType === 'click') referrerMap[key].clicks++;
-      if (e.eventType === 'signup') referrerMap[key].signups++;
+      if (e.eventType === "click") referrerMap[key].clicks++;
+      if (e.eventType === "signup") referrerMap[key].signups++;
     });
 
     const topReferrers = Object.entries(referrerMap)
@@ -256,14 +270,15 @@ export class AnalyticsService {
     return {
       totalClicks,
       totalSignups,
-      conversionRate: totalClicks > 0 ? Math.round((totalSignups / totalClicks) * 100) : 0,
+      conversionRate:
+        totalClicks > 0 ? Math.round((totalSignups / totalClicks) * 100) : 0,
       topReferrers,
     };
   }
 
   async getAllEvents(limit: number = 100) {
     return this.prisma.analyticsEvent.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit,
     });
   }
@@ -271,7 +286,7 @@ export class AnalyticsService {
   async getEventsByName(eventName: string, limit: number = 50) {
     return this.prisma.analyticsEvent.findMany({
       where: { eventName },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit,
     });
   }
@@ -279,7 +294,7 @@ export class AnalyticsService {
   async getEventsByUser(userId: string, limit: number = 50) {
     return this.prisma.analyticsEvent.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit,
     });
   }
@@ -290,7 +305,9 @@ export class AnalyticsService {
     const where = listingType ? { listingType } : {};
     const now = new Date();
     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const lastMonthStart = new Date(monthAgo.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const lastMonthStart = new Date(
+      monthAgo.getTime() - 30 * 24 * 60 * 60 * 1000,
+    );
 
     const [
       activeListings,
@@ -301,27 +318,32 @@ export class AnalyticsService {
       acceptedOffers,
       counteredOffers,
     ] = await Promise.all([
-      this.prisma.property.count({ where: { ...where, status: 'disponible' } }),
+      this.prisma.property.count({ where: { ...where, status: "disponible" } }),
       this.prisma.propertyOffer.findMany({
         where: { property: where, createdAt: { gte: monthAgo } },
         select: { offerAmount: true, status: true, propertyId: true },
       }),
       this.prisma.propertyOffer.findMany({
-        where: { property: where, createdAt: { gte: lastMonthStart, lt: monthAgo } },
+        where: {
+          property: where,
+          createdAt: { gte: lastMonthStart, lt: monthAgo },
+        },
         select: { offerAmount: true },
       }),
       this.prisma.property.count({
         where: {
           ...where,
-          status: 'disponible',
-          createdAt: { lte: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000) },
+          status: "disponible",
+          createdAt: {
+            lte: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000),
+          },
           propertyOffers: { none: {} },
         },
       }),
       this.prisma.property.count({
         where: {
           ...where,
-          status: 'disponible',
+          status: "disponible",
           createdAt: {
             lte: new Date(monthAgo.getTime() - 60 * 24 * 60 * 60 * 1000),
             gte: new Date(monthAgo.getTime() - 120 * 24 * 60 * 60 * 1000),
@@ -329,31 +351,67 @@ export class AnalyticsService {
           propertyOffers: { none: {} },
         },
       }),
-      this.prisma.propertyOffer.count({ where: { property: where, status: 'accepted', updatedAt: { gte: monthAgo } } }),
-      this.prisma.propertyOffer.count({ where: { property: where, status: 'countered', updatedAt: { gte: monthAgo } } }),
+      this.prisma.propertyOffer.count({
+        where: {
+          property: where,
+          status: "accepted",
+          updatedAt: { gte: monthAgo },
+        },
+      }),
+      this.prisma.propertyOffer.count({
+        where: {
+          property: where,
+          status: "countered",
+          updatedAt: { gte: monthAgo },
+        },
+      }),
     ]);
 
-    const amounts = offers.filter((o) => o.offerAmount > 0).map((o) => o.offerAmount);
+    const amounts = offers
+      .filter((o) => o.offerAmount > 0)
+      .map((o) => o.offerAmount);
     const sorted = amounts.sort((a, b) => a - b);
-    const median = sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)] : 0;
-    const avg = amounts.length > 0 ? amounts.reduce((s, v) => s + v, 0) / amounts.length : 0;
+    const median =
+      sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)] : 0;
+    const avg =
+      amounts.length > 0
+        ? amounts.reduce((s, v) => s + v, 0) / amounts.length
+        : 0;
 
     const uniqueProps = new Set(offers.map((o) => o.propertyId)).size;
-    const avgOffersPerProperty = activeListings > 0 ? offers.length / activeListings : 0;
-    const acceptanceRate = offers.length > 0 ? (acceptedOffers / offers.length) * 100 : 0;
-    const counterRate = offers.length > 0 ? (counteredOffers / offers.length) * 100 : 0;
-    const offerToAskRatio = acceptedOffers > 0
-      ? offers.filter((o) => o.status === 'accepted').reduce((s, o) => s + o.offerAmount, 0) / acceptedOffers / (amounts.length > 0 ? avg : 1)
-      : 0;
+    const avgOffersPerProperty =
+      activeListings > 0 ? offers.length / activeListings : 0;
+    const acceptanceRate =
+      offers.length > 0 ? (acceptedOffers / offers.length) * 100 : 0;
+    const counterRate =
+      offers.length > 0 ? (counteredOffers / offers.length) * 100 : 0;
+    const offerToAskRatio =
+      acceptedOffers > 0
+        ? offers
+            .filter((o) => o.status === "accepted")
+            .reduce((s, o) => s + o.offerAmount, 0) /
+          acceptedOffers /
+          (amounts.length > 0 ? avg : 1)
+        : 0;
 
-    const lastMonthAmounts = offersLastMonth.filter((o) => o.offerAmount > 0).map((o) => o.offerAmount);
-    const lastMonthAvg = lastMonthAmounts.length > 0 ? lastMonthAmounts.reduce((s, v) => s + v, 0) / lastMonthAmounts.length : 0;
-    const momChange = lastMonthAvg > 0 ? ((avg - lastMonthAvg) / lastMonthAvg) * 100 : 0;
-    const daysMoM = staleLastMonth > 0 ? ((staleCount - staleLastMonth) / staleLastMonth) * 100 : 0;
+    const lastMonthAmounts = offersLastMonth
+      .filter((o) => o.offerAmount > 0)
+      .map((o) => o.offerAmount);
+    const lastMonthAvg =
+      lastMonthAmounts.length > 0
+        ? lastMonthAmounts.reduce((s, v) => s + v, 0) / lastMonthAmounts.length
+        : 0;
+    const momChange =
+      lastMonthAvg > 0 ? ((avg - lastMonthAvg) / lastMonthAvg) * 100 : 0;
+    const daysMoM =
+      staleLastMonth > 0
+        ? ((staleCount - staleLastMonth) / staleLastMonth) * 100
+        : 0;
 
     return {
       activeListings,
-      medianOfferPerSqm: median > 0 && activeListings > 0 ? Math.round(median) : 0,
+      medianOfferPerSqm:
+        median > 0 && activeListings > 0 ? Math.round(median) : 0,
       momChange: Math.round(momChange * 10) / 10,
       medianDaysToOffer: 0,
       avgOffersPerProperty: Math.round(avgOffersPerProperty * 10) / 10,
@@ -375,10 +433,10 @@ export class AnalyticsService {
     if (listingType) where.listingType = listingType;
 
     const cities = await this.prisma.property.groupBy({
-      by: ['ciudad', 'estado'],
+      by: ["ciudad", "estado"],
       where,
       _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
+      orderBy: { _count: { id: "desc" } },
     });
 
     const results = await Promise.all(
@@ -387,36 +445,53 @@ export class AnalyticsService {
         const now = new Date();
         const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-        const [offers, acceptedOffers, staleCount, totalOffers] = await Promise.all([
-          this.prisma.propertyOffer.findMany({
-            where: { property: cityWhere, createdAt: { gte: monthAgo } },
-            select: { offerAmount: true, status: true },
-          }),
-          this.prisma.propertyOffer.count({ where: { property: cityWhere, status: 'accepted', updatedAt: { gte: monthAgo } } }),
-          this.prisma.property.count({
-            where: {
-              ...cityWhere,
-              status: 'disponible',
-              createdAt: { lte: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000) },
-              propertyOffers: { none: {} },
-            },
-          }),
-          this.prisma.propertyOffer.count({ where: { property: cityWhere } }),
-        ]);
+        const [offers, acceptedOffers, staleCount, totalOffers] =
+          await Promise.all([
+            this.prisma.propertyOffer.findMany({
+              where: { property: cityWhere, createdAt: { gte: monthAgo } },
+              select: { offerAmount: true, status: true },
+            }),
+            this.prisma.propertyOffer.count({
+              where: {
+                property: cityWhere,
+                status: "accepted",
+                updatedAt: { gte: monthAgo },
+              },
+            }),
+            this.prisma.property.count({
+              where: {
+                ...cityWhere,
+                status: "disponible",
+                createdAt: {
+                  lte: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000),
+                },
+                propertyOffers: { none: {} },
+              },
+            }),
+            this.prisma.propertyOffer.count({ where: { property: cityWhere } }),
+          ]);
 
-        const amounts = offers.filter((o) => o.offerAmount > 0).map((o) => o.offerAmount);
+        const amounts = offers
+          .filter((o) => o.offerAmount > 0)
+          .map((o) => o.offerAmount);
         const sorted = amounts.sort((a, b) => a - b);
-        const median = sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)] : 0;
+        const median =
+          sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)] : 0;
 
         const activeListings = c._count.id;
-        const acceptanceRate = offers.length > 0 ? (acceptedOffers / offers.length) * 100 : 0;
-        const avgOffersPerProperty = activeListings > 0 ? offers.length / activeListings : 0;
+        const acceptanceRate =
+          offers.length > 0 ? (acceptedOffers / offers.length) * 100 : 0;
+        const avgOffersPerProperty =
+          activeListings > 0 ? offers.length / activeListings : 0;
 
         const activityScore =
-          (avgOffersPerProperty * 2) + (acceptanceRate / 10) + (activeListings > 5 ? 1 : 0) - (staleCount * 0.1);
+          avgOffersPerProperty * 2 +
+          acceptanceRate / 10 +
+          (activeListings > 5 ? 1 : 0) -
+          staleCount * 0.1;
 
         return {
-          ciudad: c.ciudad || 'Sin nombre',
+          ciudad: c.ciudad || "Sin nombre",
           estado: c.estado,
           activeListings,
           medianOfferPerSqm: Math.round(median),
@@ -427,21 +502,25 @@ export class AnalyticsService {
           staleCount,
           activityScore: Math.round(activityScore * 10) / 10,
         };
-      })
+      }),
     );
 
     return results;
   }
 
-  async getMarketByColonia(estado: string, ciudad: string, listingType?: string) {
+  async getMarketByColonia(
+    estado: string,
+    ciudad: string,
+    listingType?: string,
+  ) {
     const where: any = { estado, ciudad };
     if (listingType) where.listingType = listingType;
 
     const colonias = await this.prisma.property.groupBy({
-      by: ['colonia'],
+      by: ["colonia"],
       where,
       _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
+      orderBy: { _count: { id: "desc" } },
     });
 
     const results = await Promise.all(
@@ -455,41 +534,62 @@ export class AnalyticsService {
             where: { property: colWhere },
             select: { offerAmount: true, status: true },
           }),
-          this.prisma.propertyOffer.count({ where: { property: colWhere, status: 'accepted', updatedAt: { gte: monthAgo } } }),
+          this.prisma.propertyOffer.count({
+            where: {
+              property: colWhere,
+              status: "accepted",
+              updatedAt: { gte: monthAgo },
+            },
+          }),
           this.prisma.property.count({
             where: {
               ...colWhere,
-              status: 'disponible',
-              createdAt: { lte: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000) },
+              status: "disponible",
+              createdAt: {
+                lte: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000),
+              },
               propertyOffers: { none: {} },
             },
           }),
         ]);
 
-        const amounts = offers.filter((o) => o.offerAmount > 0).map((o) => o.offerAmount);
+        const amounts = offers
+          .filter((o) => o.offerAmount > 0)
+          .map((o) => o.offerAmount);
         const sorted = amounts.sort((a, b) => a - b);
-        const median = sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)] : 0;
-        const acceptanceRate = offers.length > 0 ? (acceptedOffers / offers.length) * 100 : 0;
+        const median =
+          sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)] : 0;
+        const acceptanceRate =
+          offers.length > 0 ? (acceptedOffers / offers.length) * 100 : 0;
 
         return {
-          colonia: c.colonia || 'Sin nombre',
+          colonia: c.colonia || "Sin nombre",
           activeListings: c._count.id,
           medianOfferPerSqm: Math.round(median),
           medianDaysToOffer: 0,
-          avgOffersPerProperty: c._count.id > 0 ? Math.round((offers.length / c._count.id) * 10) / 10 : 0,
+          avgOffersPerProperty:
+            c._count.id > 0
+              ? Math.round((offers.length / c._count.id) * 10) / 10
+              : 0,
           totalOffers: offers.length,
           acceptanceRate: Math.round(acceptanceRate * 10) / 10,
           staleCount,
           momChange: 0,
           compCount: acceptedOffers,
         };
-      })
+      }),
     );
 
     return results;
   }
 
-  async getOfferTrends(estado?: string, ciudad?: string, colonia?: string, listingType?: string, months: number = 12) {
+  async getOfferTrends(
+    estado?: string,
+    ciudad?: string,
+    colonia?: string,
+    listingType?: string,
+    months: number = 12,
+  ) {
     const where: any = {};
     if (estado) where.estado = estado;
     if (ciudad) where.ciudad = ciudad;
@@ -497,23 +597,27 @@ export class AnalyticsService {
     if (listingType) where.listingType = listingType;
 
     const now = new Date();
-    const startDate = new Date(now.getTime() - months * 30 * 24 * 60 * 60 * 1000);
+    const startDate = new Date(
+      now.getTime() - months * 30 * 24 * 60 * 60 * 1000,
+    );
 
     const offers = await this.prisma.propertyOffer.findMany({
       where: { property: where, createdAt: { gte: startDate } },
       select: { offerAmount: true, createdAt: true },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
     });
 
     const monthlyBuckets: Record<string, number[]> = {};
     for (let i = 0; i < months; i++) {
-      const d = new Date(startDate.getTime() + (i + 1) * 30 * 24 * 60 * 60 * 1000);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const d = new Date(
+        startDate.getTime() + (i + 1) * 30 * 24 * 60 * 60 * 1000,
+      );
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       monthlyBuckets[key] = [];
     }
 
     offers.forEach((o) => {
-      const key = `${o.createdAt.getFullYear()}-${String(o.createdAt.getMonth() + 1).padStart(2, '0')}`;
+      const key = `${o.createdAt.getFullYear()}-${String(o.createdAt.getMonth() + 1).padStart(2, "0")}`;
       if (monthlyBuckets[key]) {
         monthlyBuckets[key].push(o.offerAmount);
       }
@@ -527,7 +631,7 @@ export class AnalyticsService {
       return Math.round(sorted[Math.floor(sorted.length / 2)]);
     });
 
-    const label = colonia || ciudad || estado || 'México';
+    const label = colonia || ciudad || estado || "México";
 
     return { label, dates, values };
   }
@@ -540,17 +644,39 @@ export class AnalyticsService {
     const now = new Date();
     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const [totalOffers, acceptedOffers, counteredOffers, activeListings] = await Promise.all([
-      this.prisma.propertyOffer.count({ where: { property: where, createdAt: { gte: monthAgo } } }),
-      this.prisma.propertyOffer.count({ where: { property: where, status: 'accepted', updatedAt: { gte: monthAgo } } }),
-      this.prisma.propertyOffer.count({ where: { property: where, status: 'countered' } }),
-      this.prisma.property.count({ where: { ...where, status: 'disponible' } }),
-    ]);
+    const [totalOffers, acceptedOffers, counteredOffers, activeListings] =
+      await Promise.all([
+        this.prisma.propertyOffer.count({
+          where: { property: where, createdAt: { gte: monthAgo } },
+        }),
+        this.prisma.propertyOffer.count({
+          where: {
+            property: where,
+            status: "accepted",
+            updatedAt: { gte: monthAgo },
+          },
+        }),
+        this.prisma.propertyOffer.count({
+          where: { property: where, status: "countered" },
+        }),
+        this.prisma.property.count({
+          where: { ...where, status: "disponible" },
+        }),
+      ]);
 
     return {
-      avgOffersPerProperty: activeListings > 0 ? Math.round((totalOffers / activeListings) * 10) / 10 : 0,
-      acceptanceRate: totalOffers > 0 ? Math.round((acceptedOffers / totalOffers) * 1000) / 10 : 0,
-      counterRate: totalOffers > 0 ? Math.round((counteredOffers / totalOffers) * 1000) / 10 : 0,
+      avgOffersPerProperty:
+        activeListings > 0
+          ? Math.round((totalOffers / activeListings) * 10) / 10
+          : 0,
+      acceptanceRate:
+        totalOffers > 0
+          ? Math.round((acceptedOffers / totalOffers) * 1000) / 10
+          : 0,
+      counterRate:
+        totalOffers > 0
+          ? Math.round((counteredOffers / totalOffers) * 1000) / 10
+          : 0,
       offerToAskRatio: 0,
     };
   }
@@ -563,7 +689,7 @@ export class AnalyticsService {
     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const cities = await this.prisma.property.groupBy({
-      by: ['ciudad', 'estado'],
+      by: ["ciudad", "estado"],
       where,
       _count: { id: true },
     });
@@ -580,19 +706,26 @@ export class AnalyticsService {
           this.prisma.property.count({
             where: {
               ...cityWhere,
-              status: 'disponible',
-              createdAt: { lte: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000) },
+              status: "disponible",
+              createdAt: {
+                lte: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000),
+              },
               propertyOffers: { none: {} },
             },
           }),
         ]);
 
-        const accepted = offers.filter((o) => o.status === 'accepted');
-        const amounts = accepted.filter((o) => o.offerAmount > 0).map((o) => o.offerAmount);
-        const avg = amounts.length > 0 ? amounts.reduce((s, v) => s + v, 0) / amounts.length : 0;
+        const accepted = offers.filter((o) => o.status === "accepted");
+        const amounts = accepted
+          .filter((o) => o.offerAmount > 0)
+          .map((o) => o.offerAmount);
+        const avg =
+          amounts.length > 0
+            ? amounts.reduce((s, v) => s + v, 0) / amounts.length
+            : 0;
 
         return {
-          ciudad: c.ciudad || 'Sin nombre',
+          ciudad: c.ciudad || "Sin nombre",
           estado: c.estado,
           activeListings: c._count.id,
           totalOffers,
@@ -601,11 +734,13 @@ export class AnalyticsService {
           avgOfferAmount: Math.round(avg),
           score: c._count.id > 0 ? (totalOffers / c._count.id) * 5 : 0,
         };
-      })
+      }),
     );
 
     const highDemandLowSupply = opportunities
-      .filter((o) => o.activeListings > 0 && o.totalOffers / o.activeListings >= 2)
+      .filter(
+        (o) => o.activeListings > 0 && o.totalOffers / o.activeListings >= 2,
+      )
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map((o) => ({ colonia: o.ciudad, ciudad: o.estado, score: o.score }));
@@ -614,7 +749,11 @@ export class AnalyticsService {
       .filter((o) => o.acceptedOffers >= 1 && o.activeListings > 0)
       .sort((a, b) => b.acceptedOffers - a.acceptedOffers)
       .slice(0, 5)
-      .map((o) => ({ colonia: o.ciudad, ciudad: o.estado, momChange: o.score }));
+      .map((o) => ({
+        colonia: o.ciudad,
+        ciudad: o.estado,
+        momChange: o.score,
+      }));
 
     const trendingDown = opportunities
       .filter((o) => o.totalOffers === 0 && o.activeListings >= 3)
@@ -625,13 +764,13 @@ export class AnalyticsService {
     const staleProperties = await this.prisma.property.findMany({
       where: {
         ...where,
-        status: 'disponible',
+        status: "disponible",
         createdAt: { lte: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000) },
         propertyOffers: { none: {} },
       },
       select: { id: true, title: true, colonia: true },
       take: 10,
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
     });
 
     return {
@@ -640,15 +779,25 @@ export class AnalyticsService {
       staleProperties: staleProperties.map((p) => ({
         propertyId: p.id,
         title: p.title,
-        colonia: p.colonia || 'Sin colonia',
-        daysSinceListed: Math.floor((now.getTime() - new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).getTime()) / (24 * 60 * 60 * 1000)),
+        colonia: p.colonia || "Sin colonia",
+        daysSinceListed: Math.floor(
+          (now.getTime() -
+            new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).getTime()) /
+            (24 * 60 * 60 * 1000),
+        ),
       })),
       trendingUp,
       trendingDown,
     };
   }
 
-  async getComps(estado?: string, ciudad?: string, colonia?: string, listingType?: string, limit: number = 20) {
+  async getComps(
+    estado?: string,
+    ciudad?: string,
+    colonia?: string,
+    listingType?: string,
+    limit: number = 20,
+  ) {
     const where: any = {};
     if (estado) where.estado = estado;
     if (ciudad) where.ciudad = ciudad;
@@ -658,15 +807,23 @@ export class AnalyticsService {
     const offers = await this.prisma.propertyOffer.findMany({
       where: {
         property: where,
-        status: { in: ['accepted', 'rejected', 'countered'] },
+        status: { in: ["accepted", "rejected", "countered"] },
       },
       select: {
         offerAmount: true,
         status: true,
         createdAt: true,
-        property: { select: { title: true, propertyType: true, colonia: true, squareMeters: true, price: true } },
+        property: {
+          select: {
+            title: true,
+            propertyType: true,
+            colonia: true,
+            squareMeters: true,
+            price: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit,
     });
 
@@ -678,9 +835,10 @@ export class AnalyticsService {
       status: o.status,
       offeredAt: o.createdAt.toISOString(),
       m2: o.property.squareMeters,
-      pricePerSqm: o.property.squareMeters && o.property.squareMeters > 0
-        ? Math.round(o.offerAmount / o.property.squareMeters)
-        : 0,
+      pricePerSqm:
+        o.property.squareMeters && o.property.squareMeters > 0
+          ? Math.round(o.offerAmount / o.property.squareMeters)
+          : 0,
     }));
   }
 }

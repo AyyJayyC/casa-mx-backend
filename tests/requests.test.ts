@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { buildApp } from '../src/app.js';
-import { FastifyInstance } from 'fastify';
-import { registerUser, loginAndGetToken } from './utils/authHelpers.js';
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { buildApp } from "../src/app.js";
+import { FastifyInstance } from "fastify";
+import { registerUser, loginAndGetToken } from "./utils/authHelpers.js";
 
-describe('Requests API', () => {
+describe("Requests API", () => {
   let app: FastifyInstance;
   let buyerToken: string;
   let buyerId: string;
@@ -21,37 +21,41 @@ describe('Requests API', () => {
     await app.ready();
 
     const buyerUser = await registerUser(app, {
-      name: 'Requests Buyer',
+      name: "Requests Buyer",
       email: buyerEmail,
-      password: 'TestPassword123!',
+      password: "TestPassword123!",
     });
     buyerId = buyerUser.id;
-    buyerToken = await loginAndGetToken(app, buyerEmail, 'TestPassword123!');
+    buyerToken = await loginAndGetToken(app, buyerEmail, "TestPassword123!");
 
     const otherBuyerUser = await registerUser(app, {
-      name: 'Requests Buyer 2',
+      name: "Requests Buyer 2",
       email: otherBuyerEmail,
-      password: 'TestPassword123!',
+      password: "TestPassword123!",
     });
     otherBuyerId = otherBuyerUser.id;
-    otherBuyerToken = await loginAndGetToken(app, otherBuyerEmail, 'TestPassword123!');
+    otherBuyerToken = await loginAndGetToken(
+      app,
+      otherBuyerEmail,
+      "TestPassword123!",
+    );
 
     const propertyA = await app.prisma.property.create({
       data: {
-        title: 'Requests Test Property A',
-        listingType: 'for_sale',
+        title: "Requests Test Property A",
+        listingType: "for_sale",
         price: 1500000,
-        estado: 'Jalisco',
+        estado: "Jalisco",
         sellerId: buyerId,
       },
     });
 
     const propertyB = await app.prisma.property.create({
       data: {
-        title: 'Requests Test Property B',
-        listingType: 'for_rent',
+        title: "Requests Test Property B",
+        listingType: "for_rent",
         monthlyRent: 18000,
-        estado: 'Jalisco',
+        estado: "Jalisco",
         sellerId: buyerId,
       },
     });
@@ -82,10 +86,10 @@ describe('Requests API', () => {
     await app.close();
   });
 
-  it('rejects unauthenticated GET /requests', async () => {
+  it("rejects unauthenticated GET /requests", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/requests',
+      method: "GET",
+      url: "/requests",
     });
 
     expect(response.statusCode).toBe(401);
@@ -93,14 +97,14 @@ describe('Requests API', () => {
     expect(body.success).toBe(false);
   });
 
-  it('rejects unauthenticated POST /requests', async () => {
+  it("rejects unauthenticated POST /requests", async () => {
     const response = await app.inject({
-      method: 'POST',
-      url: '/requests',
+      method: "POST",
+      url: "/requests",
       payload: {
         propertyId: propertyAId,
-        name: 'No Auth User',
-        phone: '5551112233',
+        name: "No Auth User",
+        phone: "5551112233",
       },
     });
 
@@ -109,33 +113,33 @@ describe('Requests API', () => {
     expect(body.success).toBe(false);
   });
 
-  it('returns 404 when posting request for non-existent property', async () => {
+  it("returns 404 when posting request for non-existent property", async () => {
     const response = await app.inject({
-      method: 'POST',
-      url: '/requests',
+      method: "POST",
+      url: "/requests",
       headers: { authorization: `Bearer ${buyerToken}` },
       payload: {
-        propertyId: '00000000-0000-0000-0000-000000000000',
-        name: 'Test User',
-        phone: '5559998888',
+        propertyId: "00000000-0000-0000-0000-000000000000",
+        name: "Test User",
+        phone: "5559998888",
       },
     });
 
     expect(response.statusCode).toBe(404);
     const body = JSON.parse(response.body);
     expect(body.success).toBe(false);
-    expect(body.error).toBe('Property not found');
+    expect(body.error).toBe("Property not found");
   });
 
-  it('creates a request for an authenticated user', async () => {
+  it("creates a request for an authenticated user", async () => {
     const response = await app.inject({
-      method: 'POST',
-      url: '/requests',
+      method: "POST",
+      url: "/requests",
       headers: { authorization: `Bearer ${buyerToken}` },
       payload: {
         propertyId: propertyAId,
-        name: 'Buyer Name',
-        phone: '5551234567',
+        name: "Buyer Name",
+        phone: "5551234567",
       },
     });
 
@@ -144,44 +148,44 @@ describe('Requests API', () => {
     expect(body.success).toBe(true);
     expect(body.data.propertyId).toBe(propertyAId);
     expect(body.data.buyerId).toBe(buyerId);
-    expect(body.data.status).toBe('pending');
-    expect(body.message).toBe('Request submitted successfully');
+    expect(body.data.status).toBe("pending");
+    expect(body.message).toBe("Request submitted successfully");
   });
 
-  it('rejects duplicate request for same property and buyer', async () => {
+  it("rejects duplicate request for same property and buyer", async () => {
     const response = await app.inject({
-      method: 'POST',
-      url: '/requests',
+      method: "POST",
+      url: "/requests",
       headers: { authorization: `Bearer ${buyerToken}` },
       payload: {
         propertyId: propertyAId,
-        name: 'Buyer Name Again',
-        phone: '5551234567',
+        name: "Buyer Name Again",
+        phone: "5551234567",
       },
     });
 
     expect(response.statusCode).toBe(409);
     const body = JSON.parse(response.body);
     expect(body.success).toBe(false);
-    expect(body.error).toContain('already requested information');
+    expect(body.error).toContain("already requested information");
   });
 
-  it('returns only authenticated buyer requests from GET /requests', async () => {
+  it("returns only authenticated buyer requests from GET /requests", async () => {
     const otherBuyerCreate = await app.inject({
-      method: 'POST',
-      url: '/requests',
+      method: "POST",
+      url: "/requests",
       headers: { authorization: `Bearer ${otherBuyerToken}` },
       payload: {
         propertyId: propertyBId,
-        name: 'Other Buyer',
-        phone: '5550001111',
+        name: "Other Buyer",
+        phone: "5550001111",
       },
     });
     expect(otherBuyerCreate.statusCode).toBe(201);
 
     const response = await app.inject({
-      method: 'GET',
-      url: '/requests',
+      method: "GET",
+      url: "/requests",
       headers: { authorization: `Bearer ${buyerToken}` },
     });
 

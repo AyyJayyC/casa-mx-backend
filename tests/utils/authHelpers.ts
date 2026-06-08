@@ -1,12 +1,12 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance } from "fastify";
 
 export function getCookie(response: any, name: string): string | undefined {
-  const raw = response.headers?.['set-cookie'];
+  const raw = response.headers?.["set-cookie"];
   if (!raw) return undefined;
   const cookies = Array.isArray(raw) ? raw : [raw];
   for (const cookieStr of cookies) {
     if (cookieStr.startsWith(`${name}=`)) {
-      return cookieStr.split(';')[0]!.slice(name.length + 1);
+      return cookieStr.split(";")[0]!.slice(name.length + 1);
     }
   }
   return undefined;
@@ -14,16 +14,18 @@ export function getCookie(response: any, name: string): string | undefined {
 
 export async function registerUser(
   app: FastifyInstance,
-  payload: { name: string; email: string; password: string }
+  payload: { name: string; email: string; password: string },
 ) {
   const registerRes = await app.inject({
-    method: 'POST',
-    url: '/auth/register',
+    method: "POST",
+    url: "/auth/register",
     payload,
   });
 
   if (registerRes.statusCode !== 201) {
-    throw new Error(`Register failed for ${payload.email}: ${registerRes.statusCode}`);
+    throw new Error(
+      `Register failed for ${payload.email}: ${registerRes.statusCode}`,
+    );
   }
 
   const body = registerRes.json();
@@ -34,7 +36,7 @@ export async function approveUserRole(
   app: FastifyInstance,
   userId: string,
   roleName: string,
-  status: 'approved' | 'pending' | 'denied' = 'approved'
+  status: "approved" | "pending" | "denied" = "approved",
 ) {
   const role = await app.prisma.role.findUnique({ where: { name: roleName } });
   if (!role) {
@@ -50,11 +52,11 @@ export async function approveUserRole(
 export async function loginAndGetToken(
   app: FastifyInstance,
   email: string,
-  password: string
+  password: string,
 ): Promise<string> {
   const loginRes = await app.inject({
-    method: 'POST',
-    url: '/auth/login',
+    method: "POST",
+    url: "/auth/login",
     payload: { email, password },
   });
 
@@ -62,13 +64,13 @@ export async function loginAndGetToken(
     throw new Error(`Login failed for ${email}: ${loginRes.statusCode}`);
   }
 
-  return getCookie(loginRes, 'accessToken') ?? loginRes.json().token;
+  return getCookie(loginRes, "accessToken") ?? loginRes.json().token;
 }
 
 export function signRoleToken(
   app: FastifyInstance,
   payload: { id: string; email: string; roles: string[] },
-  expiresIn = '1h'
+  expiresIn = "1h",
 ): string {
   return app.jwt.sign(payload, { expiresIn });
 }

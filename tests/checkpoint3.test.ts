@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { buildApp } from '../src/app.js';
-import { FastifyInstance } from 'fastify';
-import { getCookie } from './utils/authHelpers.js';
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { buildApp } from "../src/app.js";
+import { FastifyInstance } from "fastify";
+import { getCookie } from "./utils/authHelpers.js";
 
 let app: FastifyInstance;
 let adminToken: string;
@@ -9,54 +9,56 @@ let userToken: string;
 let userId: string;
 let userRoleId: string;
 
-describe('Checkpoint 3 - Authorization & Guards', () => {
+describe("Checkpoint 3 - Authorization & Guards", () => {
   beforeAll(async () => {
     app = await buildApp();
 
     // Setup: Login as admin to get token
     const adminLoginResponse = await app.inject({
-      method: 'POST',
-      url: '/auth/login',
+      method: "POST",
+      url: "/auth/login",
       payload: {
-        email: 'admin@casamx.local',
-        password: 'admin123',
+        email: "admin@casamx.local",
+        password: "admin123",
       },
     });
 
     const adminLoginBody = adminLoginResponse.json() as any;
-    adminToken = getCookie(adminLoginResponse, 'accessToken') ?? adminLoginBody.token;
+    adminToken =
+      getCookie(adminLoginResponse, "accessToken") ?? adminLoginBody.token;
 
     // Setup: Create test user
     const testEmail = `authz-test-${Date.now()}@example.com`;
     const registerResponse = await app.inject({
-      method: 'POST',
-      url: '/auth/register',
+      method: "POST",
+      url: "/auth/register",
       payload: {
         email: testEmail,
-        name: 'Authorization Test User',
-        password: 'Password1',
+        name: "Authorization Test User",
+        password: "Password1",
       },
     });
 
     // Setup: Login as regular user with SAME email
     const userLoginResponse = await app.inject({
-      method: 'POST',
-      url: '/auth/login',
+      method: "POST",
+      url: "/auth/login",
       payload: {
         email: testEmail,
-        password: 'Password1',
+        password: "Password1",
       },
     });
 
     const userLoginBody = userLoginResponse.json() as any;
-    userToken = getCookie(userLoginResponse, 'accessToken') ?? userLoginBody.token;
+    userToken =
+      getCookie(userLoginResponse, "accessToken") ?? userLoginBody.token;
     userId = userLoginBody.user.id;
     userRoleId = userLoginBody.user.roles[0]?.id;
 
     // Get actual userRoleId from pending roles
     const pendingResponse = await app.inject({
-      method: 'GET',
-      url: '/admin/pending-roles',
+      method: "GET",
+      url: "/admin/pending-roles",
       headers: {
         authorization: `Bearer ${adminToken}`,
       },
@@ -65,7 +67,9 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
     const pendingBody = pendingResponse.json() as any;
     if (pendingBody.data && pendingBody.data.length > 0) {
       // Find the one we just created
-      const pendingRole = pendingBody.data.find((p: any) => p.user.id === userId);
+      const pendingRole = pendingBody.data.find(
+        (p: any) => p.user.id === userId,
+      );
       if (pendingRole) {
         userRoleId = pendingRole.id;
       }
@@ -76,33 +80,33 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
     await app.close();
   });
 
-  it('should reject requests without token to protected routes', async () => {
+  it("should reject requests without token to protected routes", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/admin/pending-roles',
+      method: "GET",
+      url: "/admin/pending-roles",
     });
 
     expect(response.statusCode).toBe(401);
     const body = response.json() as any;
-    expect(body.error).toContain('Unauthorized');
+    expect(body.error).toContain("Unauthorized");
   });
 
-  it('should reject requests with invalid token', async () => {
+  it("should reject requests with invalid token", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/admin/pending-roles',
+      method: "GET",
+      url: "/admin/pending-roles",
       headers: {
-        authorization: 'Bearer invalid-token',
+        authorization: "Bearer invalid-token",
       },
     });
 
     expect(response.statusCode).toBe(401);
   });
 
-  it('should allow admin to access /admin/pending-roles', async () => {
+  it("should allow admin to access /admin/pending-roles", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/admin/pending-roles',
+      method: "GET",
+      url: "/admin/pending-roles",
       headers: {
         authorization: `Bearer ${adminToken}`,
       },
@@ -114,10 +118,10 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
     expect(Array.isArray(body.data)).toBe(true);
   });
 
-  it('should allow admin to access /admin/users', async () => {
+  it("should allow admin to access /admin/users", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/admin/users',
+      method: "GET",
+      url: "/admin/users",
       headers: {
         authorization: `Bearer ${adminToken}`,
       },
@@ -129,10 +133,10 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
     expect(Array.isArray(body.data)).toBe(true);
   });
 
-  it('should allow admin to access /admin/audit-logs', async () => {
+  it("should allow admin to access /admin/audit-logs", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/admin/audit-logs',
+      method: "GET",
+      url: "/admin/audit-logs",
       headers: {
         authorization: `Bearer ${adminToken}`,
       },
@@ -144,10 +148,10 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
     expect(Array.isArray(body.data)).toBe(true);
   });
 
-  it('should reject non-admin access to /admin/pending-roles', async () => {
+  it("should reject non-admin access to /admin/pending-roles", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/admin/pending-roles',
+      method: "GET",
+      url: "/admin/pending-roles",
       headers: {
         authorization: `Bearer ${userToken}`,
       },
@@ -155,13 +159,13 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
 
     expect(response.statusCode).toBe(403);
     const body = response.json() as any;
-    expect(body.error).toContain('Forbidden');
+    expect(body.error).toContain("Forbidden");
   });
 
-  it('should reject non-admin access to /admin/users', async () => {
+  it("should reject non-admin access to /admin/users", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/admin/users',
+      method: "GET",
+      url: "/admin/users",
       headers: {
         authorization: `Bearer ${userToken}`,
       },
@@ -170,10 +174,10 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
     expect(response.statusCode).toBe(403);
   });
 
-  it('should reject non-admin access to /admin/audit-logs', async () => {
+  it("should reject non-admin access to /admin/audit-logs", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/admin/audit-logs',
+      method: "GET",
+      url: "/admin/audit-logs",
       headers: {
         authorization: `Bearer ${userToken}`,
       },
@@ -182,11 +186,11 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
     expect(response.statusCode).toBe(403);
   });
 
-  it('should allow valid JWT verification', async () => {
+  it("should allow valid JWT verification", async () => {
     // Use /auth/me endpoint which requires JWT
     const response = await app.inject({
-      method: 'GET',
-      url: '/auth/me',
+      method: "GET",
+      url: "/auth/me",
       headers: {
         authorization: `Bearer ${adminToken}`,
       },
@@ -197,13 +201,14 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
     expect(body.user).toBeDefined();
   });
 
-  it('should verify JWT signature (cannot spoof roles)', async () => {
+  it("should verify JWT signature (cannot spoof roles)", async () => {
     // Try to use a JWT with manually modified roles
-    const spoofedToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzZXItMTIzIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwicm9sZXMiOlsiYWRtaW4iXX0.invalid_signature';
+    const spoofedToken =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzZXItMTIzIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwicm9sZXMiOlsiYWRtaW4iXX0.invalid_signature";
 
     const response = await app.inject({
-      method: 'GET',
-      url: '/admin/pending-roles',
+      method: "GET",
+      url: "/admin/pending-roles",
       headers: {
         authorization: `Bearer ${spoofedToken}`,
       },
@@ -212,10 +217,10 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
     expect(response.statusCode).toBe(401);
   });
 
-  it('should have admin role with approved status', async () => {
+  it("should have admin role with approved status", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/auth/me',
+      method: "GET",
+      url: "/auth/me",
       headers: {
         authorization: `Bearer ${adminToken}`,
       },
@@ -223,41 +228,42 @@ describe('Checkpoint 3 - Authorization & Guards', () => {
 
     expect(response.statusCode).toBe(200);
     const body = response.json() as any;
-    const adminRole = body.user.roles.find((r: any) => r.roleName === 'admin');
+    const adminRole = body.user.roles.find((r: any) => r.roleName === "admin");
     expect(adminRole).toBeDefined();
-    expect(adminRole?.status).toBe('approved');
+    expect(adminRole?.status).toBe("approved");
   });
 
-  it('should not grant admin access to unapproved roles', async () => {
+  it("should not grant admin access to unapproved roles", async () => {
     // Create new user - roles start as pending
     const testEmail2 = `pending-test-${Date.now()}@example.com`;
     const registerResponse = await app.inject({
-      method: 'POST',
-      url: '/auth/register',
+      method: "POST",
+      url: "/auth/register",
       payload: {
         email: testEmail2,
-        name: 'Pending Test',
-        password: 'Password1',
+        name: "Pending Test",
+        password: "Password1",
       },
     });
 
     // Try to login
     const loginResponse = await app.inject({
-      method: 'POST',
-      url: '/auth/login',
+      method: "POST",
+      url: "/auth/login",
       payload: {
         email: testEmail2,
-        password: 'Password1',
+        password: "Password1",
       },
     });
 
     const loginBody = loginResponse.json() as any;
-    const testToken = getCookie(loginResponse, 'accessToken') ?? loginBody.token;
+    const testToken =
+      getCookie(loginResponse, "accessToken") ?? loginBody.token;
 
     // Try to access admin route
     const adminResponse = await app.inject({
-      method: 'GET',
-      url: '/admin/pending-roles',
+      method: "GET",
+      url: "/admin/pending-roles",
       headers: {
         authorization: `Bearer ${testToken}`,
       },

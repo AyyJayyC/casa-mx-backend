@@ -1,23 +1,26 @@
-import { FastifyPluginAsync } from 'fastify';
-import { PrismaClient } from '@prisma/client';
-import { execSync } from 'node:child_process';
-import { requireAdmin, verifyJWT } from '../utils/guards.js';
-import { UserRoleIdParamSchema } from '../schemas/admin.js';
-import { sendRoleApprovedEmail, sendRoleDeniedEmail } from '../services/email.service.js';
+import { FastifyPluginAsync } from "fastify";
+import { PrismaClient } from "@prisma/client";
+import { execSync } from "node:child_process";
+import { requireAdmin, verifyJWT } from "../utils/guards.js";
+import { UserRoleIdParamSchema } from "../schemas/admin.js";
+import {
+  sendRoleApprovedEmail,
+  sendRoleDeniedEmail,
+} from "../services/email.service.js";
 
 export class AdminService {
   constructor(private prisma: PrismaClient) {}
 
   async getPendingRoles() {
     return this.prisma.userRole.findMany({
-      where: { status: 'pending' },
+      where: { status: "pending" },
       include: {
         user: {
-          select: { id: true, email: true, name: true }
+          select: { id: true, email: true, name: true },
         },
         role: {
-          select: { id: true, name: true }
-        }
+          select: { id: true, name: true },
+        },
       },
     });
   }
@@ -29,14 +32,14 @@ export class AdminService {
       include: {
         user: true,
         role: true,
-      }
+      },
     });
 
     if (!userRole) {
-      throw new Error('Role assignment not found');
+      throw new Error("Role assignment not found");
     }
 
-    if (userRole.status !== 'pending') {
+    if (userRole.status !== "pending") {
       throw new Error(`Cannot approve role with status '${userRole.status}'`);
     }
 
@@ -44,7 +47,7 @@ export class AdminService {
     return await this.prisma.$transaction(async (tx) => {
       const updated = await tx.userRole.update({
         where: { id: userRoleId },
-        data: { status: 'approved' }
+        data: { status: "approved" },
       });
 
       // Create audit log
@@ -52,10 +55,13 @@ export class AdminService {
         data: {
           actorUserId: adminId,
           targetUserId: userRole.userId,
-          action: 'APPROVE_ROLE',
-          previousState: { status: userRole.status, roleName: userRole.role.name },
-          newState: { status: 'approved', roleName: userRole.role.name },
-        }
+          action: "APPROVE_ROLE",
+          previousState: {
+            status: userRole.status,
+            roleName: userRole.role.name,
+          },
+          newState: { status: "approved", roleName: userRole.role.name },
+        },
       });
 
       return updated;
@@ -68,21 +74,21 @@ export class AdminService {
       include: {
         user: true,
         role: true,
-      }
+      },
     });
 
     if (!userRole) {
-      throw new Error('Role assignment not found');
+      throw new Error("Role assignment not found");
     }
 
-    if (userRole.status !== 'pending') {
+    if (userRole.status !== "pending") {
       throw new Error(`Cannot deny role with status '${userRole.status}'`);
     }
 
     return await this.prisma.$transaction(async (tx) => {
       const updated = await tx.userRole.update({
         where: { id: userRoleId },
-        data: { status: 'denied' }
+        data: { status: "denied" },
       });
 
       // Create audit log
@@ -90,10 +96,13 @@ export class AdminService {
         data: {
           actorUserId: adminId,
           targetUserId: userRole.userId,
-          action: 'DENY_ROLE',
-          previousState: { status: userRole.status, roleName: userRole.role.name },
-          newState: { status: 'denied', roleName: userRole.role.name },
-        }
+          action: "DENY_ROLE",
+          previousState: {
+            status: userRole.status,
+            roleName: userRole.role.name,
+          },
+          newState: { status: "denied", roleName: userRole.role.name },
+        },
       });
 
       return updated;
@@ -102,7 +111,7 @@ export class AdminService {
 
   async getAuditLogs() {
     return this.prisma.auditLog.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: 100,
     });
   }
@@ -112,9 +121,9 @@ export class AdminService {
       include: {
         roles: {
           include: {
-            role: true
-          }
-        }
+            role: true,
+          },
+        },
       },
     });
   }
@@ -125,7 +134,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Get pending role approvals (admin only)
   fastify.get(
-    '/admin/pending-roles',
+    "/admin/pending-roles",
     { onRequest: [requireAdmin] },
     async (request, reply) => {
       try {
@@ -138,15 +147,15 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error(error);
         return reply.code(500).send({
           success: false,
-          error: 'Failed to fetch pending roles',
+          error: "Failed to fetch pending roles",
         });
       }
-    }
+    },
   );
 
   // Approve role (admin only)
   fastify.post<{ Params: { userRoleId: string } }>(
-    '/admin/roles/:userRoleId/approve',
+    "/admin/roles/:userRoleId/approve",
     { onRequest: [requireAdmin] },
     async (request, reply) => {
       try {
@@ -155,7 +164,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         if (!parseResult.success) {
           return reply.code(400).send({
             success: false,
-            error: 'Invalid userRoleId format',
+            error: "Invalid userRoleId format",
           });
         }
 
@@ -165,25 +174,35 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         const updated = await adminService.approveRole(adminId, userRoleId);
 
         // Send role approval email
-        const userRole = await fastify.prisma.userRole.findUnique({ where: { id: userRoleId }, include: { user: { select: { email: true, name: true } }, role: { select: { name: true } } } });
+        const userRole = await fastify.prisma.userRole.findUnique({
+          where: { id: userRoleId },
+          include: {
+            user: { select: { email: true, name: true } },
+            role: { select: { name: true } },
+          },
+        });
         if (userRole?.user?.email) {
-          await sendRoleApprovedEmail({ userEmail: userRole.user.email, userName: userRole.user.name, roleName: userRole.role.name }).catch(() => {});
+          await sendRoleApprovedEmail({
+            userEmail: userRole.user.email,
+            userName: userRole.user.name,
+            roleName: userRole.role.name,
+          }).catch(() => {});
         }
 
         return reply.code(200).send({
           success: true,
           data: updated,
-          message: 'Role approved successfully',
+          message: "Role approved successfully",
         });
       } catch (error: any) {
-        if (error.message.includes('not found')) {
+        if (error.message.includes("not found")) {
           return reply.code(404).send({
             success: false,
             error: error.message,
           });
         }
 
-        if (error.message.includes('Cannot approve')) {
+        if (error.message.includes("Cannot approve")) {
           return reply.code(400).send({
             success: false,
             error: error.message,
@@ -193,15 +212,15 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error(error);
         return reply.code(500).send({
           success: false,
-          error: 'Failed to approve role',
+          error: "Failed to approve role",
         });
       }
-    }
+    },
   );
 
   // Deny role (admin only)
   fastify.post<{ Params: { userRoleId: string } }>(
-    '/admin/roles/:userRoleId/deny',
+    "/admin/roles/:userRoleId/deny",
     { onRequest: [requireAdmin] },
     async (request, reply) => {
       try {
@@ -210,7 +229,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         if (!parseResult.success) {
           return reply.code(400).send({
             success: false,
-            error: 'Invalid userRoleId format',
+            error: "Invalid userRoleId format",
           });
         }
 
@@ -220,25 +239,35 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         const updated = await adminService.denyRole(adminId, userRoleId);
 
         // Send role denied email
-        const deniedUserRole = await fastify.prisma.userRole.findUnique({ where: { id: userRoleId }, include: { user: { select: { email: true, name: true } }, role: { select: { name: true } } } });
+        const deniedUserRole = await fastify.prisma.userRole.findUnique({
+          where: { id: userRoleId },
+          include: {
+            user: { select: { email: true, name: true } },
+            role: { select: { name: true } },
+          },
+        });
         if (deniedUserRole?.user?.email) {
-          await sendRoleDeniedEmail({ userEmail: deniedUserRole.user.email, userName: deniedUserRole.user.name, roleName: deniedUserRole.role.name }).catch(() => {});
+          await sendRoleDeniedEmail({
+            userEmail: deniedUserRole.user.email,
+            userName: deniedUserRole.user.name,
+            roleName: deniedUserRole.role.name,
+          }).catch(() => {});
         }
 
         return reply.code(200).send({
           success: true,
           data: updated,
-          message: 'Role denied successfully',
+          message: "Role denied successfully",
         });
       } catch (error: any) {
-        if (error.message.includes('not found')) {
+        if (error.message.includes("not found")) {
           return reply.code(404).send({
             success: false,
             error: error.message,
           });
         }
 
-        if (error.message.includes('Cannot deny')) {
+        if (error.message.includes("Cannot deny")) {
           return reply.code(400).send({
             success: false,
             error: error.message,
@@ -248,15 +277,15 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error(error);
         return reply.code(500).send({
           success: false,
-          error: 'Failed to deny role',
+          error: "Failed to deny role",
         });
       }
-    }
+    },
   );
 
   // Get all users (admin only)
   fastify.get(
-    '/admin/users',
+    "/admin/users",
     { onRequest: [requireAdmin] },
     async (request, reply) => {
       try {
@@ -269,15 +298,15 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error(error);
         return reply.code(500).send({
           success: false,
-          error: 'Failed to fetch users',
+          error: "Failed to fetch users",
         });
       }
-    }
+    },
   );
 
   // Get audit logs (admin only)
   fastify.get(
-    '/admin/audit-logs',
+    "/admin/audit-logs",
     { onRequest: [requireAdmin] },
     async (request, reply) => {
       try {
@@ -290,29 +319,38 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error(error);
         return reply.code(500).send({
           success: false,
-          error: 'Failed to fetch audit logs',
+          error: "Failed to fetch audit logs",
         });
       }
-    }
+    },
   );
   // Promote property (admin only)
   fastify.patch<{ Params: { id: string } }>(
-    '/admin/properties/:id/promote',
+    "/admin/properties/:id/promote",
     { onRequest: [requireAdmin] },
     async (request, reply) => {
       try {
         const { id } = request.params;
         const { promotionTier, featuredUntil } = request.body as {
-          promotionTier?: 'carousel' | 'featured' | 'urgent' | 'priority' | null;
+          promotionTier?:
+            | "carousel"
+            | "featured"
+            | "urgent"
+            | "priority"
+            | null;
           featuredUntil?: string | null;
         };
 
-        const VALID_TIERS = ['carousel', 'featured', 'urgent', 'priority'];
+        const VALID_TIERS = ["carousel", "featured", "urgent", "priority"];
 
-        if (promotionTier !== undefined && promotionTier !== null && !VALID_TIERS.includes(promotionTier)) {
+        if (
+          promotionTier !== undefined &&
+          promotionTier !== null &&
+          !VALID_TIERS.includes(promotionTier)
+        ) {
           return reply.code(400).send({
             success: false,
-            error: `Invalid promotionTier. Must be one of: ${VALID_TIERS.join(', ')} or null`,
+            error: `Invalid promotionTier. Must be one of: ${VALID_TIERS.join(", ")} or null`,
           });
         }
 
@@ -321,7 +359,9 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         });
 
         if (!property) {
-          return reply.code(404).send({ success: false, error: 'Property not found' });
+          return reply
+            .code(404)
+            .send({ success: false, error: "Property not found" });
         }
 
         const data: Record<string, any> = {};
@@ -341,9 +381,15 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           data: {
             actorUserId: (request.user as any).id,
             targetUserId: property.sellerId,
-            action: 'PROMOTE_PROPERTY',
-            previousState: { promotionTier: property.promotionTier, featuredUntil: property.featuredUntil },
-            newState: { promotionTier: updated.promotionTier, featuredUntil: updated.featuredUntil },
+            action: "PROMOTE_PROPERTY",
+            previousState: {
+              promotionTier: property.promotionTier,
+              featuredUntil: property.featuredUntil,
+            },
+            newState: {
+              promotionTier: updated.promotionTier,
+              featuredUntil: updated.featuredUntil,
+            },
           },
         });
 
@@ -360,21 +406,23 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error(error);
         return reply.code(500).send({
           success: false,
-          error: 'Failed to promote property',
+          error: "Failed to promote property",
         });
       }
-    }
+    },
   );
 
   // POST /admin/run-migrations — apply pending database migrations
   // Secured by MIGRATION_SECRET env var (one-time use)
   fastify.post<{ Body: { secret: string; action?: string } }>(
-    '/admin/run-migrations',
+    "/admin/run-migrations",
     async (request, reply) => {
       try {
         const expectedSecret = process.env.MIGRATION_SECRET?.trim();
         if (!expectedSecret || request.body.secret !== expectedSecret) {
-          return reply.code(403).send({ success: false, error: 'Invalid secret' });
+          return reply
+            .code(403)
+            .send({ success: false, error: "Invalid secret" });
         }
 
         const output: string[] = [];
@@ -382,84 +430,99 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         // Resolve any failed seed migration
         try {
           const result = execSync(
-            'npx prisma migrate resolve --applied 20260515010000_seed_admin_and_approve',
-            { cwd: '/app', timeout: 15000, encoding: 'utf8' }
+            "npx prisma migrate resolve --applied 20260515010000_seed_admin_and_approve",
+            { cwd: "/app", timeout: 15000, encoding: "utf8" },
           );
-          output.push('resolve: ' + result.trim());
+          output.push("resolve: " + result.trim());
         } catch (e: any) {
-          output.push('resolve: ' + (e.stdout || e.stderr || e.message));
+          output.push("resolve: " + (e.stdout || e.stderr || e.message));
         }
 
         // Apply all pending migrations
         try {
-          const result = execSync(
-            'npx prisma migrate deploy',
-            { cwd: '/app', timeout: 30000, encoding: 'utf8' }
-          );
-          output.push('deploy: ' + result.trim());
+          const result = execSync("npx prisma migrate deploy", {
+            cwd: "/app",
+            timeout: 30000,
+            encoding: "utf8",
+          });
+          output.push("deploy: " + result.trim());
         } catch (e: any) {
-          output.push('deploy: ' + (e.stdout || e.stderr || e.message));
+          output.push("deploy: " + (e.stdout || e.stderr || e.message));
         }
 
         // Sync schema directly (catches all columns added via prisma db push locally)
         try {
-          const result = execSync(
-            'npx prisma db push --accept-data-loss',
-            { cwd: '/app', timeout: 60000, encoding: 'utf8' }
-          );
-          output.push('push: ' + result.trim());
+          const result = execSync("npx prisma db push --accept-data-loss", {
+            cwd: "/app",
+            timeout: 60000,
+            encoding: "utf8",
+          });
+          output.push("push: " + result.trim());
         } catch (e: any) {
-          output.push('push: ' + (e.stdout || e.stderr || e.message));
+          output.push("push: " + (e.stdout || e.stderr || e.message));
         }
 
         // Grant admin role to ADMIN_EMAIL user (action: grant-admin)
-        if (request.body.action === 'grant-admin') {
+        if (request.body.action === "grant-admin") {
           try {
             const adminEmail = process.env.ADMIN_EMAIL?.trim();
             if (!adminEmail) {
-              return reply.code(400).send({ success: false, error: 'ADMIN_EMAIL not set' });
+              return reply
+                .code(400)
+                .send({ success: false, error: "ADMIN_EMAIL not set" });
             }
             const user = await fastify.prisma.user.findUnique({
               where: { email: adminEmail },
               include: { roles: { include: { role: true } } },
             });
             if (!user) {
-              output.push('grant-admin: user not found for ' + adminEmail);
+              output.push("grant-admin: user not found for " + adminEmail);
             } else {
-              const adminRole = await fastify.prisma.role.findUnique({ where: { name: 'admin' } });
+              const adminRole = await fastify.prisma.role.findUnique({
+                where: { name: "admin" },
+              });
               if (!adminRole) {
-                output.push('grant-admin: admin role not found in DB');
+                output.push("grant-admin: admin role not found in DB");
               } else {
                 await fastify.prisma.userRole.upsert({
-                  where: { userId_roleId: { userId: user.id, roleId: adminRole.id } },
-                  create: { userId: user.id, roleId: adminRole.id, status: 'approved' },
-                  update: { status: 'approved' },
+                  where: {
+                    userId_roleId: { userId: user.id, roleId: adminRole.id },
+                  },
+                  create: {
+                    userId: user.id,
+                    roleId: adminRole.id,
+                    status: "approved",
+                  },
+                  update: { status: "approved" },
                 });
-                output.push('grant-admin: admin role granted to ' + adminEmail);
+                output.push("grant-admin: admin role granted to " + adminEmail);
               }
             }
           } catch (e: any) {
-            output.push('grant-admin: ' + (e.message || 'unknown error'));
+            output.push("grant-admin: " + (e.message || "unknown error"));
           }
         }
 
         // Reset admin user password (action: reset-admin)
-        if (request.body.action === 'reset-admin') {
+        if (request.body.action === "reset-admin") {
           try {
             const adminEmail = process.env.ADMIN_EMAIL?.trim();
             if (!adminEmail) {
-              return reply.code(400).send({ success: false, error: 'ADMIN_EMAIL not set' });
+              return reply
+                .code(400)
+                .send({ success: false, error: "ADMIN_EMAIL not set" });
             }
-            const bcrypt = require('bcrypt');
-            const adminPassword = process.env.ADMIN_INITIAL_PASSWORD || 'CasaMX2026!';
+            const bcrypt = require("bcrypt");
+            const adminPassword =
+              process.env.ADMIN_INITIAL_PASSWORD || "CasaMX2026!";
             const hashedPassword = await bcrypt.hash(adminPassword, 10);
             await fastify.prisma.user.update({
               where: { email: adminEmail },
               data: { password: hashedPassword, emailVerified: true },
             });
-            output.push('reset-admin: password set for ' + adminEmail);
+            output.push("reset-admin: password set for " + adminEmail);
           } catch (e: any) {
-            output.push('reset-admin: ' + (e.message));
+            output.push("reset-admin: " + e.message);
           }
         }
 
@@ -468,35 +531,40 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error(error);
         return reply.code(500).send({ success: false, error: error.message });
       }
-    }
+    },
   );
 
   // POST /admin/setup-admin — grant admin role + set password for ADMIN_EMAIL user
   // Secured by MIGRATION_SECRET env var (one-time use)
   fastify.post<{ Body: { secret: string } }>(
-    '/admin/setup-admin',
+    "/admin/setup-admin",
     async (request, reply) => {
       try {
         const expectedSecret = process.env.MIGRATION_SECRET?.trim();
         if (!expectedSecret || request.body.secret !== expectedSecret) {
-          return reply.code(403).send({ success: false, error: 'Invalid secret' });
+          return reply
+            .code(403)
+            .send({ success: false, error: "Invalid secret" });
         }
 
         const adminEmail = process.env.ADMIN_EMAIL?.trim();
         if (!adminEmail) {
-          return reply.code(400).send({ success: false, error: 'ADMIN_EMAIL not set' });
+          return reply
+            .code(400)
+            .send({ success: false, error: "ADMIN_EMAIL not set" });
         }
 
         // Set password
-        const bcrypt = await import('bcrypt');
-        const adminPassword = process.env.ADMIN_INITIAL_PASSWORD || 'CasaMX2026!';
+        const bcrypt = await import("bcrypt");
+        const adminPassword =
+          process.env.ADMIN_INITIAL_PASSWORD || "CasaMX2026!";
         const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
         const user = await fastify.prisma.user.upsert({
           where: { email: adminEmail },
           create: {
             email: adminEmail,
-            name: 'Axel Castro',
+            name: "Axel Castro",
             password: hashedPassword,
             emailVerified: true,
           },
@@ -507,12 +575,18 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         });
 
         // Grant admin role
-        const adminRole = await fastify.prisma.role.findUnique({ where: { name: 'admin' } });
+        const adminRole = await fastify.prisma.role.findUnique({
+          where: { name: "admin" },
+        });
         if (adminRole) {
           await fastify.prisma.userRole.upsert({
             where: { userId_roleId: { userId: user.id, roleId: adminRole.id } },
-            create: { userId: user.id, roleId: adminRole.id, status: 'approved' },
-            update: { status: 'approved' },
+            create: {
+              userId: user.id,
+              roleId: adminRole.id,
+              status: "approved",
+            },
+            update: { status: "approved" },
           });
         }
 
@@ -525,10 +599,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error(error);
         return reply.code(500).send({ success: false, error: error.message });
       }
-    }
+    },
   );
 };
 
 export default adminRoutes;
-
-

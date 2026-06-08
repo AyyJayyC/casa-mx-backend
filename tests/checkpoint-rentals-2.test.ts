@@ -1,11 +1,15 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { buildApp } from '../src/app.js';
-import { FastifyInstance } from 'fastify';
-import { approveUserRole, loginAndGetToken, getCookie } from './utils/authHelpers.js';
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { buildApp } from "../src/app.js";
+import { FastifyInstance } from "fastify";
+import {
+  approveUserRole,
+  loginAndGetToken,
+  getCookie,
+} from "./utils/authHelpers.js";
 
 /**
  * Checkpoint 2: Backend API - Rental Listings & Filtering
- * 
+ *
  * Tests rental property API functionality:
  * - Create rental properties with validation
  * - Filter properties by listingType
@@ -13,7 +17,7 @@ import { approveUserRole, loginAndGetToken, getCookie } from './utils/authHelper
  * - Update/delete rental properties
  */
 
-describe('Checkpoint 2 - Rental Properties API', () => {
+describe("Checkpoint 2 - Rental Properties API", () => {
   let app: FastifyInstance;
   let authToken: string;
   let userId: string;
@@ -26,21 +30,25 @@ describe('Checkpoint 2 - Rental Properties API', () => {
 
     // Create test user and login
     const registerRes = await app.inject({
-      method: 'POST',
-      url: '/auth/register',
+      method: "POST",
+      url: "/auth/register",
       payload: {
-        name: 'Rental Test User',
+        name: "Rental Test User",
         email: `rental-test-${Date.now()}@test.com`,
-        password: 'TestPassword123!',
-        roles: ['seller'],
+        password: "TestPassword123!",
+        roles: ["seller"],
       },
     });
 
     const registerData = registerRes.json();
     userId = registerData.user.id;
 
-    await approveUserRole(app, userId, 'seller');
-    authToken = await loginAndGetToken(app, registerData.user.email, 'TestPassword123!');
+    await approveUserRole(app, userId, "seller");
+    authToken = await loginAndGetToken(
+      app,
+      registerData.user.email,
+      "TestPassword123!",
+    );
   });
 
   afterAll(async () => {
@@ -49,56 +57,56 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       where: { sellerId: userId },
     });
     await app.prisma.user.deleteMany({
-      where: { email: { contains: 'rental-test-' } },
+      where: { email: { contains: "rental-test-" } },
     });
     await app.close();
   });
 
-  describe('POST /properties - Create Rental Property', () => {
-    it('should create a rental property with required rental fields', async () => {
+  describe("POST /properties - Create Rental Property", () => {
+    it("should create a rental property with required rental fields", async () => {
       const response = await app.inject({
-        method: 'POST',
-        url: '/properties',
+        method: "POST",
+        url: "/properties",
         headers: {
           authorization: `Bearer ${authToken}`,
         },
         payload: {
-          title: 'Modern Apartment for Rent',
-          description: 'Beautiful 2BR apartment in Polanco',
-          estado: 'Ciudad de México',
-          ciudad: 'Ciudad de México',
-          colonia: 'Polanco',
-          propertyType: 'Departamento',
+          title: "Modern Apartment for Rent",
+          description: "Beautiful 2BR apartment in Polanco",
+          estado: "Ciudad de México",
+          ciudad: "Ciudad de México",
+          colonia: "Polanco",
+          propertyType: "Departamento",
           bedrooms: 2,
           bathrooms: 2,
           squareMeters: 95,
-          listingType: 'for_rent',
+          listingType: "for_rent",
           monthlyRent: 25000,
           securityDeposit: 50000,
           leaseTermMonths: 12,
-          furnished: 'furnished',
+          furnished: "furnished",
           utilitiesIncluded: false,
-          includedServices: ['Agua', 'Internet'],
-          amenities: ['Refrigerador', 'Mini splits'],
+          includedServices: ["Agua", "Internet"],
+          amenities: ["Refrigerador", "Mini splits"],
         },
       });
 
       expect(response.statusCode).toBe(201);
       const data = response.json();
       expect(data.success).toBe(true);
-      expect(data.data.listingType).toBe('for_rent');
+      expect(data.data.listingType).toBe("for_rent");
       expect(data.data.monthlyRent).toBe(25000);
       expect(data.data.securityDeposit).toBe(50000);
-      expect(data.data.furnished).toBe('furnished');
-      expect(data.data.propertyType).toBe('Departamento');
-      expect(data.data.includedServices).toEqual(['Agua', 'Internet']);
-      expect(data.data.amenities).toEqual(['Refrigerador', 'Mini splits']);
+      expect(data.data.furnished).toBe("furnished");
+      expect(data.data.propertyType).toBe("Departamento");
+      expect(data.data.includedServices).toEqual(["Agua", "Internet"]);
+      expect(data.data.amenities).toEqual(["Refrigerador", "Mini splits"]);
       expect(data.data.price).toBeNull(); // Price not required for rentals
 
       rentalPropertyId = data.data.id;
     });
 
-    it('should auto-add landlord role when creating first rental', async () => {
+    it("should auto-add landlord role when creating first rental", async () => {
       // Check user has landlord role
       const user = await app.prisma.user.findUnique({
         where: { id: userId },
@@ -110,30 +118,30 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       });
 
       const hasLandlordRole = user?.roles.some(
-        (ur) => ur.role.name === 'landlord' && ur.status === 'approved'
+        (ur) => ur.role.name === "landlord" && ur.status === "approved",
       );
 
       expect(hasLandlordRole).toBe(true);
     });
 
-    it('should create a sale property with required sale fields', async () => {
+    it("should create a sale property with required sale fields", async () => {
       const response = await app.inject({
-        method: 'POST',
-        url: '/properties',
+        method: "POST",
+        url: "/properties",
         headers: {
           authorization: `Bearer ${authToken}`,
         },
         payload: {
-          title: 'House for Sale',
-          description: 'Spacious house in Condesa',
-          estado: 'Ciudad de México',
-          ciudad: 'Ciudad de México',
-          colonia: 'Condesa',
-          propertyType: 'Casa',
+          title: "House for Sale",
+          description: "Spacious house in Condesa",
+          estado: "Ciudad de México",
+          ciudad: "Ciudad de México",
+          colonia: "Condesa",
+          propertyType: "Casa",
           bedrooms: 3,
           bathrooms: 2,
           squareMeters: 180,
-          listingType: 'for_sale',
+          listingType: "for_sale",
           price: 5500000,
         },
       });
@@ -141,25 +149,25 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(response.statusCode).toBe(201);
       const data = response.json();
       expect(data.success).toBe(true);
-      expect(data.data.listingType).toBe('for_sale');
+      expect(data.data.listingType).toBe("for_sale");
       expect(data.data.price).toBe(5500000);
-      expect(data.data.propertyType).toBe('Casa');
+      expect(data.data.propertyType).toBe("Casa");
       expect(data.data.monthlyRent).toBeNull(); // Rent not required for sales
 
       salePropertyId = data.data.id;
     });
 
-    it('should reject rental property without monthlyRent', async () => {
+    it("should reject rental property without monthlyRent", async () => {
       const response = await app.inject({
-        method: 'POST',
-        url: '/properties',
+        method: "POST",
+        url: "/properties",
         headers: {
           authorization: `Bearer ${authToken}`,
         },
         payload: {
-          title: 'Invalid Rental',
-          estado: 'Ciudad de México',
-          listingType: 'for_rent',
+          title: "Invalid Rental",
+          estado: "Ciudad de México",
+          listingType: "for_rent",
           // Missing monthlyRent
         },
       });
@@ -167,20 +175,20 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(response.statusCode).toBe(400);
       const data = response.json();
       expect(data.success).toBe(false);
-      expect(data.error).toBe('Validation error');
+      expect(data.error).toBe("Validation error");
     });
 
-    it('should reject sale property without price', async () => {
+    it("should reject sale property without price", async () => {
       const response = await app.inject({
-        method: 'POST',
-        url: '/properties',
+        method: "POST",
+        url: "/properties",
         headers: {
           authorization: `Bearer ${authToken}`,
         },
         payload: {
-          title: 'Invalid Sale',
-          estado: 'Jalisco',
-          listingType: 'for_sale',
+          title: "Invalid Sale",
+          estado: "Jalisco",
+          listingType: "for_sale",
           // Missing price
         },
       });
@@ -188,17 +196,17 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(response.statusCode).toBe(400);
       const data = response.json();
       expect(data.success).toBe(false);
-      expect(data.error).toBe('Validation error');
+      expect(data.error).toBe("Validation error");
     });
 
-    it('should reject property creation without authentication', async () => {
+    it("should reject property creation without authentication", async () => {
       const response = await app.inject({
-        method: 'POST',
-        url: '/properties',
+        method: "POST",
+        url: "/properties",
         payload: {
-          title: 'Unauthorized',
-          estado: 'Jalisco',
-          listingType: 'for_rent',
+          title: "Unauthorized",
+          estado: "Jalisco",
+          listingType: "for_rent",
           monthlyRent: 10000,
         },
       });
@@ -207,45 +215,45 @@ describe('Checkpoint 2 - Rental Properties API', () => {
     });
   });
 
-  describe('GET /properties - Filter by listingType', () => {
-    it('should return only rental properties when filtered by for_rent', async () => {
+  describe("GET /properties - Filter by listingType", () => {
+    it("should return only rental properties when filtered by for_rent", async () => {
       const response = await app.inject({
-        method: 'GET',
-        url: '/properties?listingType=for_rent',
+        method: "GET",
+        url: "/properties?listingType=for_rent",
       });
 
       expect(response.statusCode).toBe(200);
       const data = response.json();
       expect(data.success).toBe(true);
       expect(Array.isArray(data.data)).toBe(true);
-      
+
       // All returned properties should be rentals
       data.data.forEach((property: any) => {
-        expect(property.listingType).toBe('for_rent');
+        expect(property.listingType).toBe("for_rent");
       });
     });
 
-    it('should return only sale properties when filtered by for_sale', async () => {
+    it("should return only sale properties when filtered by for_sale", async () => {
       const response = await app.inject({
-        method: 'GET',
-        url: '/properties?listingType=for_sale',
+        method: "GET",
+        url: "/properties?listingType=for_sale",
       });
 
       expect(response.statusCode).toBe(200);
       const data = response.json();
       expect(data.success).toBe(true);
       expect(Array.isArray(data.data)).toBe(true);
-      
+
       // All returned properties should be for sale
       data.data.forEach((property: any) => {
-        expect(property.listingType).toBe('for_sale');
+        expect(property.listingType).toBe("for_sale");
       });
     });
 
-    it('should return all properties when no listingType filter', async () => {
+    it("should return all properties when no listingType filter", async () => {
       const response = await app.inject({
-        method: 'GET',
-        url: '/properties',
+        method: "GET",
+        url: "/properties",
       });
 
       expect(response.statusCode).toBe(200);
@@ -255,16 +263,16 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(data.data.length).toBeGreaterThan(0);
     });
 
-    it('should filter rentals by rent range', async () => {
+    it("should filter rentals by rent range", async () => {
       const response = await app.inject({
-        method: 'GET',
-        url: '/properties?listingType=for_rent&minRent=20000&maxRent=30000',
+        method: "GET",
+        url: "/properties?listingType=for_rent&minRent=20000&maxRent=30000",
       });
 
       expect(response.statusCode).toBe(200);
       const data = response.json();
       expect(data.success).toBe(true);
-      
+
       // All returned rentals should be in range
       data.data.forEach((property: any) => {
         if (property.monthlyRent) {
@@ -274,34 +282,34 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       });
     });
 
-    it('should filter by furnished status', async () => {
+    it("should filter by furnished status", async () => {
       const response = await app.inject({
-        method: 'GET',
-        url: '/properties?listingType=for_rent&furnished=furnished',
+        method: "GET",
+        url: "/properties?listingType=for_rent&furnished=furnished",
       });
 
       expect(response.statusCode).toBe(200);
       const data = response.json();
       expect(data.success).toBe(true);
-      
+
       // All returned properties should be furnished
       data.data.forEach((property: any) => {
-        expect(property.furnished).toBe('furnished');
+        expect(property.furnished).toBe("furnished");
       });
     });
   });
 
-  describe('PATCH /properties/:id - Update Property', () => {
-    it('should update rental property fields', async () => {
+  describe("PATCH /properties/:id - Update Property", () => {
+    it("should update rental property fields", async () => {
       const response = await app.inject({
-        method: 'PATCH',
+        method: "PATCH",
         url: `/properties/${rentalPropertyId}`,
         headers: {
           authorization: `Bearer ${authToken}`,
         },
         payload: {
           monthlyRent: 28000,
-          furnished: 'unfurnished',
+          furnished: "unfurnished",
           utilitiesIncluded: true,
         },
       });
@@ -310,32 +318,32 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       const data = response.json();
       expect(data.success).toBe(true);
       expect(data.data.monthlyRent).toBe(28000);
-      expect(data.data.furnished).toBe('unfurnished');
+      expect(data.data.furnished).toBe("unfurnished");
       expect(data.data.utilitiesIncluded).toBe(true);
     });
 
-    it('should not allow updating another user\'s property', async () => {
+    it("should not allow updating another user's property", async () => {
       // Create another user
       const otherUserRes = await app.inject({
-        method: 'POST',
-        url: '/auth/register',
+        method: "POST",
+        url: "/auth/register",
         payload: {
-          name: 'Other User',
+          name: "Other User",
           email: `other-user-${Date.now()}@test.com`,
-          password: 'TestPassword123!',
-          roles: ['seller'],
+          password: "TestPassword123!",
+          roles: ["seller"],
         },
       });
 
-      await approveUserRole(app, otherUserRes.json().user.id, 'seller');
+      await approveUserRole(app, otherUserRes.json().user.id, "seller");
       const otherToken = await loginAndGetToken(
         app,
         otherUserRes.json().user.email,
-        'TestPassword123!'
+        "TestPassword123!",
       );
 
       const response = await app.inject({
-        method: 'PATCH',
+        method: "PATCH",
         url: `/properties/${rentalPropertyId}`,
         headers: {
           authorization: `Bearer ${otherToken}`,
@@ -348,41 +356,41 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(response.statusCode).toBe(403);
       const data = response.json();
       expect(data.success).toBe(false);
-      expect(data.error).toContain('your own properties');
+      expect(data.error).toContain("your own properties");
     });
 
-    it('should return 404 for non-existent property', async () => {
+    it("should return 404 for non-existent property", async () => {
       const response = await app.inject({
-        method: 'PATCH',
-        url: '/properties/00000000-0000-0000-0000-000000000000',
+        method: "PATCH",
+        url: "/properties/00000000-0000-0000-0000-000000000000",
         headers: {
           authorization: `Bearer ${authToken}`,
         },
         payload: {
-          title: 'Updated',
+          title: "Updated",
         },
       });
 
       expect(response.statusCode).toBe(404);
     });
 
-    it('should update sale property price', async () => {
+    it("should update sale property price", async () => {
       // Create a fresh sale property for this test
       const createRes = await app.inject({
-        method: 'POST',
-        url: '/properties',
+        method: "POST",
+        url: "/properties",
         headers: { authorization: `Bearer ${authToken}` },
         payload: {
-          title: 'Price Update Test',
-          estado: 'Jalisco',
-          listingType: 'for_sale',
+          title: "Price Update Test",
+          estado: "Jalisco",
+          listingType: "for_sale",
           price: 1000000,
         },
       });
       const propId = createRes.json().data.id;
 
       const response = await app.inject({
-        method: 'PATCH',
+        method: "PATCH",
         url: `/properties/${propId}`,
         headers: { authorization: `Bearer ${authToken}` },
         payload: { price: 1500000 },
@@ -395,67 +403,73 @@ describe('Checkpoint 2 - Rental Properties API', () => {
 
       // Cleanup
       await app.inject({
-        method: 'DELETE',
+        method: "DELETE",
         url: `/properties/${propId}`,
         headers: { authorization: `Bearer ${authToken}` },
       });
     });
 
-    it('should update description and title', async () => {
+    it("should update description and title", async () => {
       const response = await app.inject({
-        method: 'PATCH',
+        method: "PATCH",
         url: `/properties/${rentalPropertyId}`,
         headers: { authorization: `Bearer ${authToken}` },
         payload: {
-          title: 'Updated Title',
-          description: 'Updated description text',
+          title: "Updated Title",
+          description: "Updated description text",
         },
       });
 
       expect(response.statusCode).toBe(200);
       const data = response.json();
       expect(data.success).toBe(true);
-      expect(data.data.title).toBe('Updated Title');
-      expect(data.data.description).toBe('Updated description text');
+      expect(data.data.title).toBe("Updated Title");
+      expect(data.data.description).toBe("Updated description text");
     });
 
-    it('should update imageUrls array', async () => {
+    it("should update imageUrls array", async () => {
       const response = await app.inject({
-        method: 'PATCH',
+        method: "PATCH",
         url: `/properties/${rentalPropertyId}`,
         headers: { authorization: `Bearer ${authToken}` },
         payload: {
-          imageUrls: ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg'],
+          imageUrls: [
+            "https://example.com/photo1.jpg",
+            "https://example.com/photo2.jpg",
+          ],
         },
       });
 
       expect(response.statusCode).toBe(200);
       const data = response.json();
       expect(data.success).toBe(true);
-      expect(data.data.imageUrls).toEqual(['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg']);
+      expect(data.data.imageUrls).toEqual([
+        "https://example.com/photo1.jpg",
+        "https://example.com/photo2.jpg",
+      ]);
     });
 
-    it('should reject switching to for_sale without price', async () => {
+    it("should reject switching to for_sale without price", async () => {
       const response = await app.inject({
-        method: 'PATCH',
+        method: "PATCH",
         url: `/properties/${rentalPropertyId}`,
         headers: { authorization: `Bearer ${authToken}` },
-        payload: { listingType: 'for_sale' },
+        payload: { listingType: "for_sale" },
       });
 
       expect(response.statusCode).toBe(400);
       const data = response.json();
       expect(data.success).toBe(false);
-      expect(data.error).toBe('Validation error');
+      expect(data.error).toBe("Validation error");
     });
 
-    it('should allow switching to for_sale with price provided', async () => {
+    it("should allow switching to for_sale with price provided", async () => {
       const response = await app.inject({
-        method: 'PATCH',
+        method: "PATCH",
         url: `/properties/${rentalPropertyId}`,
         headers: { authorization: `Bearer ${authToken}` },
         payload: {
-          listingType: 'for_sale',
+          listingType: "for_sale",
           price: 5000000,
         },
       });
@@ -463,33 +477,33 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(response.statusCode).toBe(200);
       const data = response.json();
       expect(data.success).toBe(true);
-      expect(data.data.listingType).toBe('for_sale');
+      expect(data.data.listingType).toBe("for_sale");
       expect(data.data.price).toBe(5000000);
       expect(data.data.monthlyRent).toBeNull();
     });
 
-    it('should reject switching to for_rent without monthlyRent', async () => {
+    it("should reject switching to for_rent without monthlyRent", async () => {
       const response = await app.inject({
-        method: 'PATCH',
+        method: "PATCH",
         url: `/properties/${rentalPropertyId}`,
         headers: { authorization: `Bearer ${authToken}` },
-        payload: { listingType: 'for_rent' },
+        payload: { listingType: "for_rent" },
       });
 
       expect(response.statusCode).toBe(400);
       const data = response.json();
       expect(data.success).toBe(false);
-      expect(data.error).toBe('Validation error');
-      expect(data.details[0].path).toContain('monthlyRent');
+      expect(data.error).toBe("Validation error");
+      expect(data.details[0].path).toContain("monthlyRent");
     });
 
-    it('should allow switching to for_rent with monthlyRent provided', async () => {
+    it("should allow switching to for_rent with monthlyRent provided", async () => {
       const response = await app.inject({
-        method: 'PATCH',
+        method: "PATCH",
         url: `/properties/${rentalPropertyId}`,
         headers: { authorization: `Bearer ${authToken}` },
         payload: {
-          listingType: 'for_rent',
+          listingType: "for_rent",
           monthlyRent: 30000,
         },
       });
@@ -497,57 +511,57 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       expect(response.statusCode).toBe(200);
       const data = response.json();
       expect(data.success).toBe(true);
-      expect(data.data.listingType).toBe('for_rent');
+      expect(data.data.listingType).toBe("for_rent");
       expect(data.data.monthlyRent).toBe(30000);
       expect(data.data.price).toBeNull();
     });
 
-    it('should preserve unchanged fields on partial update', async () => {
+    it("should preserve unchanged fields on partial update", async () => {
       // First verify current state
       const before = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/properties/${rentalPropertyId}`,
       });
       const beforeData = before.json().data;
 
       // Update only the title
       const response = await app.inject({
-        method: 'PATCH',
+        method: "PATCH",
         url: `/properties/${rentalPropertyId}`,
         headers: { authorization: `Bearer ${authToken}` },
-        payload: { title: 'Partially Updated Title' },
+        payload: { title: "Partially Updated Title" },
       });
 
       expect(response.statusCode).toBe(200);
       const data = response.json();
-      expect(data.data.title).toBe('Partially Updated Title');
+      expect(data.data.title).toBe("Partially Updated Title");
       expect(data.data.price).toBe(beforeData.price);
       expect(data.data.estado).toBe(beforeData.estado);
     });
 
-    it('should update estado and ciudad', async () => {
+    it("should update estado and ciudad", async () => {
       const response = await app.inject({
-        method: 'PATCH',
+        method: "PATCH",
         url: `/properties/${rentalPropertyId}`,
         headers: { authorization: `Bearer ${authToken}` },
         payload: {
-          estado: 'Nuevo León',
-          ciudad: 'Monterrey',
+          estado: "Nuevo León",
+          ciudad: "Monterrey",
         },
       });
 
       expect(response.statusCode).toBe(200);
       const data = response.json();
       expect(data.success).toBe(true);
-      expect(data.data.estado).toBe('Nuevo León');
-      expect(data.data.ciudad).toBe('Monterrey');
+      expect(data.data.estado).toBe("Nuevo León");
+      expect(data.data.ciudad).toBe("Monterrey");
     });
   });
 
-  describe('DELETE /properties/:id - Delete Property', () => {
-    it('should delete a sale property', async () => {
+  describe("DELETE /properties/:id - Delete Property", () => {
+    it("should delete a sale property", async () => {
       const response = await app.inject({
-        method: 'DELETE',
+        method: "DELETE",
         url: `/properties/${salePropertyId}`,
         headers: {
           authorization: `Bearer ${authToken}`,
@@ -560,16 +574,16 @@ describe('Checkpoint 2 - Rental Properties API', () => {
 
       // Verify it's deleted
       const checkRes = await app.inject({
-        method: 'GET',
+        method: "GET",
         url: `/properties/${salePropertyId}`,
       });
 
       expect(checkRes.statusCode).toBe(404);
     });
 
-    it('should delete rental property and remove landlord role when last rental', async () => {
+    it("should delete rental property and remove landlord role when last rental", async () => {
       const response = await app.inject({
-        method: 'DELETE',
+        method: "DELETE",
         url: `/properties/${rentalPropertyId}`,
         headers: {
           authorization: `Bearer ${authToken}`,
@@ -589,53 +603,54 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       });
 
       const hasLandlordRole = user?.roles.some(
-        (ur) => ur.role.name === 'landlord'
+        (ur) => ur.role.name === "landlord",
       );
 
       expect(hasLandlordRole).toBe(false);
     });
 
-    it('should not allow deleting another user\'s property', async () => {
+    it("should not allow deleting another user's property", async () => {
       // Create a property with another user
       const otherUserRes = await app.inject({
-        method: 'POST',
-        url: '/auth/register',
+        method: "POST",
+        url: "/auth/register",
         payload: {
-          name: 'Property Owner',
+          name: "Property Owner",
           email: `prop-owner-${Date.now()}@test.com`,
-          password: 'TestPassword123!',
-          roles: ['seller'],
+          password: "TestPassword123!",
+          roles: ["seller"],
         },
       });
 
       const otherLoginRes = await app.inject({
-        method: 'POST',
-        url: '/auth/login',
+        method: "POST",
+        url: "/auth/login",
         payload: {
           email: otherUserRes.json().user.email,
-          password: 'TestPassword123!',
+          password: "TestPassword123!",
         },
       });
 
-      const otherToken = getCookie(otherLoginRes, 'accessToken') ?? otherLoginRes.json().token;
+      const otherToken =
+        getCookie(otherLoginRes, "accessToken") ?? otherLoginRes.json().token;
 
-      await approveUserRole(app, otherUserRes.json().user.id, 'seller');
+      await approveUserRole(app, otherUserRes.json().user.id, "seller");
       const approvedOtherToken = await loginAndGetToken(
         app,
         otherUserRes.json().user.email,
-        'TestPassword123!'
+        "TestPassword123!",
       );
 
       const propertyRes = await app.inject({
-        method: 'POST',
-        url: '/properties',
+        method: "POST",
+        url: "/properties",
         headers: {
           authorization: `Bearer ${approvedOtherToken}`,
         },
         payload: {
-          title: 'Someone Else Property',
-          estado: 'Jalisco',
-          listingType: 'for_sale',
+          title: "Someone Else Property",
+          estado: "Jalisco",
+          listingType: "for_sale",
           price: 1000000,
         },
       });
@@ -644,7 +659,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
 
       // Try to delete with our test user
       const deleteRes = await app.inject({
-        method: 'DELETE',
+        method: "DELETE",
         url: `/properties/${propertyId}`,
         headers: {
           authorization: `Bearer ${authToken}`,
@@ -655,19 +670,19 @@ describe('Checkpoint 2 - Rental Properties API', () => {
     });
   });
 
-  describe('Landlord Role Management', () => {
-    it('should not add duplicate landlord roles', async () => {
+  describe("Landlord Role Management", () => {
+    it("should not add duplicate landlord roles", async () => {
       // Create first rental
       const res1 = await app.inject({
-        method: 'POST',
-        url: '/properties',
+        method: "POST",
+        url: "/properties",
         headers: {
           authorization: `Bearer ${authToken}`,
         },
         payload: {
-          title: 'First Rental',
-          estado: 'Jalisco',
-          listingType: 'for_rent',
+          title: "First Rental",
+          estado: "Jalisco",
+          listingType: "for_rent",
           monthlyRent: 15000,
         },
       });
@@ -676,15 +691,15 @@ describe('Checkpoint 2 - Rental Properties API', () => {
 
       // Create second rental
       const res2 = await app.inject({
-        method: 'POST',
-        url: '/properties',
+        method: "POST",
+        url: "/properties",
         headers: {
           authorization: `Bearer ${authToken}`,
         },
         payload: {
-          title: 'Second Rental',
-          estado: 'Jalisco',
-          listingType: 'for_rent',
+          title: "Second Rental",
+          estado: "Jalisco",
+          listingType: "for_rent",
           monthlyRent: 16000,
         },
       });
@@ -701,16 +716,16 @@ describe('Checkpoint 2 - Rental Properties API', () => {
         },
       });
 
-      const landlordRoles = roles.filter((ur) => ur.role.name === 'landlord');
+      const landlordRoles = roles.filter((ur) => ur.role.name === "landlord");
       expect(landlordRoles.length).toBe(1);
     });
 
-    it('should keep landlord role when still has rentals', async () => {
+    it("should keep landlord role when still has rentals", async () => {
       // User should have 2 rentals from previous test
       const rentals = await app.prisma.property.findMany({
         where: {
           sellerId: userId,
-          listingType: 'for_rent',
+          listingType: "for_rent",
         },
       });
 
@@ -718,7 +733,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
 
       // Delete one rental
       await app.inject({
-        method: 'DELETE',
+        method: "DELETE",
         url: `/properties/${rentals[0].id}`,
         headers: {
           authorization: `Bearer ${authToken}`,
@@ -736,7 +751,7 @@ describe('Checkpoint 2 - Rental Properties API', () => {
       });
 
       const hasLandlordRole = user?.roles.some(
-        (ur) => ur.role.name === 'landlord'
+        (ur) => ur.role.name === "landlord",
       );
 
       expect(hasLandlordRole).toBe(true);

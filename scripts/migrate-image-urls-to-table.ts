@@ -1,21 +1,21 @@
 /**
  * Data migration: Converts existing property imageUrls (String[]) into PropertyImage rows.
- * 
+ *
  * Usage: npx tsx scripts/migrate-image-urls-to-table.ts
- * 
+ *
  * This is a one-time migration. It:
  * 1. Finds all properties with non-empty imageUrls arrays
  * 2. Creates PropertyImage rows for each URL, preserving order
  * 3. Does NOT delete the original imageUrls data (safe to run multiple times)
  */
 
-import { PrismaClient } from '@prisma/client';
-import { randomUUID } from 'crypto';
+import { PrismaClient } from "@prisma/client";
+import { randomUUID } from "crypto";
 
 const prisma = new PrismaClient();
 
 async function migrate() {
-  console.log('Starting imageUrls → PropertyImage migration...');
+  console.log("Starting imageUrls → PropertyImage migration...");
 
   const properties = await prisma.property.findMany({
     where: {
@@ -37,7 +37,9 @@ async function migrate() {
 
   for (const property of properties) {
     if (property.images.length > 0) {
-      console.log(`  Skipping property ${property.id}: already has ${property.images.length} PropertyImage rows`);
+      console.log(
+        `  Skipping property ${property.id}: already has ${property.images.length} PropertyImage rows`,
+      );
       skipped++;
       continue;
     }
@@ -53,7 +55,9 @@ async function migrate() {
           propertyId: property.id,
           imageUrl: url,
           fileName: `migrated_image_${i + 1}`,
-          fileMimeType: url.startsWith('data:image/') ? extractMimeFromDataUri(url) : 'image/jpeg',
+          fileMimeType: url.startsWith("data:image/")
+            ? extractMimeFromDataUri(url)
+            : "image/jpeg",
           order: i,
           caption: null,
         },
@@ -67,12 +71,12 @@ async function migrate() {
 
 function extractMimeFromDataUri(dataUri: string): string {
   const match = dataUri.match(/^data:(image\/\w+);/);
-  return match ? match[1] : 'image/jpeg';
+  return match ? match[1] : "image/jpeg";
 }
 
 migrate()
   .catch((err) => {
-    console.error('Migration failed:', err);
+    console.error("Migration failed:", err);
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());

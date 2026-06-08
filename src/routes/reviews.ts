@@ -1,31 +1,38 @@
-import { FastifyPluginAsync } from 'fastify';
-import { verifyJWT, requireAnyRole } from '../utils/guards.js';
-import { z } from 'zod';
-import { createReviewSchema, reviewSummaryQuerySchema, reviewUserParamsSchema } from '../schemas/reviews.js';
-import { ReviewsService } from '../services/reviews.service.js';
-import { isClientError } from '../utils/errorClassification.js';
+import { FastifyPluginAsync } from "fastify";
+import { verifyJWT, requireAnyRole } from "../utils/guards.js";
+import { z } from "zod";
+import {
+  createReviewSchema,
+  reviewSummaryQuerySchema,
+  reviewUserParamsSchema,
+} from "../schemas/reviews.js";
+import { ReviewsService } from "../services/reviews.service.js";
+import { isClientError } from "../utils/errorClassification.js";
 
 const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
   const reviewsService = new ReviewsService(fastify.prisma);
 
   fastify.post(
-    '/reviews',
-    { onRequest: [requireAnyRole(['tenant', 'landlord'])] },
+    "/reviews",
+    { onRequest: [requireAnyRole(["tenant", "landlord"])] },
     async (request, reply) => {
       try {
         const input = createReviewSchema.parse(request.body);
-        const review = await reviewsService.createReview(request.user.id, input);
+        const review = await reviewsService.createReview(
+          request.user.id,
+          input,
+        );
 
         return reply.code(201).send({
           success: true,
           data: review,
-          message: 'Review submitted successfully',
+          message: "Review submitted successfully",
         });
       } catch (error: any) {
         if (error instanceof z.ZodError) {
           return reply.code(400).send({
             success: false,
-            error: 'Validation error',
+            error: "Validation error",
             details: error.errors,
           });
         }
@@ -34,26 +41,30 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
           const statusCode = isClientError(error.message) ? 400 : 500;
           return reply.code(statusCode).send({
             success: false,
-            error: statusCode === 400 ? error.message : 'Failed to submit review',
+            error:
+              statusCode === 400 ? error.message : "Failed to submit review",
           });
         }
 
         fastify.log.error(error);
         return reply.code(500).send({
           success: false,
-          error: 'Failed to submit review',
+          error: "Failed to submit review",
         });
       }
-    }
+    },
   );
 
   fastify.get(
-    '/reviews/mine',
+    "/reviews/mine",
     { onRequest: [verifyJWT] },
     async (request, reply) => {
       try {
         const query = reviewSummaryQuerySchema.parse(request.query);
-        const reviews = await reviewsService.getAuthoredReviews(request.user.id, query.role);
+        const reviews = await reviewsService.getAuthoredReviews(
+          request.user.id,
+          query.role,
+        );
 
         return reply.send({
           success: true,
@@ -63,7 +74,7 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
         if (error instanceof z.ZodError) {
           return reply.code(400).send({
             success: false,
-            error: 'Validation error',
+            error: "Validation error",
             details: error.errors,
           });
         }
@@ -71,17 +82,20 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.error(error);
         return reply.code(500).send({
           success: false,
-          error: 'Failed to fetch authored reviews',
+          error: "Failed to fetch authored reviews",
         });
       }
-    }
+    },
   );
 
-  fastify.get('/reviews/user/:userId', async (request, reply) => {
+  fastify.get("/reviews/user/:userId", async (request, reply) => {
     try {
       const params = reviewUserParamsSchema.parse(request.params);
       const query = reviewSummaryQuerySchema.parse(request.query);
-      const reviews = await reviewsService.getUserReviews(params.userId, query.role);
+      const reviews = await reviewsService.getUserReviews(
+        params.userId,
+        query.role,
+      );
 
       return reply.send({
         success: true,
@@ -91,7 +105,7 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
       if (error instanceof z.ZodError) {
         return reply.code(400).send({
           success: false,
-          error: 'Validation error',
+          error: "Validation error",
           details: error.errors,
         });
       }
@@ -99,16 +113,19 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.log.error(error);
       return reply.code(500).send({
         success: false,
-        error: 'Failed to fetch reviews',
+        error: "Failed to fetch reviews",
       });
     }
   });
 
-  fastify.get('/reviews/summary/:userId', async (request, reply) => {
+  fastify.get("/reviews/summary/:userId", async (request, reply) => {
     try {
       const params = reviewUserParamsSchema.parse(request.params);
       const query = reviewSummaryQuerySchema.parse(request.query);
-      const summary = await reviewsService.getReviewSummary(params.userId, query.role);
+      const summary = await reviewsService.getReviewSummary(
+        params.userId,
+        query.role,
+      );
 
       return reply.send({
         success: true,
@@ -118,7 +135,7 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
       if (error instanceof z.ZodError) {
         return reply.code(400).send({
           success: false,
-          error: 'Validation error',
+          error: "Validation error",
           details: error.errors,
         });
       }
@@ -126,7 +143,7 @@ const reviewsRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.log.error(error);
       return reply.code(500).send({
         success: false,
-        error: 'Failed to fetch review summary',
+        error: "Failed to fetch review summary",
       });
     }
   });

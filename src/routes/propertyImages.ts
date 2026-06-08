@@ -1,8 +1,18 @@
-import { FastifyPluginAsync } from 'fastify';
-import { verifyJWT } from '../utils/guards.js';
-import { uploadToS3, getPresignedUrl, deleteFromS3, isS3Configured } from '../services/s3.service.js';
-import { createImageSchema, reorderImagesSchema, ALLOWED_IMAGE_TYPES, MAX_IMAGES_PER_PROPERTY } from '../schemas/propertyImages.js';
-import { z } from 'zod';
+import { FastifyPluginAsync } from "fastify";
+import { verifyJWT } from "../utils/guards.js";
+import {
+  uploadToS3,
+  getPresignedUrl,
+  deleteFromS3,
+  isS3Configured,
+} from "../services/s3.service.js";
+import {
+  createImageSchema,
+  reorderImagesSchema,
+  ALLOWED_IMAGE_TYPES,
+  MAX_IMAGES_PER_PROPERTY,
+} from "../schemas/propertyImages.js";
+import { z } from "zod";
 
 const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -11,7 +21,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
    * Max 10 images per property. Multipart file upload with optional caption.
    */
   fastify.post<{ Params: { id: string } }>(
-    '/properties/:id/images',
+    "/properties/:id/images",
     { onRequest: [verifyJWT] },
     async (request, reply) => {
       const { id: propertyId } = request.params;
@@ -23,10 +33,17 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!property) {
-        return reply.code(404).send({ success: false, error: 'Property not found' });
+        return reply
+          .code(404)
+          .send({ success: false, error: "Property not found" });
       }
       if (property.sellerId !== userId) {
-        return reply.code(403).send({ success: false, error: 'You can only upload images to your own properties' });
+        return reply
+          .code(403)
+          .send({
+            success: false,
+            error: "You can only upload images to your own properties",
+          });
       }
 
       const imageCount = await fastify.prisma.propertyImage.count({
@@ -41,28 +58,32 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       if (!isS3Configured()) {
-        return reply.code(503).send({ success: false, error: 'Image storage not configured' });
+        return reply
+          .code(503)
+          .send({ success: false, error: "Image storage not configured" });
       }
 
       let caption: string | undefined;
       let filePart: any = null;
 
       for await (const part of request.parts()) {
-        if (part.type === 'field' && part.fieldname === 'caption') {
-          caption = String(part.value || '') || undefined;
+        if (part.type === "field" && part.fieldname === "caption") {
+          caption = String(part.value || "") || undefined;
         }
-        if (part.type === 'file' && part.fieldname === 'file') {
+        if (part.type === "file" && part.fieldname === "file") {
           filePart = part;
         }
       }
 
       if (!filePart) {
-        return reply.code(400).send({ success: false, error: 'No file uploaded' });
+        return reply
+          .code(400)
+          .send({ success: false, error: "No file uploaded" });
       }
       if (!ALLOWED_IMAGE_TYPES.has(filePart.mimetype)) {
         return reply.code(415).send({
           success: false,
-          error: 'File type not allowed. Use JPEG, PNG, or WebP.',
+          error: "File type not allowed. Use JPEG, PNG, or WebP.",
         });
       }
 
@@ -71,7 +92,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
         if (!parsed.success) {
           return reply.code(400).send({
             success: false,
-            error: 'Validation error',
+            error: "Validation error",
             details: parsed.error.errors,
           });
         }
@@ -118,7 +139,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
           createdAt: created.createdAt,
         },
       });
-    }
+    },
   );
 
   /**
@@ -126,7 +147,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
    * List property images with presigned URLs. Public endpoint.
    */
   fastify.get<{ Params: { id: string } }>(
-    '/properties/:id/images',
+    "/properties/:id/images",
     async (request, reply) => {
       const { id: propertyId } = request.params;
 
@@ -136,12 +157,14 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!property) {
-        return reply.code(404).send({ success: false, error: 'Property not found' });
+        return reply
+          .code(404)
+          .send({ success: false, error: "Property not found" });
       }
 
       const images = await fastify.prisma.propertyImage.findMany({
         where: { propertyId },
-        orderBy: { order: 'asc' },
+        orderBy: { order: "asc" },
       });
 
       const imagesWithUrls = await Promise.all(
@@ -152,11 +175,11 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
           order: img.order,
           caption: img.caption,
           createdAt: img.createdAt,
-        }))
+        })),
       );
 
       return reply.send({ success: true, images: imagesWithUrls });
-    }
+    },
   );
 
   /**
@@ -164,7 +187,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
    * Delete a listing image. Owner only.
    */
   fastify.delete<{ Params: { id: string; imageId: string } }>(
-    '/properties/:id/images/:imageId',
+    "/properties/:id/images/:imageId",
     { onRequest: [verifyJWT] },
     async (request, reply) => {
       const { id: propertyId, imageId } = request.params;
@@ -176,10 +199,17 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!property) {
-        return reply.code(404).send({ success: false, error: 'Property not found' });
+        return reply
+          .code(404)
+          .send({ success: false, error: "Property not found" });
       }
       if (property.sellerId !== userId) {
-        return reply.code(403).send({ success: false, error: 'You can only delete images from your own properties' });
+        return reply
+          .code(403)
+          .send({
+            success: false,
+            error: "You can only delete images from your own properties",
+          });
       }
 
       const image = await fastify.prisma.propertyImage.findFirst({
@@ -187,7 +217,9 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!image) {
-        return reply.code(404).send({ success: false, error: 'Image not found' });
+        return reply
+          .code(404)
+          .send({ success: false, error: "Image not found" });
       }
 
       await deleteFromS3(image.imageUrl);
@@ -195,17 +227,23 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
 
       const remaining = await fastify.prisma.propertyImage.findMany({
         where: { propertyId },
-        orderBy: { order: 'asc' },
+        orderBy: { order: "asc" },
       });
 
       const updates = remaining
-        .map((img, i) => ({ id: img.id, currentOrder: img.order, expectedOrder: i }))
-        .filter(({ currentOrder, expectedOrder }) => currentOrder !== expectedOrder)
+        .map((img, i) => ({
+          id: img.id,
+          currentOrder: img.order,
+          expectedOrder: i,
+        }))
+        .filter(
+          ({ currentOrder, expectedOrder }) => currentOrder !== expectedOrder,
+        )
         .map(({ id, expectedOrder }) =>
           fastify.prisma.propertyImage.update({
             where: { id },
             data: { order: expectedOrder },
-          })
+          }),
         );
 
       if (updates.length > 0) {
@@ -213,7 +251,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       return reply.send({ success: true });
-    }
+    },
   );
 
   /**
@@ -221,7 +259,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
    * Update image caption or metadata. Owner only.
    */
   fastify.patch<{ Params: { id: string; imageId: string } }>(
-    '/properties/:id/images/:imageId',
+    "/properties/:id/images/:imageId",
     { onRequest: [verifyJWT] },
     async (request, reply) => {
       const { id: propertyId, imageId } = request.params;
@@ -233,10 +271,17 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!property) {
-        return reply.code(404).send({ success: false, error: 'Property not found' });
+        return reply
+          .code(404)
+          .send({ success: false, error: "Property not found" });
       }
       if (property.sellerId !== userId) {
-        return reply.code(403).send({ success: false, error: 'You can only update images on your own properties' });
+        return reply
+          .code(403)
+          .send({
+            success: false,
+            error: "You can only update images on your own properties",
+          });
       }
 
       const image = await fastify.prisma.propertyImage.findFirst({
@@ -244,7 +289,9 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!image) {
-        return reply.code(404).send({ success: false, error: 'Image not found' });
+        return reply
+          .code(404)
+          .send({ success: false, error: "Image not found" });
       }
 
       const body = request.body as { caption?: string };
@@ -255,7 +302,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
         if (!parsed.success) {
           return reply.code(400).send({
             success: false,
-            error: 'Validation error',
+            error: "Validation error",
             details: parsed.error.errors,
           });
         }
@@ -278,7 +325,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
           createdAt: updated.createdAt,
         },
       });
-    }
+    },
   );
 
   /**
@@ -287,7 +334,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
    * Owner only.
    */
   fastify.patch<{ Params: { id: string } }>(
-    '/properties/:id/images/reorder',
+    "/properties/:id/images/reorder",
     { onRequest: [verifyJWT] },
     async (request, reply) => {
       const { id: propertyId } = request.params;
@@ -299,17 +346,24 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!property) {
-        return reply.code(404).send({ success: false, error: 'Property not found' });
+        return reply
+          .code(404)
+          .send({ success: false, error: "Property not found" });
       }
       if (property.sellerId !== userId) {
-        return reply.code(403).send({ success: false, error: 'You can only reorder images on your own properties' });
+        return reply
+          .code(403)
+          .send({
+            success: false,
+            error: "You can only reorder images on your own properties",
+          });
       }
 
       const parsed = reorderImagesSchema.safeParse(request.body);
       if (!parsed.success) {
         return reply.code(400).send({
           success: false,
-          error: 'Validation error',
+          error: "Validation error",
           details: parsed.error.errors,
         });
       }
@@ -326,7 +380,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
       if (!allBelong) {
         return reply.code(400).send({
           success: false,
-          error: 'One or more image IDs do not belong to this property',
+          error: "One or more image IDs do not belong to this property",
         });
       }
 
@@ -335,13 +389,13 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
           fastify.prisma.propertyImage.update({
             where: { id: imageId },
             data: { order: index },
-          })
-        )
+          }),
+        ),
       );
 
       const reordered = await fastify.prisma.propertyImage.findMany({
         where: { propertyId },
-        orderBy: { order: 'asc' },
+        orderBy: { order: "asc" },
       });
 
       const imagesWithUrls = await Promise.all(
@@ -352,11 +406,11 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
           order: img.order,
           caption: img.caption,
           createdAt: img.createdAt,
-        }))
+        })),
       );
 
       return reply.send({ success: true, images: imagesWithUrls });
-    }
+    },
   );
 };
 

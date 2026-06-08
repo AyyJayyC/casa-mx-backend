@@ -1,59 +1,65 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { buildApp } from '../src/app.js';
-import { FastifyInstance } from 'fastify';
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { buildApp } from "../src/app.js";
+import { FastifyInstance } from "fastify";
 
 let app: FastifyInstance;
 let sellerUser: { id: string };
 
-describe('Checkpoint 1 - Mexico Location Fields', () => {
+describe("Checkpoint 1 - Mexico Location Fields", () => {
   beforeAll(async () => {
     app = await buildApp();
     sellerUser = await app.prisma.user.create({
-      data: { email: `filter-seller-${Date.now()}@test.com`, name: 'Filter Seller', password: 'test' },
+      data: {
+        email: `filter-seller-${Date.now()}@test.com`,
+        name: "Filter Seller",
+        password: "test",
+      },
     });
   });
 
   afterAll(async () => {
-    await app.prisma.property.deleteMany({ where: { sellerId: sellerUser.id } });
+    await app.prisma.property.deleteMany({
+      where: { sellerId: sellerUser.id },
+    });
     await app.prisma.user.delete({ where: { id: sellerUser.id } });
     await app.close();
   });
 
-  it('should create property with all new location fields', async () => {
+  it("should create property with all new location fields", async () => {
     const property = await app.prisma.property.create({
       data: {
-        title: 'Test Property',
-        address: 'Calle Principal 123',
-        listingType: 'for_sale',
+        title: "Test Property",
+        address: "Calle Principal 123",
+        listingType: "for_sale",
         price: 500000,
-        estado: 'Jalisco',
-        ciudad: 'Guadalajara',
-        colonia: 'Providencia',
-        codigoPostal: '44630',
+        estado: "Jalisco",
+        ciudad: "Guadalajara",
+        colonia: "Providencia",
+        codigoPostal: "44630",
         sellerId: sellerUser.id,
       },
     });
 
-    expect(property).toHaveProperty('estado', 'Jalisco');
-    expect(property).toHaveProperty('ciudad', 'Guadalajara');
-    expect(property).toHaveProperty('colonia', 'Providencia');
-    expect(property).toHaveProperty('codigoPostal', '44630');
+    expect(property).toHaveProperty("estado", "Jalisco");
+    expect(property).toHaveProperty("ciudad", "Guadalajara");
+    expect(property).toHaveProperty("colonia", "Providencia");
+    expect(property).toHaveProperty("codigoPostal", "44630");
 
     await app.prisma.property.delete({ where: { id: property.id } });
   });
 
-  it('should allow optional ciudad, colonia, and codigoPostal', async () => {
+  it("should allow optional ciudad, colonia, and codigoPostal", async () => {
     const property = await app.prisma.property.create({
       data: {
-        title: 'Minimal Property',
-        listingType: 'for_sale',
+        title: "Minimal Property",
+        listingType: "for_sale",
         price: 250000,
-        estado: 'Ciudad de México',
+        estado: "Ciudad de México",
         sellerId: sellerUser.id,
       },
     });
 
-    expect(property).toHaveProperty('estado', 'Ciudad de México');
+    expect(property).toHaveProperty("estado", "Ciudad de México");
     expect(property.ciudad).toBeNull();
     expect(property.colonia).toBeNull();
     expect(property.codigoPostal).toBeNull();
@@ -61,98 +67,98 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
     await app.prisma.property.delete({ where: { id: property.id } });
   });
 
-  it('should require estado field', async () => {
+  it("should require estado field", async () => {
     try {
       await app.prisma.property.create({
         data: {
-          title: 'No Estado Property',
-          listingType: 'for_sale',
+          title: "No Estado Property",
+          listingType: "for_sale",
           price: 300000,
           sellerId: sellerUser.id,
           // estado is NOT provided
         } as any,
       });
-      expect.fail('Should require estado field');
+      expect.fail("Should require estado field");
     } catch (error: any) {
       expect(error).toBeDefined();
     }
   });
 
-  it('should default estado to Ciudad de México for new properties', async () => {
+  it("should default estado to Ciudad de México for new properties", async () => {
     const property = await app.prisma.property.create({
       data: {
-        title: 'Default Estado Property',
-        listingType: 'for_sale',
+        title: "Default Estado Property",
+        listingType: "for_sale",
         price: 400000,
         sellerId: sellerUser.id,
       } as any, // Allow missing estado to test default
     });
 
-    expect(property.estado).toBe('Ciudad de México');
+    expect(property.estado).toBe("Ciudad de México");
 
     await app.prisma.property.delete({ where: { id: property.id } });
   });
 
-  it('should have index on estado field', async () => {
+  it("should have index on estado field", async () => {
     // Create multiple properties with different estados
     const jalisco = await app.prisma.property.create({
       data: {
-        title: 'Jalisco Property',
-        listingType: 'for_sale',
+        title: "Jalisco Property",
+        listingType: "for_sale",
         price: 500000,
-        estado: 'Jalisco',
+        estado: "Jalisco",
         sellerId: sellerUser.id,
       },
     });
 
     const nuevoLeon = await app.prisma.property.create({
       data: {
-        title: 'Nuevo León Property',
-        listingType: 'for_sale',
+        title: "Nuevo León Property",
+        listingType: "for_sale",
         price: 600000,
-        estado: 'Nuevo León',
+        estado: "Nuevo León",
         sellerId: sellerUser.id,
       },
     });
 
     // Query by estado (index should make this fast)
     const jaliscoProps = await app.prisma.property.findMany({
-      where: { estado: 'Jalisco' },
+      where: { estado: "Jalisco" },
     });
 
     expect(jaliscoProps.length).toBeGreaterThanOrEqual(1);
-    expect(jaliscoProps.some(p => p.id === jalisco.id)).toBe(true);
+    expect(jaliscoProps.some((p) => p.id === jalisco.id)).toBe(true);
 
     // Cleanup
     await app.prisma.property.delete({ where: { id: jalisco.id } });
     await app.prisma.property.delete({ where: { id: nuevoLeon.id } });
   });
 
-  it('should have index on ciudad field', async () => {
+  it("should have index on ciudad field", async () => {
     const prop1 = await app.prisma.property.create({
       data: {
-        title: 'Guadalajara Property 1',
-        listingType: 'for_sale',
+        title: "Guadalajara Property 1",
+        listingType: "for_sale",
         price: 500000,
-        estado: 'Jalisco',
-        ciudad: 'Guadalajara',
+        estado: "Jalisco",
+        ciudad: "Guadalajara",
         sellerId: sellerUser.id,
       },
     });
 
     const prop2 = await app.prisma.property.create({
       data: {
-        title: 'Guadalajara Property 2',
-        listingType: 'for_sale',
+        title: "Guadalajara Property 2",
+        listingType: "for_sale",
         price: 550000,
-        estado: 'Jalisco',
-        ciudad: 'Guadalajara',
+        estado: "Jalisco",
+        ciudad: "Guadalajara",
         sellerId: sellerUser.id,
       },
     });
 
     const gdlProps = await app.prisma.property.findMany({
-      where: { ciudad: 'Guadalajara' },
+      where: { ciudad: "Guadalajara" },
     });
 
     expect(gdlProps.length).toBeGreaterThanOrEqual(2);
@@ -162,101 +168,101 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
     await app.prisma.property.delete({ where: { id: prop2.id } });
   });
 
-  it('should have index on colonia field', async () => {
+  it("should have index on colonia field", async () => {
     const romaNorte = await app.prisma.property.create({
       data: {
-        title: 'Roma Norte Property',
-        listingType: 'for_sale',
+        title: "Roma Norte Property",
+        listingType: "for_sale",
         price: 3000000,
-        estado: 'Ciudad de México',
-        ciudad: 'Ciudad de México',
-        colonia: 'Roma Norte',
-        codigoPostal: '06700',
+        estado: "Ciudad de México",
+        ciudad: "Ciudad de México",
+        colonia: "Roma Norte",
+        codigoPostal: "06700",
         sellerId: sellerUser.id,
       },
     });
 
     const results = await app.prisma.property.findMany({
-      where: { colonia: 'Roma Norte' },
+      where: { colonia: "Roma Norte" },
     });
 
     expect(results.length).toBeGreaterThanOrEqual(1);
-    expect(results.some(p => p.id === romaNorte.id)).toBe(true);
+    expect(results.some((p) => p.id === romaNorte.id)).toBe(true);
 
     await app.prisma.property.delete({ where: { id: romaNorte.id } });
   });
 
-  it('should have index on codigoPostal field', async () => {
+  it("should have index on codigoPostal field", async () => {
     const polanco = await app.prisma.property.create({
       data: {
-        title: 'Polanco Property',
-        listingType: 'for_sale',
+        title: "Polanco Property",
+        listingType: "for_sale",
         price: 4000000,
-        estado: 'Ciudad de México',
-        ciudad: 'Ciudad de México',
-        colonia: 'Polanco',
-        codigoPostal: '11560',
+        estado: "Ciudad de México",
+        ciudad: "Ciudad de México",
+        colonia: "Polanco",
+        codigoPostal: "11560",
         sellerId: sellerUser.id,
       },
     });
 
     const results = await app.prisma.property.findMany({
-      where: { codigoPostal: '11560' },
+      where: { codigoPostal: "11560" },
     });
 
     expect(results.length).toBeGreaterThanOrEqual(1);
-    expect(results.some(p => p.id === polanco.id)).toBe(true);
+    expect(results.some((p) => p.id === polanco.id)).toBe(true);
 
     await app.prisma.property.delete({ where: { id: polanco.id } });
   });
 
-  it('should maintain backward compatibility with address field', async () => {
+  it("should maintain backward compatibility with address field", async () => {
     const property = await app.prisma.property.create({
       data: {
-        title: 'Backward Compat Property',
-        address: 'Some old address',
-        listingType: 'for_sale',
+        title: "Backward Compat Property",
+        address: "Some old address",
+        listingType: "for_sale",
         price: 250000,
-        estado: 'Ciudad de México',
+        estado: "Ciudad de México",
         sellerId: sellerUser.id,
       },
     });
 
-    expect(property.address).toBe('Some old address');
-    expect(property.estado).toBe('Ciudad de México');
+    expect(property.address).toBe("Some old address");
+    expect(property.estado).toBe("Ciudad de México");
 
     await app.prisma.property.delete({ where: { id: property.id } });
   });
 
-  it('should allow querying with multiple location filters', async () => {
+  it("should allow querying with multiple location filters", async () => {
     const prop = await app.prisma.property.create({
       data: {
-        title: 'Multi Filter Property',
-        listingType: 'for_sale',
+        title: "Multi Filter Property",
+        listingType: "for_sale",
         price: 500000,
-        estado: 'Jalisco',
-        ciudad: 'Guadalajara',
-        colonia: 'Providencia',
-        codigoPostal: '44630',
+        estado: "Jalisco",
+        ciudad: "Guadalajara",
+        colonia: "Providencia",
+        codigoPostal: "44630",
         sellerId: sellerUser.id,
       },
     });
 
     const results = await app.prisma.property.findMany({
       where: {
-        estado: 'Jalisco',
-        ciudad: 'Guadalajara',
-        colonia: 'Providencia',
+        estado: "Jalisco",
+        ciudad: "Guadalajara",
+        colonia: "Providencia",
       },
     });
 
     expect(results.length).toBeGreaterThanOrEqual(1);
-    expect(results.some(p => p.id === prop.id)).toBe(true);
+    expect(results.some((p) => p.id === prop.id)).toBe(true);
 
     await app.prisma.property.delete({ where: { id: prop.id } });
   });
 
-  it('should not filter when where clause is empty', async () => {
+  it("should not filter when where clause is empty", async () => {
     const allProperties = await app.prisma.property.findMany();
     const unfiltered = await app.prisma.property.findMany({
       where: {},
@@ -265,21 +271,21 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
     expect(unfiltered.length).toBe(allProperties.length);
   });
 
-  it('should support combining location filters with price filters', async () => {
+  it("should support combining location filters with price filters", async () => {
     const prop = await app.prisma.property.create({
       data: {
-        title: 'Price Filter Test',
-        listingType: 'for_sale',
+        title: "Price Filter Test",
+        listingType: "for_sale",
         price: 500000,
-        estado: 'Jalisco',
-        ciudad: 'Guadalajara',
+        estado: "Jalisco",
+        ciudad: "Guadalajara",
         sellerId: sellerUser.id,
       },
     });
 
     const results = await app.prisma.property.findMany({
       where: {
-        estado: 'Jalisco',
+        estado: "Jalisco",
         price: {
           gte: 400000,
           lte: 600000,
@@ -288,7 +294,7 @@ describe('Checkpoint 1 - Mexico Location Fields', () => {
     });
 
     expect(results.length).toBeGreaterThanOrEqual(1);
-    expect(results.some(p => p.id === prop.id)).toBe(true);
+    expect(results.some((p) => p.id === prop.id)).toBe(true);
 
     await app.prisma.property.delete({ where: { id: prop.id } });
   });

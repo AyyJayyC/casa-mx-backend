@@ -1,61 +1,65 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { buildApp } from '../src/app.js';
-import { FastifyInstance } from 'fastify';
-import { getCookie } from './utils/authHelpers.js';
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { buildApp } from "../src/app.js";
+import { FastifyInstance } from "fastify";
+import { getCookie } from "./utils/authHelpers.js";
 
 let app: FastifyInstance;
 let userToken: string;
 let userId: string;
 let adminToken: string;
 
-describe('Users Routes', () => {
+describe("Users Routes", () => {
   beforeAll(async () => {
     app = await buildApp();
 
     const email = `users-test-${Date.now()}@example.com`;
     await app.inject({
-      method: 'POST',
-      url: '/auth/register',
+      method: "POST",
+      url: "/auth/register",
       payload: {
         email,
-        name: 'Users Test',
-        password: 'Password1',
+        name: "Users Test",
+        password: "Password1",
       },
     });
 
     const loginResponse = await app.inject({
-      method: 'POST',
-      url: '/auth/login',
+      method: "POST",
+      url: "/auth/login",
       payload: {
         email,
-        password: 'Password1',
+        password: "Password1",
       },
     });
 
     const loginBody = loginResponse.json() as any;
-    userToken = getCookie(loginResponse, 'accessToken') ?? loginBody.token;
+    userToken = getCookie(loginResponse, "accessToken") ?? loginBody.token;
     userId = loginBody.user.id;
 
     const adminLoginResponse = await app.inject({
-      method: 'POST',
-      url: '/auth/login',
+      method: "POST",
+      url: "/auth/login",
       payload: {
-        email: 'admin@casamx.local',
-        password: 'admin123',
+        email: "admin@casamx.local",
+        password: "admin123",
       },
     });
-    adminToken = getCookie(adminLoginResponse, 'accessToken') ?? (adminLoginResponse.json() as any).token;
+    adminToken =
+      getCookie(adminLoginResponse, "accessToken") ??
+      (adminLoginResponse.json() as any).token;
   });
 
   afterAll(async () => {
-    await app.prisma.user.deleteMany({ where: { email: { startsWith: 'users-test-' } } });
+    await app.prisma.user.deleteMany({
+      where: { email: { startsWith: "users-test-" } },
+    });
     await app.close();
   });
 
-  it('GET /users/me should return current user profile', async () => {
+  it("GET /users/me should return current user profile", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/users/me',
+      method: "GET",
+      url: "/users/me",
       headers: {
         authorization: `Bearer ${userToken}`,
       },
@@ -65,31 +69,31 @@ describe('Users Routes', () => {
     const body = response.json() as any;
     expect(body.success).toBe(true);
     expect(body.data.id).toBe(userId);
-    expect(body.data.email).toContain('users-test-');
+    expect(body.data.email).toContain("users-test-");
   });
 
-  it('PATCH /users/me should update current user profile', async () => {
+  it("PATCH /users/me should update current user profile", async () => {
     const response = await app.inject({
-      method: 'PATCH',
-      url: '/users/me',
+      method: "PATCH",
+      url: "/users/me",
       headers: {
         authorization: `Bearer ${userToken}`,
       },
       payload: {
-        name: 'Updated Users Test',
+        name: "Updated Users Test",
       },
     });
 
     expect(response.statusCode).toBe(200);
     const body = response.json() as any;
     expect(body.success).toBe(true);
-    expect(body.data.name).toBe('Updated Users Test');
+    expect(body.data.name).toBe("Updated Users Test");
   });
 
-  it('PATCH /users/me should reject empty payload', async () => {
+  it("PATCH /users/me should reject empty payload", async () => {
     const response = await app.inject({
-      method: 'PATCH',
-      url: '/users/me',
+      method: "PATCH",
+      url: "/users/me",
       headers: {
         authorization: `Bearer ${userToken}`,
       },
@@ -99,9 +103,9 @@ describe('Users Routes', () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it('GET /users/:id should allow self access', async () => {
+  it("GET /users/:id should allow self access", async () => {
     const response = await app.inject({
-      method: 'GET',
+      method: "GET",
       url: `/users/${userId}`,
       headers: {
         authorization: `Bearer ${userToken}`,
@@ -114,10 +118,10 @@ describe('Users Routes', () => {
     expect(body.data.id).toBe(userId);
   });
 
-  it('GET /users/:id should reject access to another user for non-admin', async () => {
+  it("GET /users/:id should reject access to another user for non-admin", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/users/00000000-0000-0000-0000-000000000001',
+      method: "GET",
+      url: "/users/00000000-0000-0000-0000-000000000001",
       headers: {
         authorization: `Bearer ${userToken}`,
       },
@@ -126,9 +130,9 @@ describe('Users Routes', () => {
     expect(response.statusCode).toBe(403);
   });
 
-  it('GET /users/:id should allow admin access to another user id', async () => {
+  it("GET /users/:id should allow admin access to another user id", async () => {
     const response = await app.inject({
-      method: 'GET',
+      method: "GET",
       url: `/users/${userId}`,
       headers: {
         authorization: `Bearer ${adminToken}`,
@@ -141,10 +145,10 @@ describe('Users Routes', () => {
     expect(body.data.id).toBe(userId);
   });
 
-  it('GET /users/:id should validate UUID format', async () => {
+  it("GET /users/:id should validate UUID format", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/users/not-a-uuid',
+      method: "GET",
+      url: "/users/not-a-uuid",
       headers: {
         authorization: `Bearer ${userToken}`,
       },
@@ -153,10 +157,10 @@ describe('Users Routes', () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it('GET /users/me should require authentication', async () => {
+  it("GET /users/me should require authentication", async () => {
     const response = await app.inject({
-      method: 'GET',
-      url: '/users/me',
+      method: "GET",
+      url: "/users/me",
     });
 
     expect(response.statusCode).toBe(401);

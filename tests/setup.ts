@@ -1,11 +1,18 @@
-import { beforeAll, afterAll } from 'vitest';
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import { beforeAll, afterAll } from "vitest";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
 beforeAll(async () => {
-  const requiredRoles = ['admin', 'landlord', 'buyer', 'seller', 'tenant', 'wholesaler'];
+  const requiredRoles = [
+    "admin",
+    "landlord",
+    "buyer",
+    "seller",
+    "tenant",
+    "wholesaler",
+  ];
   const roleMap: Record<string, string> = {};
 
   for (const roleName of requiredRoles) {
@@ -53,15 +60,25 @@ beforeAll(async () => {
           data: {
             userId: user.id,
             roleId,
-            status: 'approved',
+            status: "approved",
           },
         });
       }
     }
   };
 
-  await ensureUserWithRoles('admin@casamx.local', 'Test Admin', 'admin123', ['admin']);
-  await ensureUserWithRoles('seller@casamx.local', 'Seed Seller', 'seller123', ['seller', 'landlord']);
+  await ensureUserWithRoles(
+    "admin@casamx.local",
+    "Test Admin",
+    process.env.TEST_ADMIN_PASSWORD || "admin123",
+    ["admin"],
+  );
+  await ensureUserWithRoles(
+    "seller@casamx.local",
+    "Seed Seller",
+    process.env.TEST_SELLER_PASSWORD || "seller123",
+    ["seller", "landlord"],
+  );
 });
 
 afterAll(async () => {

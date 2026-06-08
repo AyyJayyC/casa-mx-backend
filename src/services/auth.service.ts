@@ -1,10 +1,10 @@
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
-import crypto from 'node:crypto';
-import { RegisterInput, LoginInput } from '../schemas/auth.js';
-import { generateReferralCode as genRefCode } from '../utils/errorHandling.js';
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
+import crypto from "node:crypto";
+import { RegisterInput, LoginInput } from "../schemas/auth.js";
+import { generateReferralCode as genRefCode } from "../utils/errorHandling.js";
 
-const AUTO_APPROVED_ROLES = new Set(['buyer', 'tenant']);
+const AUTO_APPROVED_ROLES = new Set(["buyer", "tenant"]);
 
 export class AuthService {
   constructor(private prisma: PrismaClient) {}
@@ -24,7 +24,9 @@ export class AuthService {
   private async ensureUniqueReferralCode(): Promise<string> {
     for (let i = 0; i < 5; i++) {
       const code = this.generateReferralCode();
-      const existing = await this.prisma.user.findUnique({ where: { referralCode: code } });
+      const existing = await this.prisma.user.findUnique({
+        where: { referralCode: code },
+      });
       if (!existing) return code;
     }
     return this.generateReferralCode() + Date.now().toString(36).toUpperCase();
@@ -32,12 +34,16 @@ export class AuthService {
 
   async register(data: RegisterInput) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
-    const requestedRoles = [...new Set(data.roles ?? ['buyer'])];
+    const requestedRoles = [...new Set(data.roles ?? ["buyer"])];
 
     // Auto-grant admin if registering with ADMIN_EMAIL
     const adminEmail = process.env.ADMIN_EMAIL?.trim();
-    if (adminEmail && data.email === adminEmail && !requestedRoles.includes('admin')) {
-      requestedRoles.push('admin');
+    if (
+      adminEmail &&
+      data.email === adminEmail &&
+      !requestedRoles.includes("admin")
+    ) {
+      requestedRoles.push("admin");
     }
 
     const referralCode = await this.ensureUniqueReferralCode();
@@ -49,11 +55,15 @@ export class AuthService {
     let agencyId: string | undefined;
 
     if (ref) {
-      const referrerUser = await this.prisma.user.findUnique({ where: { referralCode: ref } });
+      const referrerUser = await this.prisma.user.findUnique({
+        where: { referralCode: ref },
+      });
       if (referrerUser) {
         referredById = referrerUser.id;
       } else {
-        const agency = await this.prisma.agency.findUnique({ where: { referralCode: ref } });
+        const agency = await this.prisma.agency.findUnique({
+          where: { referralCode: ref },
+        });
         if (agency) {
           agencyId = agency.id;
         }
@@ -73,7 +83,7 @@ export class AuthService {
             requestedRoles.map(async (roleName) => ({
               roleId: await this.getRoleId(roleName),
               status: this.getInitialRoleStatus(roleName, data.email),
-            }))
+            })),
           ),
         },
       },
@@ -86,7 +96,7 @@ export class AuthService {
         data: {
           referrerId: referredById,
           referralCode: ref,
-          eventType: 'signup',
+          eventType: "signup",
           linkedUserId: user.id,
         },
       });
@@ -112,24 +122,25 @@ export class AuthService {
     });
 
     // Constant-time: always run bcrypt compare even if user doesn't exist
-    const dummyHash = '$2b$10$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const dummyHash = "$2b$10$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     const isMatch = user
       ? await bcrypt.compare(data.password, user.password ?? dummyHash)
       : await bcrypt.compare(data.password, dummyHash);
 
     if (!user) {
-      throw new Error('Invalid email or password');
+      throw new Error("Invalid email or password");
     }
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new Error('Invalid email or password');
+      throw new Error("Invalid email or password");
     }
 
     if (!user.password || !isMatch) {
       const attempts = (user.failedLoginAttempts || 0) + 1;
-      const lockedUntil = attempts >= 5
-        ? new Date(Date.now() + 15 * 60 * 1000)
-        : user.lockedUntil;
+      const lockedUntil =
+        attempts >= 5
+          ? new Date(Date.now() + 15 * 60 * 1000)
+          : user.lockedUntil;
 
       await this.prisma.user.update({
         where: { id: user.id },
@@ -140,7 +151,7 @@ export class AuthService {
         },
       });
 
-      throw new Error('Invalid email or password');
+      throw new Error("Invalid email or password");
     }
 
     await this.prisma.user.update({
@@ -183,7 +194,12 @@ export class AuthService {
   }) {
     // Try find by provider + providerId first (most reliable)
     let user = await this.prisma.user.findUnique({
-      where: { provider_providerId: { provider: data.provider, providerId: data.providerId } },
+      where: {
+        provider_providerId: {
+          provider: data.provider,
+          providerId: data.providerId,
+        },
+      },
       include: { roles: { include: { role: true } } },
     });
 
@@ -198,16 +214,24 @@ export class AuthService {
         // Link OAuth to existing account
         user = await this.prisma.user.update({
           where: { id: user.id },
-          data: { provider: data.provider, providerId: data.providerId, avatarUrl: data.avatarUrl },
+          data: {
+            provider: data.provider,
+            providerId: data.providerId,
+            avatarUrl: data.avatarUrl,
+          },
           include: { roles: { include: { role: true } } },
         });
       } else {
         // Create new user via OAuth
-        const defaultRoles = ['buyer', 'tenant'];
+        const defaultRoles = ["buyer", "tenant"];
         // Auto-grant admin if registering with ADMIN_EMAIL
         const adminEmail = process.env.ADMIN_EMAIL?.trim();
-        if (adminEmail && data.email === adminEmail && !defaultRoles.includes('admin')) {
-          defaultRoles.push('admin');
+        if (
+          adminEmail &&
+          data.email === adminEmail &&
+          !defaultRoles.includes("admin")
+        ) {
+          defaultRoles.push("admin");
         }
         const referralCode = await this.ensureUniqueReferralCode();
         user = await this.prisma.user.create({
@@ -223,7 +247,7 @@ export class AuthService {
                 defaultRoles.map(async (roleName) => ({
                   roleId: await this.getRoleId(roleName),
                   status: this.getInitialRoleStatus(roleName, data.email),
-                }))
+                })),
               ),
             },
           },
@@ -263,11 +287,11 @@ export class AuthService {
   private getInitialRoleStatus(roleName: string, email?: string): string {
     // ADMIN_EMAIL user gets all roles auto-approved, including admin
     const adminEmail = process.env.ADMIN_EMAIL?.trim();
-    if (adminEmail && email === adminEmail) return 'approved';
+    if (adminEmail && email === adminEmail) return "approved";
 
     // Admin role requires manual approval by existing admin for non-ADMIN_EMAIL users
-    if (roleName === 'admin') return 'pending';
+    if (roleName === "admin") return "pending";
 
-    return AUTO_APPROVED_ROLES.has(roleName) ? 'approved' : 'pending';
+    return AUTO_APPROVED_ROLES.has(roleName) ? "approved" : "pending";
   }
 }

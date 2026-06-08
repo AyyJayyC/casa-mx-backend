@@ -1,10 +1,10 @@
 /**
  * Environment Variable Validation Script
- * 
+ *
  * This script validates that all required production environment variables
  * are present before deployment. Run this during CI/CD or pre-deployment
  * to catch configuration issues early.
- * 
+ *
  * Usage: npx tsx scripts/check-env.ts
  */
 
@@ -17,57 +17,57 @@ interface EnvVariable {
 
 const REQUIRED_ENV_VARS: EnvVariable[] = [
   {
-    name: 'DATABASE_URL',
-    description: 'PostgreSQL connection string',
+    name: "DATABASE_URL",
+    description: "PostgreSQL connection string",
     required: true,
-    example: 'postgresql://user:password@host:5432/database',
+    example: "postgresql://user:password@host:5432/database",
   },
   {
-    name: 'REDIS_URL',
-    description: 'Redis connection string (optional but recommended)',
+    name: "REDIS_URL",
+    description: "Redis connection string (optional but recommended)",
     required: false,
-    example: 'redis://localhost:6379',
+    example: "redis://localhost:6379",
   },
   {
-    name: 'JWT_SECRET',
-    description: 'Secret key for JWT access token signing',
+    name: "JWT_SECRET",
+    description: "Secret key for JWT access token signing",
     required: true,
-    example: 'your-secure-random-string-min-32-chars',
+    example: "your-secure-random-string-min-32-chars",
   },
   {
-    name: 'JWT_REFRESH_SECRET',
-    description: 'Secret key for JWT refresh token signing',
+    name: "JWT_REFRESH_SECRET",
+    description: "Secret key for JWT refresh token signing",
     required: false,
-    example: 'your-secure-random-string-min-32-chars',
+    example: "your-secure-random-string-min-32-chars",
   },
   {
-    name: 'FRONTEND_URL',
-    description: 'Frontend application URL for CORS',
+    name: "FRONTEND_URL",
+    description: "Frontend application URL for CORS",
     required: true,
-    example: 'https://casamx.com',
+    example: "https://casamx.com",
   },
   {
-    name: 'MAPS_API_KEY',
-    description: 'Google Maps API key',
+    name: "MAPS_API_KEY",
+    description: "Google Maps API key",
     required: true,
-    example: 'AIza...',
+    example: "AIza...",
   },
   {
-    name: 'NODE_ENV',
-    description: 'Application environment',
+    name: "NODE_ENV",
+    description: "Application environment",
     required: true,
-    example: 'production',
+    example: "production",
   },
   {
-    name: 'PORT',
-    description: 'Server port',
+    name: "PORT",
+    description: "Server port",
     required: false,
-    example: '3001',
+    example: "3001",
   },
 ];
 
 function checkEnvironmentVariables(): void {
-  console.log('🔍 Validating environment variables...\n');
+  console.log("🔍 Validating environment variables...\n");
 
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -76,95 +76,111 @@ function checkEnvironmentVariables(): void {
   for (const envVar of REQUIRED_ENV_VARS) {
     const value = process.env[envVar.name];
 
-    if (!value || value.trim() === '') {
+    if (!value || value.trim() === "") {
       if (envVar.required) {
         errors.push(
-          `❌ MISSING REQUIRED: ${envVar.name}\n   Description: ${envVar.description}\n   Example: ${envVar.example || 'N/A'}`
+          `❌ MISSING REQUIRED: ${envVar.name}\n   Description: ${envVar.description}\n   Example: ${envVar.example || "N/A"}`,
         );
       } else {
         warnings.push(
-          `⚠️  OPTIONAL NOT SET: ${envVar.name}\n   Description: ${envVar.description}\n   Example: ${envVar.example || 'N/A'}`
+          `⚠️  OPTIONAL NOT SET: ${envVar.name}\n   Description: ${envVar.description}\n   Example: ${envVar.example || "N/A"}`,
         );
       }
     } else {
       // Validate format for specific variables
-      if (envVar.name === 'DATABASE_URL' && !value.startsWith('postgresql://')) {
+      if (
+        envVar.name === "DATABASE_URL" &&
+        !value.startsWith("postgresql://")
+      ) {
         errors.push(
-          `❌ INVALID FORMAT: ${envVar.name}\n   Must start with 'postgresql://'\n   Current: ${value.substring(0, 30)}...`
+          `❌ INVALID FORMAT: ${envVar.name}\n   Must start with 'postgresql://'\n   Current: ${value.substring(0, 30)}...`,
         );
-      } else if (envVar.name === 'REDIS_URL' && !value.startsWith('redis://')) {
+      } else if (envVar.name === "REDIS_URL" && !value.startsWith("redis://")) {
         errors.push(
-          `❌ INVALID FORMAT: ${envVar.name}\n   Must start with 'redis://'\n   Current: ${value.substring(0, 30)}...`
+          `❌ INVALID FORMAT: ${envVar.name}\n   Must start with 'redis://'\n   Current: ${value.substring(0, 30)}...`,
         );
-      } else if (envVar.name === 'JWT_SECRET' && value.length < 32) {
+      } else if (envVar.name === "JWT_SECRET" && value.length < 32) {
         errors.push(
-          `❌ INSECURE: ${envVar.name}\n   Must be at least 32 characters\n   Current length: ${value.length}`
+          `❌ INSECURE: ${envVar.name}\n   Must be at least 32 characters\n   Current length: ${value.length}`,
         );
-      } else if (envVar.name === 'NODE_ENV' && !['development', 'production', 'test'].includes(value)) {
+      } else if (
+        envVar.name === "NODE_ENV" &&
+        !["development", "production", "test"].includes(value)
+      ) {
         errors.push(
-          `❌ INVALID VALUE: ${envVar.name}\n   Must be 'development', 'production', or 'test'\n   Current: ${value}`
+          `❌ INVALID VALUE: ${envVar.name}\n   Must be 'development', 'production', or 'test'\n   Current: ${value}`,
         );
       } else {
-        valid.push(`✅ ${envVar.name}: ${value.substring(0, 30)}${value.length > 30 ? '...' : ''}`);
+        valid.push(
+          `✅ ${envVar.name}: ${value.substring(0, 30)}${value.length > 30 ? "..." : ""}`,
+        );
       }
     }
   }
 
   // Print results
   if (valid.length > 0) {
-    console.log('✅ Valid Environment Variables:');
+    console.log("✅ Valid Environment Variables:");
     valid.forEach((v) => console.log(`   ${v}`));
-    console.log('');
+    console.log("");
   }
 
   if (warnings.length > 0) {
-    console.log('⚠️  Warnings:');
+    console.log("⚠️  Warnings:");
     warnings.forEach((w) => console.log(`   ${w}\n`));
   }
 
   if (errors.length > 0) {
-    console.error('❌ VALIDATION FAILED:\n');
+    console.error("❌ VALIDATION FAILED:\n");
     errors.forEach((e) => console.error(`   ${e}\n`));
-    console.error('\n💡 Tip: Copy .env.example to .env and fill in the values\n');
+    console.error(
+      "\n💡 Tip: Copy .env.example to .env and fill in the values\n",
+    );
     process.exit(1);
   }
 
-  console.log('✅ Environment validation passed!\n');
+  console.log("✅ Environment validation passed!\n");
 
   // Production-specific checks
-  if (process.env.NODE_ENV === 'production') {
-    console.log('🔒 Production Environment Checks:');
+  if (process.env.NODE_ENV === "production") {
+    console.log("🔒 Production Environment Checks:");
 
     const productionChecks: string[] = [];
 
-    if (process.env.JWT_SECRET === 'your-secret-key-change-in-production') {
-      productionChecks.push('❌ JWT_SECRET is using default value - CHANGE THIS!');
+    if (process.env.JWT_SECRET === "your-secret-key-change-in-production") {
+      productionChecks.push(
+        "❌ JWT_SECRET is using default value - CHANGE THIS!",
+      );
     }
 
-    if (process.env.FRONTEND_URL?.includes('localhost')) {
-      productionChecks.push('⚠️  FRONTEND_URL contains "localhost" - is this correct for production?');
+    if (process.env.FRONTEND_URL?.includes("localhost")) {
+      productionChecks.push(
+        '⚠️  FRONTEND_URL contains "localhost" - is this correct for production?',
+      );
     }
 
     if (!process.env.REDIS_URL) {
-      productionChecks.push('⚠️  REDIS_URL not set - caching will be disabled (performance impact)');
+      productionChecks.push(
+        "⚠️  REDIS_URL not set - caching will be disabled (performance impact)",
+      );
     }
 
     if (productionChecks.length > 0) {
-      console.log('');
+      console.log("");
       productionChecks.forEach((check) => console.log(`   ${check}`));
-      console.log('');
+      console.log("");
     } else {
-      console.log('   All production checks passed!\n');
+      console.log("   All production checks passed!\n");
     }
   }
 
-  console.log('🚀 Ready for deployment!\n');
+  console.log("🚀 Ready for deployment!\n");
 }
 
 // Run validation
 try {
   checkEnvironmentVariables();
 } catch (error) {
-  console.error('❌ Unexpected error during validation:', error);
+  console.error("❌ Unexpected error during validation:", error);
   process.exit(1);
 }

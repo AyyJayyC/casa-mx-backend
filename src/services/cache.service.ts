@@ -5,7 +5,7 @@
  * Fallback: Graceful degradation to direct DB queries if Redis unavailable
  */
 
-import Redis from 'ioredis';
+import Redis from "ioredis";
 
 class CacheService {
   private redis: Redis | null = null;
@@ -20,13 +20,15 @@ class CacheService {
    */
   private initializeRedis() {
     try {
-      const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-      
+      const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+
       this.redis = new Redis(redisUrl, {
         retryStrategy: (times) => {
           // Stop retrying after 3 attempts
           if (times > 3) {
-            console.warn('[CACHE] Redis connection failed after 3 attempts. Using direct DB queries.');
+            console.warn(
+              "[CACHE] Redis connection failed after 3 attempts. Using direct DB queries.",
+            );
             return null;
           }
           // Retry with exponential backoff
@@ -38,33 +40,33 @@ class CacheService {
       });
 
       // Connection event handlers
-      this.redis.on('connect', () => {
-        console.log('[CACHE] Redis connected successfully');
+      this.redis.on("connect", () => {
+        console.log("[CACHE] Redis connected successfully");
         this.isConnected = true;
       });
 
-      this.redis.on('ready', () => {
-        console.log('[CACHE] Redis ready to accept commands');
+      this.redis.on("ready", () => {
+        console.log("[CACHE] Redis ready to accept commands");
       });
 
-      this.redis.on('error', (err) => {
-        console.warn('[CACHE] Redis connection error:', err.message);
+      this.redis.on("error", (err) => {
+        console.warn("[CACHE] Redis connection error:", err.message);
         this.isConnected = false;
       });
 
-      this.redis.on('close', () => {
-        console.log('[CACHE] Redis connection closed');
+      this.redis.on("close", () => {
+        console.log("[CACHE] Redis connection closed");
         this.isConnected = false;
       });
 
       // Attempt connection
       this.redis.connect().catch((err) => {
-        console.warn('[CACHE] Could not connect to Redis:', err.message);
-        console.warn('[CACHE] Falling back to direct database queries');
+        console.warn("[CACHE] Could not connect to Redis:", err.message);
+        console.warn("[CACHE] Falling back to direct database queries");
         this.isConnected = false;
       });
     } catch (error) {
-      console.warn('[CACHE] Redis initialization failed:', error);
+      console.warn("[CACHE] Redis initialization failed:", error);
       this.redis = null;
       this.isConnected = false;
     }
@@ -98,7 +100,11 @@ class CacheService {
    * @param value - Data to cache
    * @param ttlSeconds - Time to live in seconds (default: 24 hours)
    */
-  async set(key: string, value: any, ttlSeconds: number = 86400): Promise<void> {
+  async set(
+    key: string,
+    value: any,
+    ttlSeconds: number = 86400,
+  ): Promise<void> {
     if (!this.isConnected || !this.redis) {
       return; // Skip caching if Redis unavailable
     }
@@ -124,7 +130,9 @@ class CacheService {
       const keys = await this.redis.keys(pattern);
       if (keys.length > 0) {
         await this.redis.del(...keys);
-        console.log(`[CACHE] Invalidated ${keys.length} keys matching "${pattern}"`);
+        console.log(
+          `[CACHE] Invalidated ${keys.length} keys matching "${pattern}"`,
+        );
       }
     } catch (error) {
       console.warn(`[CACHE] Error invalidating pattern "${pattern}":`, error);

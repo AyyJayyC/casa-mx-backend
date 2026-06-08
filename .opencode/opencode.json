@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["INSTRUCTIONS.md"],
+  "command": {
+    "deploy": {
+      "description": "Merge staging branch into main (production) for both frontend and backend repos.",
+      "prompt": "Merge the staging branch into main for both C:\\Users\\axelj\\casa-mx and C:\\Users\\axelj\\casa-mx-backend and push to GitHub. Then switch back to staging branches."
+    }
+  },
+  "plugin": [
+    "opencode-dynamic-context-pruning",
+    "opencode-notify",
+    "opencode-wakatime"
+  ],
+  "mcp": {
+    "auto-browser": {
+      "type": "local",
+      "command": ["python", "C:\\Users\\axelj\\auto-browser\\scripts\\mcp_stdio_bridge.py"],
+      "enabled": true
+    }
+  }
+}

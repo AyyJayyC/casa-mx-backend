@@ -1,14 +1,14 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 export type NotificationType =
-  | 'offer_accepted'
-  | 'offer_rejected'
-  | 'offer_countered'
-  | 'application_approved'
-  | 'application_rejected'
-  | 'offer_received'
-  | 'application_received'
-  | 'new_property_in_area';
+  | "offer_accepted"
+  | "offer_rejected"
+  | "offer_countered"
+  | "application_approved"
+  | "application_rejected"
+  | "offer_received"
+  | "application_received"
+  | "new_property_in_area";
 
 export async function createNotification(
   prisma: PrismaClient,
@@ -17,7 +17,7 @@ export async function createNotification(
   title: string,
   message: string,
   entityType?: string,
-  entityId?: string
+  entityId?: string,
 ) {
   return prisma.notification.create({
     data: {
@@ -36,15 +36,19 @@ export async function notifyTagSubscribers(
   propertyId: string,
   propertyTitle: string,
   ciudad?: string | null,
-  colonia?: string | null
+  colonia?: string | null,
 ) {
   const tags: string[] = [];
   if (ciudad) tags.push(ciudad);
   if (colonia) tags.push(colonia);
   if (tags.length === 0) return;
 
-  const normalized = tags.map(t =>
-    String(t).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const normalized = tags.map((t) =>
+    String(t)
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, ""),
   );
 
   const subscriptions = await prisma.tagSubscription.findMany({
@@ -65,13 +69,16 @@ export async function notifyTagSubscribers(
     await createNotification(
       prisma,
       sub.userId,
-      'new_property_in_area',
+      "new_property_in_area",
       `🏠 Nueva propiedad en ${sub.tagName}`,
       propertyTitle,
-      'property',
+      "property",
       propertyId,
     ).catch((err) => {
-      console.error(`[notify] Failed to create notification for user ${sub.userId}:`, err?.message);
+      console.error(
+        `[notify] Failed to create notification for user ${sub.userId}:`,
+        err?.message,
+      );
     });
   }
 }

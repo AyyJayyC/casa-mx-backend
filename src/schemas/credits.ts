@@ -1,12 +1,12 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const SpendCreditSchema = z.object({
-  leadId:   z.string().uuid('Invalid lead ID'),
-  leadType: z.enum(['application', 'request', 'offer']),
+  leadId: z.string().uuid("Invalid lead ID"),
+  leadType: z.enum(["application", "request", "offer"]),
 });
 
 export const CreatePaymentIntentSchema = z.object({
-  packageId: z.string().uuid('Invalid package ID'),
+  packageId: z.string().uuid("Invalid package ID"),
 });
 
 export const FulfillPaymentSchema = z.object({
@@ -15,5 +15,7 @@ export const FulfillPaymentSchema = z.object({
 });
 
 export type SpendCreditInput = z.infer<typeof SpendCreditSchema>;
-export type CreatePaymentIntentInput = z.infer<typeof CreatePaymentIntentSchema>;
+export type CreatePaymentIntentInput = z.infer<
+  typeof CreatePaymentIntentSchema
+>;
 export type FulfillPaymentInput = z.infer<typeof FulfillPaymentSchema>;

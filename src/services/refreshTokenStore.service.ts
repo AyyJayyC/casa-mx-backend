@@ -1,8 +1,8 @@
-import { env } from '../config/env.js';
-import { cacheService } from './cache.service.js';
+import { env } from "../config/env.js";
+import { cacheService } from "./cache.service.js";
 
 function parseDurationToSeconds(duration: string): number {
-  const value = String(duration || '').trim();
+  const value = String(duration || "").trim();
   const match = value.match(/^(\d+)([smhd])$/i);
 
   if (!match) {
@@ -14,13 +14,13 @@ function parseDurationToSeconds(duration: string): number {
   const unit = match[2].toLowerCase();
 
   switch (unit) {
-    case 's':
+    case "s":
       return amount;
-    case 'm':
+    case "m":
       return amount * 60;
-    case 'h':
+    case "h":
       return amount * 60 * 60;
-    case 'd':
+    case "d":
       return amount * 60 * 60 * 24;
     default:
       return 60 * 60 * 24 * 7;
@@ -30,7 +30,9 @@ function parseDurationToSeconds(duration: string): number {
 class RefreshTokenStoreService {
   private readonly activeTokenMemory = new Map<string, string>();
   private readonly revokedTokenMemory = new Set<string>();
-  private readonly refreshTtlSeconds = parseDurationToSeconds(env.JWT_REFRESH_EXPIRY);
+  private readonly refreshTtlSeconds = parseDurationToSeconds(
+    env.JWT_REFRESH_EXPIRY,
+  );
 
   private getActiveKey(userId: string): string {
     return `auth:refresh:active:${userId}`;
@@ -42,7 +44,11 @@ class RefreshTokenStoreService {
 
   async setActiveJtiForUser(userId: string, jti: string): Promise<void> {
     this.activeTokenMemory.set(userId, jti);
-    await cacheService.set(this.getActiveKey(userId), jti, this.refreshTtlSeconds);
+    await cacheService.set(
+      this.getActiveKey(userId),
+      jti,
+      this.refreshTtlSeconds,
+    );
   }
 
   async getActiveJtiForUser(userId: string): Promise<string | null> {
@@ -57,7 +63,11 @@ class RefreshTokenStoreService {
 
   async revokeJti(jti: string): Promise<void> {
     this.revokedTokenMemory.add(jti);
-    await cacheService.set(this.getRevokedKey(jti), true, this.refreshTtlSeconds);
+    await cacheService.set(
+      this.getRevokedKey(jti),
+      true,
+      this.refreshTtlSeconds,
+    );
   }
 
   async isJtiRevoked(jti: string): Promise<boolean> {
@@ -76,7 +86,7 @@ class RefreshTokenStoreService {
   }
 
   async clearMemoryStateForTests(): Promise<void> {
-    if (env.NODE_ENV !== 'test') {
+    if (env.NODE_ENV !== "test") {
       return;
     }
 
