@@ -35,6 +35,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     sameSite: (isProduction ? "lax" : "none") as "lax" | "none",
     secure: true,
     path: "/",
+    ...(isProduction ? { domain: ".casa-mx.com" } : {}),
   };
   const isLocalFrontend =
     env.FRONTEND_URL.includes("localhost") ||

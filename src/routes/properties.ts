@@ -86,6 +86,13 @@ class PropertyService {
       maxRent,
       furnished,
       promoted,
+      swLat,
+      swLng,
+      neLat,
+      neLng,
+      centerLat,
+      centerLng,
+      radiusKm,
       limit,
       offset,
     } = filters;
@@ -121,6 +128,19 @@ class PropertyService {
 
     if (furnished !== undefined) where.furnished = furnished;
     if (promoted) where.promotionTier = { not: null };
+
+    // Bounds filtering (rectangle)
+    if (swLat !== undefined && neLat !== undefined && swLng !== undefined && neLng !== undefined) {
+      where.lat = { gte: swLat, lte: neLat };
+      where.lng = { gte: swLng, lte: neLng };
+    }
+    // Bounds filtering (circle)
+    else if (centerLat !== undefined && centerLng !== undefined && radiusKm !== undefined) {
+      const latDeg = radiusKm / 111.32;
+      const lngDeg = radiusKm / (111.32 * Math.cos((centerLat * Math.PI) / 180));
+      where.lat = { gte: centerLat - latDeg, lte: centerLat + latDeg };
+      where.lng = { gte: centerLng - lngDeg, lte: centerLng + lngDeg };
+    }
 
     const orderBy: any[] = [
       { featuredUntil: { sort: "desc", nulls: "last" } },
@@ -1157,7 +1177,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
       const topViewed = await app.prisma.$queryRawUnsafe<
         Array<{ entityId: string; cnt: number }>
       >(
-        `SELECT "entityId", COUNT("entityId")::int as cnt FROM "AnalyticsEvent" WHERE "eventName" = 'property_view' AND "entityType" = 'property' GROUP BY "entityId" ORDER BY cnt DESC LIMIT $1`,
+        `SELECT "entityId", COUNT("entityId")::int as cnt FROM "AnalyticsEvent" WHERE "eventName" = 'property_view' GROUP BY "entityId" ORDER BY cnt DESC LIMIT $1`,
         limit,
       );
 

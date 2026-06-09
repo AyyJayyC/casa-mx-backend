@@ -235,6 +235,15 @@ export const propertyFilterSchema = z
     minLotSize: z.coerce.number().positive().optional(),
     maxLotSize: z.coerce.number().positive().optional(),
     promoted: z.coerce.boolean().optional(),
+    // Bounds search (rectangle): swLat/swLng = southwest corner, neLat/neLng = northeast corner
+    swLat: z.coerce.number().min(-90).max(90).optional(),
+    swLng: z.coerce.number().min(-180).max(180).optional(),
+    neLat: z.coerce.number().min(-90).max(90).optional(),
+    neLng: z.coerce.number().min(-180).max(180).optional(),
+    // Bounds search (circle): centerLat/centerLng + radiusKm
+    centerLat: z.coerce.number().min(-90).max(90).optional(),
+    centerLng: z.coerce.number().min(-180).max(180).optional(),
+    radiusKm: z.coerce.number().positive().max(500).optional(),
     limit: z.coerce.number().int().min(1).max(1000).default(20),
     offset: z.coerce.number().int().min(0).default(0),
   })
