@@ -30,17 +30,20 @@ import {
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authService = new AuthService(fastify.prisma);
   const isProduction = env.NODE_ENV === "production";
+  const isLocalFrontend =
+    env.FRONTEND_URL.includes("localhost") ||
+    env.FRONTEND_URL.includes("127.0.0.1") ||
+    env.FRONTEND_URL.includes("0.0.0.0");
+  const cookieDomain = isLocalFrontend
+    ? undefined
+    : `.${new URL(env.FRONTEND_URL).hostname}`;
   const cookieOptions = {
     httpOnly: true,
     sameSite: (isProduction ? "lax" : "none") as "lax" | "none",
     secure: true,
     path: "/",
-    ...(isProduction ? { domain: ".casa-mx.com" } : {}),
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
   };
-  const isLocalFrontend =
-    env.FRONTEND_URL.includes("localhost") ||
-    env.FRONTEND_URL.includes("127.0.0.1") ||
-    env.FRONTEND_URL.includes("0.0.0.0");
 
   fastify.post<{ Body: Record<string, any> }>(
     "/auth/register",
