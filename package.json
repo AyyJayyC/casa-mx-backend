@@ -35,7 +35,7 @@
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/helmet": "^13.0.2",
     "@fastify/multipart": "^10.0.0",
-    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/rate-limit": "^11.0.0",
     "@prisma/client": "^5.19.0",
     "@sentry/node": "^10.53.1",
     "@types/pdfkit": "^0.17.6",
