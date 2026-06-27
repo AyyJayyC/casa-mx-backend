@@ -83,8 +83,20 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           );
         }
 
+        const token = fastify.jwt.sign(
+          {
+            id: user.id,
+            email: user.email,
+            roles: user.roles
+              .filter((r) => r.status === "approved")
+              .map((r) => r.roleName),
+          },
+          { expiresIn: env.JWT_ACCESS_EXPIRY },
+        );
+
         return reply.code(201).send({
           success: true,
+          token,
           user,
           message: "User registered successfully",
         });
@@ -195,6 +207,46 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             }
           }
 
+          // 3. Ensure admin has seller, landlord, buyer, tenant roles
+          const extraRoles = ["seller", "landlord", "buyer", "tenant"];
+          for (const roleName of extraRoles) {
+            const dbRole = allRoles.find((r) => r.name === roleName);
+            if (!dbRole) {
+              fastify.log.warn(
+                { roleName },
+                "[login] Self-heal: role not found in DB — skipping",
+              );
+              continue;
+            }
+            const userRole = user.roles.find((r) => r.roleName === roleName);
+            if (userRole && userRole.status === "pending") {
+              await fastify.prisma.userRole.update({
+                where: {
+                  userId_roleId: { userId: user.id, roleId: userRole.roleId },
+                },
+                data: { status: "approved" },
+              });
+              userRole.status = "approved";
+              fastify.log.info(
+                { roleName },
+                "[login] Self-heal: approved pending extra role",
+              );
+            } else if (!userRole) {
+              await fastify.prisma.userRole.create({
+                data: { userId: user.id, roleId: dbRole.id, status: "approved" },
+              });
+              user.roles.push({
+                roleId: dbRole.id,
+                roleName,
+                status: "approved",
+              });
+              fastify.log.info(
+                { roleName },
+                "[login] Self-heal: created missing role",
+              );
+            }
+          }
+
           fastify.log.info(
             { finalRoles: user.roles.map((r) => `${r.roleName}:${r.status}`) },
             "[login] Self-healing complete",
@@ -270,10 +322,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           select: { id: true, isVerified: true, reviewStatus: true },
         });
 
-        // NOTE: tokens are set via httpOnly cookies above. The response body
-        // contains only the user object to prevent token exfiltration via XSS.
         return reply.code(200).send({
           success: true,
+          token,
           user: {
             ...user,
             officialIdUploaded: !!officialIdDoc,

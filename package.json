@@ -8,7 +8,7 @@
   },
   "main": "dist/server.js",
   "scripts": {
-    "dev": "node scripts/check-node-version.js && tsx watch src/server.ts",
+    "dev": "node scripts/check-node-version.js && prisma generate && tsx watch src/server.ts",
     "build": "node scripts/check-node-version.js && prisma generate && tsc && node scripts/copy-static-assets.js",
     "start": "npx prisma migrate deploy && node dist/server.js",
     "test": "vitest run",
@@ -16,8 +16,11 @@
     "check-env": "tsx scripts/check-env.ts",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
-    "prisma:seed": "tsx prisma/seed.ts",
-    "prisma:studio": "prisma studio"
+  "prisma:seed": "tsx prisma/seed.ts",
+  "prisma:studio": "prisma studio"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "keywords": [
     "fastify",
