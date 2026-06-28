@@ -39,7 +39,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     : `.${new URL(env.FRONTEND_URL).hostname}`;
   const cookieOptions = {
     httpOnly: true,
-    sameSite: (isProduction ? "none" : "none") as "lax" | "none",
+    sameSite: (isProduction ? "none" : "lax") as "lax" | "none",
     secure: true,
     path: "/",
     ...(cookieDomain ? { domain: cookieDomain } : {}),
