@@ -34,9 +34,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     env.FRONTEND_URL.includes("localhost") ||
     env.FRONTEND_URL.includes("127.0.0.1") ||
     env.FRONTEND_URL.includes("0.0.0.0");
+  // Strip leading "www." so cookies work across all subdomains
+  // (casa-mx.com, www.casa-mx.com, api.casa-mx.com, etc.)
   const cookieDomain = isLocalFrontend
     ? undefined
-    : `.${new URL(env.FRONTEND_URL).hostname}`;
+    : `.${new URL(env.FRONTEND_URL).hostname.replace(/^www\./, "")}`;
   const cookieOptions = {
     httpOnly: true,
     sameSite: (isProduction ? "none" : "lax") as "lax" | "none",
@@ -366,6 +368,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         const refreshToken = (request as any).cookies?.refreshToken;
 
         if (!refreshToken) {
+          fastify.log.warn(
+            {
+              hasCookies: !!((request as any).cookies),
+              cookieKeys: Object.keys((request as any).cookies || {}),
+              hasCsrfCookie: !!((request as any).cookies?._csrf),
+            },
+            "[auth/refresh] Missing refreshToken cookie — returning 400",
+          );
           return reply.code(400).send({
             success: false,
             error: "Refresh token is required",
@@ -577,7 +587,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             officialIdReviewStatus: officialIdDoc?.reviewStatus ?? null,
             roles: user.roles.map((ur) => ({
               roleId: ur.roleId,
-              roleName: ur.role.name,
+              roleName: ur.role?.name ?? "unknown",
               status: ur.status,
             })),
             agency: (user as any).agency
@@ -587,14 +597,29 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           },
         });
       } catch (error: any) {
-        if (error.message?.includes("No Authorization")) {
+        // Return 401 for all JWT/auth failures so the client triggers refresh
+        if (
+          error.message?.includes("No Authorization") ||
+          error.message?.includes("jwt") ||
+          error.message?.includes("JWT") ||
+          error.name === "JsonWebTokenError" ||
+          error.name === "TokenExpiredError" ||
+          error.name === "NotBeforeError"
+        ) {
+          fastify.log.warn(
+            { errMsg: error.message, errName: error.name },
+            "[auth/me] JWT verification failed — returning 401",
+          );
           return reply.code(401).send({
             success: false,
             error: "Unauthorized",
           });
         }
 
-        fastify.log.error(error);
+        fastify.log.error(
+          { errMsg: error.message, errName: error.name, stack: error.stack },
+          "[auth/me] Unexpected error — returning 500",
+        );
         return reply.code(500).send({
           success: false,
           error: "Failed to fetch user",
