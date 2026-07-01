@@ -1173,7 +1173,8 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
     try {
       const limit = Math.min(Number((req.query as any)?.limit) || 6, 20);
 
-      // Use raw query to avoid Prisma 5.22 groupBy circular type issue
+      // Use raw query to avoid Prisma 5.22 groupBy circular type issue.
+      // Note: 'entityType' column does not exist on AnalyticsEvent, filtering by eventName only.
       const topViewed = await app.prisma.$queryRawUnsafe<
         Array<{ entityId: string; cnt: number }>
       >(
