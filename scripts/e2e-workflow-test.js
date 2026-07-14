@@ -62,7 +62,7 @@ async function setup() {
   console.log("\n═══ SETUP: Creating test users ═══");
 
   // Create seller
-  const seller = await registerAndLogin("E2E Seller", ["seller"]);
+  const seller = await registerAndLogin("E2E Seller", ["owner"]);
   sellerToken = seller.token;
   sellerUserId = seller.userId;
 
@@ -77,7 +77,7 @@ async function setup() {
   }
 
   // Create buyer/tenant
-  const buyer = await registerAndLogin("E2E Buyer", ["buyer", "tenant"]);
+  const buyer = await registerAndLogin("E2E Buyer", ["client"]);
   buyerToken = buyer.token;
   buyerUserId = buyer.userId;
 

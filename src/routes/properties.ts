@@ -2,7 +2,6 @@ import { FastifyPluginAsync } from "fastify";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { verifyJWT, requireAnyRole } from "../utils/guards.js";
-import { LandlordService } from "../services/landlord.service.js";
 import { cacheService } from "../services/cache.service.js";
 import { mapsService } from "../services/maps.service.js";
 import { notifyTagSubscribers } from "../services/notification.service.js";
@@ -222,7 +221,6 @@ class PropertyService {
 
 const propertiesPlugin: FastifyPluginAsync = async (app) => {
   const propertyService = new PropertyService(app.prisma);
-  const landlordService = new LandlordService(app.prisma);
 
   // GET /properties - Get filtered properties (public, but JWT-aware)
   app.route({
@@ -319,7 +317,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
     },
     onRequest: [
       verifyJWT,
-      requireAnyRole(["seller", "wholesaler", "landlord", "admin"]),
+      requireAnyRole(["owner", "agent", "admin"]),
     ],
     handler: async (request, reply) => {
       try {
@@ -644,7 +642,6 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         }
 
         if (input.listingType === "for_rent") {
-          await landlordService.addLandlordRoleIfNeeded(user.id);
         }
 
         await cacheService.invalidate("location:filter:*");
@@ -679,7 +676,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
     url: "/properties/mine",
     onRequest: [
       verifyJWT,
-      requireAnyRole(["seller", "wholesaler", "landlord", "admin"]),
+      requireAnyRole(["owner", "agent", "admin"]),
     ],
     handler: async (request, reply) => {
       try {
@@ -907,19 +904,14 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         });
 
         // If changed to rental, add landlord role
-        if (
-          input.listingType === "for_rent" &&
-          existingProperty.listingType !== "for_rent"
-        ) {
-          await landlordService.addLandlordRoleIfNeeded(user.id);
-        }
+
+
 
         // If changed from rental to sale, check if should remove landlord role
         if (
           input.listingType === "for_sale" &&
           existingProperty.listingType === "for_rent"
         ) {
-          await landlordService.removeLandlordRoleIfNeeded(user.id);
         }
 
         // Invalidate location filter cache when property is updated
@@ -1148,11 +1140,6 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         await app.prisma.property.delete({
           where: { id },
         });
-
-        // If was a rental, check if should remove landlord role
-        if (property.listingType === "for_rent") {
-          await landlordService.removeLandlordRoleIfNeeded(user.id);
-        }
 
         return reply.code(200).send({
           success: true,

@@ -28,13 +28,13 @@ describe("Owned properties API", () => {
         name: "Owned Property Landlord",
         email: landlordEmail,
         password,
-        roles: ["landlord"],
+        roles: ["owner"],
       },
     });
 
     expect(landlordRes.statusCode).toBe(201);
     landlordId = landlordRes.json().user.id;
-    await approveUserRole(app, landlordId, "landlord");
+    await approveUserRole(app, landlordId, "owner");
     landlordToken = await loginAndGetToken(app, landlordEmail, password);
 
     const otherRes = await app.inject({
@@ -44,13 +44,13 @@ describe("Owned properties API", () => {
         name: "Other Owner",
         email: otherEmail,
         password,
-        roles: ["landlord"],
+        roles: ["owner"],
       },
     });
 
     expect(otherRes.statusCode).toBe(201);
     otherOwnerId = otherRes.json().user.id;
-    await approveUserRole(app, otherOwnerId, "landlord");
+    await approveUserRole(app, otherOwnerId, "owner");
     const otherToken = await loginAndGetToken(app, otherEmail, password);
 
     const ownedRentalRes = await app.inject({

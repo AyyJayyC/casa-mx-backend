@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { RegisterInput, LoginInput } from "../schemas/auth.js";
 import { generateReferralCode as genRefCode } from "../utils/errorHandling.js";
 
-const AUTO_APPROVED_ROLES = new Set(["buyer", "tenant"]);
+const AUTO_APPROVED_ROLES = new Set(["client", "agent"]);
 
 export class AuthService {
   constructor(private prisma: PrismaClient) {}
@@ -34,7 +34,7 @@ export class AuthService {
 
   async register(data: RegisterInput) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
-    const requestedRoles = [...new Set(data.roles ?? ["buyer"])];
+    const requestedRoles = [...new Set(data.roles ?? ["client"])];
 
     // Auto-grant admin if registering with ADMIN_EMAIL
     const adminEmail = process.env.ADMIN_EMAIL?.trim();
@@ -223,7 +223,7 @@ export class AuthService {
         });
       } else {
         // Create new user via OAuth
-        const defaultRoles = ["buyer", "tenant"];
+        const defaultRoles = ["client"];
         // Auto-grant admin if registering with ADMIN_EMAIL
         const adminEmail = process.env.ADMIN_EMAIL?.trim();
         if (

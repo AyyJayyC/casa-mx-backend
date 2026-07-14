@@ -304,11 +304,11 @@ const agenciesRoutes: FastifyPluginAsync = async (fastify) => {
           select: { id: true, name: true, email: true, createdAt: true },
         });
 
-        // Add approved seller role
+        // Add approved owner role
         const role = await fastify.prisma.role.upsert({
-          where: { name: "seller" },
+          where: { name: "owner" },
           update: {},
-          create: { name: "seller" },
+          create: { name: "owner" },
         });
         await fastify.prisma.userRole.create({
           data: { userId: user.id, roleId: role.id, status: "approved" },

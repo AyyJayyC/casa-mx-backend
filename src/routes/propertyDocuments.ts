@@ -22,9 +22,8 @@ const ALLOWED_TYPES = new Set([
 
 // Required docs per role type
 const REQUIRED_DOCS_BY_ROLE: Record<string, string[]> = {
-  seller: ["title_deed"],
-  landlord: ["title_deed"],
-  wholesaler: ["agent_authorization"],
+  owner: ["title_deed"],
+  agent: ["agent_authorization"],
 };
 
 // All recognized documentType values
@@ -41,10 +40,10 @@ async function getSellerRole(prisma: any, userId: string): Promise<string> {
     include: { role: true },
   });
   const roleNames = roles.map((r: any) => r.role.name as string);
-  if (roleNames.includes("admin")) return "seller";
-  if (roleNames.includes("wholesaler")) return "wholesaler";
-  if (roleNames.includes("landlord")) return "landlord";
-  return "seller";
+  if (roleNames.includes("admin")) return "owner";
+  if (roleNames.includes("agent")) return "agent";
+  if (roleNames.includes("owner")) return "owner";
+  return "owner";
 }
 
 async function tryAutoVerify(
@@ -53,7 +52,7 @@ async function tryAutoVerify(
   sellerRole: string,
 ): Promise<boolean> {
   const required =
-    REQUIRED_DOCS_BY_ROLE[sellerRole] ?? REQUIRED_DOCS_BY_ROLE["seller"];
+    REQUIRED_DOCS_BY_ROLE[sellerRole] ?? REQUIRED_DOCS_BY_ROLE["owner"];
   const docs = await prisma.propertyDocument.findMany({
     where: { propertyId },
     select: { documentType: true },
@@ -200,7 +199,7 @@ const propertyDocumentsRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       const required =
-        REQUIRED_DOCS_BY_ROLE[sellerRole] ?? REQUIRED_DOCS_BY_ROLE["seller"];
+        REQUIRED_DOCS_BY_ROLE[sellerRole] ?? REQUIRED_DOCS_BY_ROLE["owner"];
       const docs = await fastify.prisma.propertyDocument.findMany({
         where: { propertyId },
         select: { documentType: true },

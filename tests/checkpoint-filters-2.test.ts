@@ -42,7 +42,7 @@ describe("Checkpoint 2 - Backend API Filters", () => {
     authToken = signRoleToken(app, {
       id: testSellerId,
       email: seller.email,
-      roles: ["seller"],
+      roles: ["owner"],
     });
   });
 

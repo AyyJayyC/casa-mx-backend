@@ -582,7 +582,7 @@ export async function sendRoleApprovedEmail(opts: {
   roleName: string;
 }) {
   const roleLabel =
-    opts.roleName === "seller" ? "Publicación de propiedades" : opts.roleName;
+    opts.roleName === "owner" ? "Publicación de propiedades" : opts.roleName;
   const subject = "Solicitud de rol aprobada — CasaMX";
   const html = wrap(
     subject,
@@ -603,7 +603,7 @@ export async function sendRoleDeniedEmail(opts: {
   roleName: string;
 }) {
   const roleLabel =
-    opts.roleName === "seller" ? "Publicación de propiedades" : opts.roleName;
+    opts.roleName === "owner" ? "Publicación de propiedades" : opts.roleName;
   const subject = "Actualización de solicitud de rol — CasaMX";
   const html = wrap(
     subject,

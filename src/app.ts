@@ -27,7 +27,6 @@ import userDocumentsRoutes from "./routes/userDocuments.js";
 import applicationsRoutes from "./routes/applications.js";
 import requestsRoutes from "./routes/requests.js";
 import usersRoutes from "./routes/users.js";
-import reviewsRoutes from "./routes/reviews.js";
 import creditsRoutes from "./routes/credits.js";
 import documentsRoutes from "./routes/documents.js";
 import negotiationsRoutes from "./routes/negotiations.js";
@@ -191,11 +190,9 @@ export async function buildApp() {
   if (env.NODE_ENV === "test") {
     const requiredRoles = [
       "admin",
-      "landlord",
-      "buyer",
-      "seller",
-      "tenant",
-      "wholesaler",
+      "client",
+      "owner",
+      "agent",
     ];
     const roleMap: Record<string, string> = {};
 
@@ -286,8 +283,7 @@ export async function buildApp() {
       }
     };
 
-    await ensureRoleAssignment("seller");
-    await ensureRoleAssignment("landlord");
+    await ensureRoleAssignment("owner");
   }
 
   // Setup logging middleware and debug routes
@@ -324,7 +320,6 @@ export async function buildApp() {
   await app.register(applicationsRoutes);
   await app.register(requestsRoutes);
   await app.register(usersRoutes);
-  await app.register(reviewsRoutes);
   await app.register(creditsRoutes);
   await app.register(documentsRoutes);
   await app.register(negotiationsRoutes);
