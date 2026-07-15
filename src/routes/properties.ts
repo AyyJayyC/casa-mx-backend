@@ -857,6 +857,22 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         const listingType = input.listingType ?? existingProperty.listingType;
         const isSwitching = input.listingType && input.listingType !== existingProperty.listingType;
 
+        // Validate required fields when switching types
+        if (isSwitching && listingType === "for_sale" && input.price === undefined) {
+          return reply.code(400).send({
+            success: false,
+            error: "Validation error",
+            details: [{ path: ["price"], message: "Price is required when switching to for_sale" }],
+          });
+        }
+        if (isSwitching && listingType === "for_rent" && input.monthlyRent === undefined) {
+          return reply.code(400).send({
+            success: false,
+            error: "Validation error",
+            details: [{ path: ["monthlyRent"], message: "Monthly rent is required when switching to for_rent" }],
+          });
+        }
+
         // Update property
         const updated = await app.prisma.property.update({
           where: { id },
