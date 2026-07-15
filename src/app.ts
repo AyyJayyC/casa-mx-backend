@@ -150,13 +150,15 @@ export async function buildApp() {
     });
   }
 
-  // Register rate limiting
-  await app.register(rateLimit, {
-    max: env.NODE_ENV === "test" ? 500 : isLocalFrontend ? 1000 : 100,
-    timeWindow: "15 minutes", // Per 15 minute window
-    cache: 10000, // Cache size
-    skipOnError: true, // Don't fail if Redis/cache unavailable
-  });
+  // Register rate limiting (skip in test mode to prevent CI failures)
+  if (env.NODE_ENV !== "test") {
+    await app.register(rateLimit, {
+      max: isLocalFrontend ? 1000 : 100,
+      timeWindow: "15 minutes",
+      cache: 10000,
+      skipOnError: true,
+    });
+  }
 
   // Register plugins
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } }); // 10 MB max

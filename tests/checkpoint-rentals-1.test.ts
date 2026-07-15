@@ -175,10 +175,19 @@ describe("Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
       ];
 
       for (const status of statuses) {
+        // Create a unique user per status to avoid unique constraint
+        const uniqueUser = await prisma.user.create({
+          data: {
+            email: `test-status-${status}-${Date.now()}@test.com`,
+            name: `Test ${status}`,
+            password: "hashedpw123",
+            roles: { create: { role: { connect: { name: "buyer" } }, status: "approved" } },
+          },
+        });
         const app = await prisma.rentalApplication.create({
           data: {
             propertyId: rentalProperty.id,
-            applicantId: testUser.id,
+            applicantId: uniqueUser.id,
             status,
             fullName: "Test User",
             email: "test@test.com",
@@ -197,6 +206,7 @@ describe("Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
 
         expect(app.status).toBe(status);
         await prisma.rentalApplication.delete({ where: { id: app.id } });
+        await prisma.user.delete({ where: { id: uniqueUser.id } });
       }
     });
 

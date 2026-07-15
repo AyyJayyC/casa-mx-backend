@@ -255,13 +255,11 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
     const refreshToken =
       getCookie(loginResponse, "refreshToken") ?? loginBody.refreshToken;
 
-    // Use refresh token to get new access token
+    // Use refresh token to get new access token (must be sent as cookie)
     const refreshResponse = await app.inject({
       method: "POST",
       url: "/auth/refresh",
-      payload: {
-        refreshToken,
-      },
+      cookies: { refreshToken },
     });
 
     expect(refreshResponse.statusCode).toBe(200);
@@ -332,9 +330,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
     const refreshResponse = await app.inject({
       method: "POST",
       url: "/auth/refresh",
-      payload: {
-        refreshToken: firstRefreshToken,
-      },
+      cookies: { refreshToken: firstRefreshToken },
     });
 
     expect(refreshResponse.statusCode).toBe(200);
@@ -359,9 +355,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
     const response = await app.inject({
       method: "POST",
       url: "/auth/refresh",
-      payload: {
-        refreshToken: "invalid-token",
-      },
+      cookies: { refreshToken: "invalid-token" },
     });
 
     expect(response.statusCode).toBe(401);

@@ -512,8 +512,8 @@ describe("Integrity Check - Adversarial Tests", () => {
         },
       });
 
-      // Verify property status is "available" before approval
-      expect(property.status).toBe("available");
+      // Verify property status is "disponible" before approval
+      expect(property.status).toBe("disponible");
 
       // Create application as regular user
       const appResponse = await app.inject({

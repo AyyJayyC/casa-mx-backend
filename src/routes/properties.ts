@@ -853,6 +853,26 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         // Validate update input
         const input = updatePropertySchema.parse(request.body);
 
+        // If switching listing type, clear incompatible fields
+        const listingType = input.listingType ?? existingProperty.listingType;
+        const isSwitching = input.listingType && input.listingType !== existingProperty.listingType;
+
+        // Validate required fields when switching types
+        if (isSwitching && listingType === "for_sale" && input.price === undefined) {
+          return reply.code(400).send({
+            success: false,
+            error: "Validation error",
+            details: [{ path: ["price"], message: "Price is required when switching to for_sale" }],
+          });
+        }
+        if (isSwitching && listingType === "for_rent" && input.monthlyRent === undefined) {
+          return reply.code(400).send({
+            success: false,
+            error: "Validation error",
+            details: [{ path: ["monthlyRent"], message: "Monthly rent is required when switching to for_rent" }],
+          });
+        }
+
         // Update property
         const updated = await app.prisma.property.update({
           where: { id },
@@ -861,7 +881,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             description: input.description,
             address: input.address,
             imageUrls: input.imageUrls,
-            price: input.price,
+            price: isSwitching && listingType === "for_rent" ? null : input.price,
             lat: input.lat,
             lng: input.lng,
             estado: input.estado,
@@ -874,7 +894,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             squareMeters: input.squareMeters,
             status: input.status,
             listingType: input.listingType,
-            monthlyRent: input.monthlyRent,
+            monthlyRent: isSwitching && listingType === "for_sale" ? null : input.monthlyRent,
             securityDeposit: input.securityDeposit,
             leaseTermMonths: input.leaseTermMonths,
             furnished: input.furnished,
