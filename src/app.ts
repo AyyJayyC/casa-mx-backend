@@ -248,7 +248,7 @@ export async function buildApp() {
     let sellerId = existingSeller?.id;
 
     if (!sellerId) {
-      const hashedPassword = await bcrypt.hash(env.TEST_SELLER_PASSWORD, 10);
+      const hashedPassword = await bcrypt.hash(env.TEST_OWNER_PASSWORD, 10);
       const seller = await app.prisma.user.create({
         data: {
           email: seededSellerEmail,

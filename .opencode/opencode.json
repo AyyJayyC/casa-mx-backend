@@ -1,6 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["INSTRUCTIONS.md"],
+  "instructions": [
+    "INSTRUCTIONS.md"
+  ],
   "command": {
     "deploy": {
       "description": "Merge staging branch into main (production) for both frontend and backend repos.",
@@ -10,12 +12,16 @@
   "plugin": [
     "opencode-dynamic-context-pruning",
     "opencode-notify",
-    "opencode-wakatime"
+    "opencode-wakatime",
+    ".opencode/plugins/graphify.js"
   ],
   "mcp": {
     "auto-browser": {
       "type": "local",
-      "command": ["python", "C:\\Users\\axelj\\auto-browser\\scripts\\mcp_stdio_bridge.py"],
+      "command": [
+        "python",
+        "C:\\Users\\axelj\\auto-browser\\scripts\\mcp_stdio_bridge.py"
+      ],
       "enabled": true
     }
   }

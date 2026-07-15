@@ -34,7 +34,7 @@ const VALID_DOC_TYPES = new Set([
   "other",
 ]);
 
-async function getSellerRole(prisma: any, userId: string): Promise<string> {
+async function getOwnerRole(prisma: any, userId: string): Promise<string> {
   const roles = await prisma.userRole.findMany({
     where: { userId, status: "approved" },
     include: { role: true },
@@ -49,10 +49,10 @@ async function getSellerRole(prisma: any, userId: string): Promise<string> {
 async function tryAutoVerify(
   prisma: any,
   propertyId: string,
-  sellerRole: string,
-): Promise<boolean> {
-  const required =
-    REQUIRED_DOCS_BY_ROLE[sellerRole] ?? REQUIRED_DOCS_BY_ROLE["owner"];
+  ownerRole: string,
+  ): Promise<boolean> {
+    const required =
+      REQUIRED_DOCS_BY_ROLE[ownerRole] ?? REQUIRED_DOCS_BY_ROLE["owner"];
   const docs = await prisma.propertyDocument.findMany({
     where: { propertyId },
     select: { documentType: true },
@@ -191,21 +191,21 @@ const propertyDocumentsRoutes: FastifyPluginAsync = async (fastify) => {
         },
       });
 
-      const sellerRole = await getSellerRole(fastify.prisma, userId);
+      const ownerRole = await getOwnerRole(fastify.prisma, userId);
       const autoVerified = await tryAutoVerify(
         fastify.prisma,
         propertyId,
-        sellerRole,
+        ownerRole,
       );
 
-      const required =
-        REQUIRED_DOCS_BY_ROLE[sellerRole] ?? REQUIRED_DOCS_BY_ROLE["owner"];
+      const requiredDocs =
+        REQUIRED_DOCS_BY_ROLE[ownerRole] ?? REQUIRED_DOCS_BY_ROLE["owner"];
       const docs = await fastify.prisma.propertyDocument.findMany({
         where: { propertyId },
         select: { documentType: true },
       });
       const uploaded = docs.map((d: any) => d.documentType as string);
-      const missing = required.filter((r) => !uploaded.includes(r));
+      const missing = requiredDocs.filter((r) => !uploaded.includes(r));
 
       return reply.send({
         success: true,

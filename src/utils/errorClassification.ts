@@ -7,8 +7,6 @@ const CLIENT_ERROR_MESSAGES = new Set([
   "Rental application not found",
   "Reviews are only allowed for approved rental applications",
   "You have already reviewed this user for the selected rental application",
-  "Only the approved tenant can review the landlord for this application",
-  "Only the property landlord can review the tenant for this application",
 ]);
 
 /**
