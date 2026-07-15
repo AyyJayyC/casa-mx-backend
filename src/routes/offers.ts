@@ -63,7 +63,7 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
               error: "Offers can only be made on sale properties",
             });
         }
-        if (property.status !== "available") {
+        if (property.status !== "available" && property.status !== "disponible") {
           return reply
             .code(400)
             .send({

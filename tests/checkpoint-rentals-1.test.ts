@@ -175,6 +175,10 @@ describe("Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
       ];
 
       for (const status of statuses) {
+        // Delete any previous application for this user+property
+        await prisma.rentalApplication.deleteMany({
+          where: { propertyId: rentalProperty.id, applicantId: testUser.id },
+        });
         const app = await prisma.rentalApplication.create({
           data: {
             propertyId: rentalProperty.id,
