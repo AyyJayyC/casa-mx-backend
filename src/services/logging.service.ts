@@ -166,9 +166,10 @@ export class LoggingService {
     try {
       // Auto-determine severity if not provided
       let severity = data.severity || "medium";
-      if (!severity && data.errorCode) {
-        if (data.errorCode >= 500) severity = "high";
-        else if (data.errorCode >= 400) severity = "medium";
+      if (!data.severity && data.errorCode) {
+        const code = Number(data.errorCode);
+        if (code >= 500) severity = "high";
+        else if (code >= 400) severity = "medium";
         else severity = "low";
       }
 
@@ -180,7 +181,7 @@ export class LoggingService {
           errorType: data.errorType || "backend",
           errorMessage: data.errorMessage?.substring(0, 5000),
           errorStackTrace: data.errorStackTrace?.substring(0, 10000),
-          errorCode: data.errorCode,
+          errorCode: data.errorCode != null ? String(data.errorCode) : null,
           severity,
           componentName: data.componentName,
           currentRoute: data.currentRoute,
