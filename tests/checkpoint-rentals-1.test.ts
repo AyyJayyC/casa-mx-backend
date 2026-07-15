@@ -181,7 +181,7 @@ describe("Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
             email: `test-status-${status}-${Date.now()}@test.com`,
             name: `Test ${status}`,
             password: "hashedpw123",
-            roles: { create: { role: { connect: { name: "client" } }, status: "approved" } },
+            roles: { create: { role: { connect: { name: "buyer" } }, status: "approved" } },
           },
         });
         const app = await prisma.rentalApplication.create({
