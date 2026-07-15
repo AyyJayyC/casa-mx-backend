@@ -152,7 +152,7 @@ export async function buildApp() {
 
   // Register rate limiting
   await app.register(rateLimit, {
-    max: env.NODE_ENV === "test" ? 500 : isLocalFrontend ? 1000 : 100,
+    max: env.NODE_ENV === "test" ? 10000 : isLocalFrontend ? 1000 : 100,
     timeWindow: "15 minutes", // Per 15 minute window
     cache: 10000, // Cache size
     skipOnError: true, // Don't fail if Redis/cache unavailable
