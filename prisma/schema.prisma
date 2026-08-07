@@ -32,8 +32,6 @@ model User {
   lockedUntil         DateTime?
   lastFailedLoginAt   DateTime?
   roles              UserRole[]
-  reviewsWritten     Review[] @relation("ReviewAuthor")
-  reviewsReceived    Review[] @relation("ReviewTarget")
   creditBalance      CreditBalance?
   creditTransactions CreditTransaction[]
   listedProperties   Property[] @relation("PropertySeller")
@@ -96,7 +94,7 @@ model Agency {
 
 model Role {
   id    String   @id @default(uuid())
-  name  String   @unique // buyer, seller, wholesaler, admin
+  name  String   @unique // client, owner, agent, admin
   createdAt DateTime @default(now())
 
   userRoles UserRole[]
@@ -183,7 +181,6 @@ model Property {
 
   propertyRequests   PropertyRequest[]
   rentalApplications RentalApplication[]
-  reviews            Review[]
   propertyOffers     PropertyOffer[]
   documents          PropertyDocument[]
   images             PropertyImage[]
@@ -297,39 +294,12 @@ model RentalApplication {
   updatedAt  DateTime @updatedAt
   
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  reviews Review[]
   
   @@index([propertyId])
   @@index([applicantId])
   @@index([status])
   @@index([createdAt])
   @@unique([propertyId, applicantId])
-}
-
-model Review {
-  id                  String   @id @default(uuid())
-  reviewerUserId      String
-  revieweeUserId      String
-  reviewerRole        String
-  revieweeRole        String
-  propertyId          String
-  rentalApplicationId String
-  overallRating       Int
-  comment             String?  @db.Text
-  status              String   @default("published") // published, flagged, hidden
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  reviewer          User              @relation("ReviewAuthor", fields: [reviewerUserId], references: [id], onDelete: Cascade)
-  reviewee          User              @relation("ReviewTarget", fields: [revieweeUserId], references: [id], onDelete: Cascade)
-  property          Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  rentalApplication RentalApplication @relation(fields: [rentalApplicationId], references: [id], onDelete: Cascade)
-
-  @@unique([reviewerUserId, revieweeUserId, rentalApplicationId])
-  @@index([revieweeUserId, revieweeRole, status])
-  @@index([reviewerUserId, reviewerRole])
-  @@index([propertyId])
-  @@index([rentalApplicationId])
 }
 
 model Notification {

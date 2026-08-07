@@ -1,11 +1,9 @@
 import { z } from "zod";
 
 export const registerRoleSchema = z.enum([
-  "buyer",
-  "tenant",
-  "seller",
-  "landlord",
-  "wholesaler",
+  "client",
+  "owner",
+  "agent",
   "admin",
 ]);
 
@@ -26,7 +24,7 @@ export const RegisterSchema = z.object({
     .array(registerRoleSchema)
     .min(1, "Select at least one role")
     .optional()
-    .default(["buyer"]),
+    .default(["client"]),
   ref: z.string().max(20).optional(),
 });
 

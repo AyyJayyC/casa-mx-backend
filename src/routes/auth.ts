@@ -209,8 +209,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             }
           }
 
-          // 3. Ensure admin has seller, landlord, buyer, tenant roles
-          const extraRoles = ["seller", "landlord", "buyer", "tenant"];
+          // 3. Ensure admin has owner and client roles
+          const extraRoles = ["owner", "client"];
           for (const roleName of extraRoles) {
             const dbRole = allRoles.find((r) => r.name === roleName);
             if (!dbRole) {

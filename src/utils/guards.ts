@@ -1,5 +1,21 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 
+const LEGACY_ROLE_MAP: Record<string, string> = {
+  buyer: "client",
+  tenant: "client",
+  seller: "owner",
+  landlord: "owner",
+  wholesaler: "agent",
+};
+
+function normalizeRoles(roles: string[]): string[] {
+  const normalized = new Set<string>();
+  for (const role of roles) {
+    normalized.add(LEGACY_ROLE_MAP[role] || role);
+  }
+  return [...normalized];
+}
+
 async function verifyJwtFromHeaderOrCookie(request: FastifyRequest) {
   const hasAuthorizationHeader = Boolean(request.headers?.authorization);
   const hasAccessCookie = Boolean((request as any).cookies?.accessToken);
@@ -36,7 +52,7 @@ export const requireRole = (roleName: string) => {
     try {
       await verifyJwtFromHeaderOrCookie(request);
 
-      const userRoles = (request.user as any)?.roles || [];
+      const userRoles = normalizeRoles((request.user as any)?.roles || []);
 
       if (!userRoles.includes(roleName)) {
         return reply.code(403).send({
@@ -60,7 +76,7 @@ export const requireAnyRole = (roleNames: string[]) => {
     try {
       await verifyJwtFromHeaderOrCookie(request);
 
-      const userRoles = ((request.user as any)?.roles || []) as string[];
+      const userRoles = normalizeRoles(((request.user as any)?.roles || []) as string[]);
       const hasRequiredRole = roleNames.some((roleName) =>
         userRoles.includes(roleName),
       );

@@ -215,14 +215,14 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  // GET /applications/property/:propertyId - View applications for property (landlord view)
+  // GET /applications/property/:propertyId - View applications for property (owner view)
   fastify.get(
     "/applications/property/:propertyId",
-    { onRequest: [requireRole("landlord")] },
+    { onRequest: [requireRole("owner")] },
     async (request, reply) => {
       try {
         const params = propertyIdParamSchema.parse(request.params);
-        const landlordId = request.user.id;
+        const ownerId = request.user.id;
 
         // Verify property exists and user is the owner
         const property = await fastify.prisma.property.findUnique({
@@ -236,7 +236,7 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
           });
         }
 
-        if (property.sellerId !== landlordId) {
+        if (property.sellerId !== ownerId) {
           return reply.code(403).send({
             success: false,
             error: "You can only view applications for your own properties",
@@ -253,7 +253,7 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
         const appIds = applications.map((a) => a.id);
         const unlocked = await fastify.prisma.creditTransaction.findMany({
           where: {
-            userId: landlordId,
+            userId: ownerId,
             type: "spend",
             referenceId: { in: appIds },
           },
@@ -288,15 +288,15 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  // PATCH /applications/:id - Update application status (landlord action)
+  // PATCH /applications/:id - Update application status (owner action)
   fastify.patch(
     "/applications/:id",
-    { onRequest: [requireRole("landlord")] },
+    { onRequest: [requireRole("owner")] },
     async (request, reply) => {
       try {
         const params = applicationIdParamSchema.parse(request.params);
         const input = updateApplicationStatusSchema.parse(request.body);
-        const landlordId = request.user.id;
+        const ownerId = request.user.id;
 
         // Fetch application with property
         const application = await fastify.prisma.rentalApplication.findUnique({
@@ -314,7 +314,7 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         // Verify landlord owns the property
-        if (application.property.sellerId !== landlordId) {
+        if (application.property.sellerId !== ownerId) {
           return reply.code(403).send({
             success: false,
             error: "You can only manage applications for your own properties",

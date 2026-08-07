@@ -36,14 +36,14 @@ describe("Checkpoint 2 - Rental Properties API", () => {
         name: "Rental Test User",
         email: `rental-test-${Date.now()}@test.com`,
         password: "TestPassword123!",
-        roles: ["seller"],
+        roles: ["owner"],
       },
     });
 
     const registerData = registerRes.json();
     userId = registerData.user.id;
 
-    await approveUserRole(app, userId, "seller");
+    await approveUserRole(app, userId, "owner");
     authToken = await loginAndGetToken(
       app,
       registerData.user.email,
@@ -106,7 +106,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
       rentalPropertyId = data.data.id;
     });
 
-    it("should auto-add landlord role when creating first rental", async () => {
+    it("should auto-add owner role when creating first rental", async () => {
       // Check user has landlord role
       const user = await app.prisma.user.findUnique({
         where: { id: userId },
@@ -118,7 +118,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
       });
 
       const hasLandlordRole = user?.roles.some(
-        (ur) => ur.role.name === "landlord" && ur.status === "approved",
+        (ur) => ur.role.name === "owner" && ur.status === "approved",
       );
 
       expect(hasLandlordRole).toBe(true);
@@ -331,11 +331,11 @@ describe("Checkpoint 2 - Rental Properties API", () => {
           name: "Other User",
           email: `other-user-${Date.now()}@test.com`,
           password: "TestPassword123!",
-          roles: ["seller"],
+          roles: ["owner"],
         },
       });
 
-      await approveUserRole(app, otherUserRes.json().user.id, "seller");
+      await approveUserRole(app, otherUserRes.json().user.id, "owner");
       const otherToken = await loginAndGetToken(
         app,
         otherUserRes.json().user.email,
@@ -581,7 +581,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
       expect(checkRes.statusCode).toBe(404);
     });
 
-    it("should delete rental property and remove landlord role when last rental", async () => {
+    it("should delete rental property and remove owner role when last rental", async () => {
       const response = await app.inject({
         method: "DELETE",
         url: `/properties/${rentalPropertyId}`,
@@ -592,7 +592,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
 
       expect(response.statusCode).toBe(200);
 
-      // Check landlord role is removed
+      // Check owner role is removed
       const user = await app.prisma.user.findUnique({
         where: { id: userId },
         include: {
@@ -603,7 +603,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
       });
 
       const hasLandlordRole = user?.roles.some(
-        (ur) => ur.role.name === "landlord",
+        (ur) => ur.role.name === "owner",
       );
 
       expect(hasLandlordRole).toBe(false);
@@ -618,7 +618,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
           name: "Property Owner",
           email: `prop-owner-${Date.now()}@test.com`,
           password: "TestPassword123!",
-          roles: ["seller"],
+          roles: ["owner"],
         },
       });
 
@@ -634,7 +634,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
       const otherToken =
         getCookie(otherLoginRes, "accessToken") ?? otherLoginRes.json().token;
 
-      await approveUserRole(app, otherUserRes.json().user.id, "seller");
+      await approveUserRole(app, otherUserRes.json().user.id, "owner");
       const approvedOtherToken = await loginAndGetToken(
         app,
         otherUserRes.json().user.email,
@@ -671,7 +671,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
   });
 
   describe("Landlord Role Management", () => {
-    it("should not add duplicate landlord roles", async () => {
+    it("should not add duplicate owner roles", async () => {
       // Create first rental
       const res1 = await app.inject({
         method: "POST",
@@ -716,11 +716,11 @@ describe("Checkpoint 2 - Rental Properties API", () => {
         },
       });
 
-      const landlordRoles = roles.filter((ur) => ur.role.name === "landlord");
+      const landlordRoles = roles.filter((ur) => ur.role.name === "owner");
       expect(landlordRoles.length).toBe(1);
     });
 
-    it("should keep landlord role when still has rentals", async () => {
+    it("should keep owner role when still has rentals", async () => {
       // User should have 2 rentals from previous test
       const rentals = await app.prisma.property.findMany({
         where: {
@@ -751,7 +751,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
       });
 
       const hasLandlordRole = user?.roles.some(
-        (ur) => ur.role.name === "landlord",
+        (ur) => ur.role.name === "owner",
       );
 
       expect(hasLandlordRole).toBe(true);

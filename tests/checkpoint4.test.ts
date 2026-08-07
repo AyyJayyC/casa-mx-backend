@@ -53,7 +53,7 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
         email: testEmail,
         name: "Admin Test User",
         password: "Password1",
-        roles: ["seller"],
+        roles: ["owner"],
       },
     });
     const createdUser = await app.prisma.user.findUnique({
@@ -131,7 +131,7 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
         email: denyTestEmail,
         name: "Deny Test User",
         password: "Password1",
-        roles: ["seller"],
+        roles: ["owner"],
       },
     });
     const denyTestRoleId = await getPendingRoleIdByEmail(denyTestEmail);

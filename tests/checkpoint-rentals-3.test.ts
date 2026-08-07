@@ -24,7 +24,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
         name: "Test Tenant",
         email: "tenant@test.com",
         password: "TestPassword123!",
-        roles: ["buyer"],
+        roles: ["client"],
       },
     });
     const tenantData = JSON.parse(tenantRegister.body);
@@ -45,7 +45,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
 
     // Approve buyer role for tenant
     const buyerRole = await app.prisma.role.findUnique({
-      where: { name: "buyer" },
+      where: { name: "client" },
     });
     await app.prisma.userRole.updateMany({
       where: { userId: tenantId, roleId: buyerRole!.id },
@@ -60,7 +60,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
         name: "Test Landlord",
         email: "landlord@test.com",
         password: "TestPassword123!",
-        roles: ["seller"],
+        roles: ["owner"],
       },
     });
     const landlordData = JSON.parse(landlordRegister.body);
@@ -68,7 +68,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
 
     // Add and approve landlord role
     const landlordRole = await app.prisma.role.findUnique({
-      where: { name: "landlord" },
+      where: { name: "owner" },
     });
     await app.prisma.userRole.create({
       data: {
@@ -473,7 +473,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
           name: "Other Landlord",
           email: uniqueEmail,
           password: "TestPassword123!",
-          roles: ["seller"],
+          roles: ["owner"],
         },
       });
 
@@ -485,7 +485,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
 
       // Add landlord role
       const landlordRole = await app.prisma.role.findUnique({
-        where: { name: "landlord" },
+        where: { name: "owner" },
       });
       await app.prisma.userRole.create({
         data: {
@@ -618,7 +618,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
           name: "Test Tenant 2",
           email: uniqueTenant2Email,
           password: "TestPassword123!",
-          roles: ["buyer"],
+          roles: ["client"],
         },
       });
       const registerBody = JSON.parse(tenant2Register.body);

@@ -38,7 +38,7 @@ describe("CHECKPOINT 7 — Hardening & Production Readiness (Core Tests)", () =>
           name: "Test User",
           email: "invalid-email",
           password: "Password123!",
-          roles: ["buyer"],
+          roles: ["client"],
         },
       });
 
@@ -56,7 +56,7 @@ describe("CHECKPOINT 7 — Hardening & Production Readiness (Core Tests)", () =>
           name: "Test User",
           email: "test@example.com",
           password: "123",
-          roles: ["buyer"],
+          roles: ["client"],
         },
       });
 
@@ -342,7 +342,7 @@ describe("CHECKPOINT 7 — Hardening & Production Readiness (Rate Limiting)", ()
               name: `Test User ${i}`,
               email: `rate-test-${timestamp}-${i}@example.com`,
               password: "Password123!",
-              roles: ["buyer"],
+              roles: ["client"],
             },
           }),
         );

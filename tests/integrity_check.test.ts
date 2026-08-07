@@ -489,7 +489,7 @@ describe("Integrity Check - Adversarial Tests", () => {
       });
 
       const landlordRole = await prisma.role.findUnique({
-        where: { name: "landlord" },
+        where: { name: "owner" },
       });
 
       await prisma.userRole.create({
