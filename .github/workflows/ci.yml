@@ -7,6 +7,28 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  # Guardrail: fail early if package-lock.json drifted from package.json.
+  # Running on Linux ensures platform deps (wasm) are included correctly.
+  lockfile-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Regenerate lockfile from package.json
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Upload regenerated lockfile (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lock-regenerated
+          path: package-lock.json
+          retention-days: 1
+      - name: Fail if lockfile drifted
+        run: git diff --exit-code package-lock.json
+
   test:
     runs-on: ubuntu-latest
 
