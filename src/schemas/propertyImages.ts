@@ -6,7 +6,7 @@ export const ALLOWED_IMAGE_TYPES = new Set([
   "image/webp",
 ]);
 
-export const MAX_IMAGES_PER_PROPERTY = 10;
+export const MAX_IMAGES_PER_PROPERTY = 25;
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export const createImageSchema = z.object({

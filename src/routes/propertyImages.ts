@@ -18,7 +18,7 @@ const propertyImagesRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * POST /properties/:id/images
    * Upload a property listing photo to S3. Owner only.
-   * Max 10 images per property. Multipart file upload with optional caption.
+   * Max 25 images per property. Multipart file upload with optional caption.
    */
   fastify.post<{ Params: { id: string } }>(
     "/properties/:id/images",
