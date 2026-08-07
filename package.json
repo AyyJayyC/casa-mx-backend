@@ -60,7 +60,7 @@
     "@types/node": "^25.9.3",
     "prisma": "^5.19.0",
     "tsx": "^4.22.4",
-    "typescript": "^5.5.4",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.9"
   }
 }
