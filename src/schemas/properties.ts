@@ -25,7 +25,7 @@ const imageUrlSchema = z
 
 const imageUrlsSchema = z
   .array(imageUrlSchema)
-  .max(10, "Maximum 10 images allowed");
+  .max(25, "Maximum 25 images allowed");
 const propertyTypeSchema = z.enum(PROPERTY_TYPE_OPTIONS);
 const includedServicesSchema = z
   .array(z.enum(RENTAL_INCLUDED_SERVICE_OPTIONS))
