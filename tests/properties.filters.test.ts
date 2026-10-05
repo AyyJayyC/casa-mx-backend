@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
-import { registerUser } from "./utils/authHelpers.js";
+import { loginAndGetToken, registerUser } from "./utils/authHelpers.js";
 
 describe("GET /properties — filters, search and caching", () => {
   let app: FastifyInstance;
@@ -140,4 +140,34 @@ describe("GET /properties — filters, search and caching", () => {
     expect(financing).not.toContain(otherId);
   });
 
+  it("sets a public cache header on the list", async () => {
+    const res = await list("limit=1");
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["cache-control"]).toBe(
+      "public, s-maxage=60, stale-while-revalidate=300",
+    );
+  });
+
+  it("sets a public cache header on the anonymous detail", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/properties/${matchId}`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["cache-control"]).toBe(
+      "public, s-maxage=60, stale-while-revalidate=300",
+    );
+  });
+
+  it("does not publicly cache the owner detail", async () => {
+    const token = await loginAndGetToken(app, email, password);
+    const res = await app.inject({
+      method: "GET",
+      url: `/properties/${matchId}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.sellerId).toBe(ownerId);
+    expect(res.headers["cache-control"] || "").not.toContain("public");
+  });
 });

@@ -360,11 +360,18 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         const { properties, total } =
           await propertyService.getProperties(filters);
 
-        return reply.code(200).send({
-          success: true,
-          data: properties,
-          total,
-        });
+        // Public, address-stripped response — safe to edge-cache.
+        return reply
+          .header(
+            "Cache-Control",
+            "public, s-maxage=60, stale-while-revalidate=300",
+          )
+          .code(200)
+          .send({
+            success: true,
+            data: properties,
+            total,
+          });
       } catch (error: any) {
         if (error instanceof z.ZodError) {
           return reply.code(400).send({
@@ -909,10 +916,18 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
 
         if (!isOwner) {
           const { propertyRequests: _ignored, ...rest } = property as any;
-          return reply.code(200).send({
-            success: true,
-            data: publicPropertyView(rest),
-          });
+          // Only the public (stripped) view is cacheable. The owner's full
+          // record must never be served from a shared cache.
+          return reply
+            .header(
+              "Cache-Control",
+              "public, s-maxage=60, stale-while-revalidate=300",
+            )
+            .code(200)
+            .send({
+              success: true,
+              data: publicPropertyView(rest),
+            });
         }
 
         return reply.code(200).send({
