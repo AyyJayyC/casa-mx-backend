@@ -207,7 +207,7 @@ export class AnalyticsService {
           select: {
             propertyRequests: true,
             propertyOffers: true,
-            reviews: true,
+            
           },
         },
       },
@@ -236,7 +236,7 @@ export class AnalyticsService {
       views: viewCountMap[p.id] || 0,
       contactRequests: p._count.propertyRequests,
       offers: p._count.propertyOffers,
-      reviews: p._count.reviews,
+      
     }));
   }
 
@@ -842,3 +842,4 @@ export class AnalyticsService {
     }));
   }
 }
+

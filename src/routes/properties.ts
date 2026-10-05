@@ -2,7 +2,6 @@ import { FastifyPluginAsync } from "fastify";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { verifyJWT, requireAnyRole } from "../utils/guards.js";
-import { LandlordService } from "../services/landlord.service.js";
 import { cacheService } from "../services/cache.service.js";
 import { mapsService } from "../services/maps.service.js";
 import { notifyTagSubscribers } from "../services/notification.service.js";
@@ -15,6 +14,35 @@ import {
   type CreatePropertyInput,
   type UpdatePropertyInput,
 } from "../schemas/properties.js";
+
+// Fields that must never leave the server on a public property response.
+const PUBLIC_STRIP_KEYS = [
+  "address",
+  "mapsUrl",
+  "inventoryNotes",
+  "codigoPostal",
+  "sellerId",
+  "verificationNote",
+  "verificationStatus",
+] as const;
+
+const roundCoord = (v: unknown) =>
+  typeof v === "number" ? Math.round(v * 1000) / 1000 : v;
+
+/**
+ * Public-safe projection of a property. Drops the exact address, maps link,
+ * internal notes, postal code and seller identity, and rounds coordinates to
+ * ~3 decimals (~110 m) so a listing cannot be triangulated to a doorstep.
+ */
+export function publicPropertyView<T extends object>(
+  p: T,
+): Record<string, any> {
+  const out: Record<string, any> = { ...p };
+  for (const key of PUBLIC_STRIP_KEYS) delete out[key];
+  if ("lat" in out) out.lat = roundCoord(out.lat);
+  if ("lng" in out) out.lng = roundCoord(out.lng);
+  return out;
+}
 
 class PropertyService {
   constructor(private prisma: PrismaClient) {}
@@ -85,6 +113,18 @@ class PropertyService {
       minRent,
       maxRent,
       furnished,
+      condition,
+      status,
+      petFriendly,
+      minConstructionMeters,
+      maxConstructionMeters,
+      minLotSize,
+      maxLotSize,
+      searchQuery,
+      q,
+      amenities,
+      services,
+      financing,
       promoted,
       swLat,
       swLng,
@@ -126,8 +166,57 @@ class PropertyService {
       if (maxRent !== undefined) where.monthlyRent.lte = maxRent;
     }
 
-    if (furnished !== undefined) where.furnished = furnished;
+    // "true" from the UI toggle means "solo amuebladas".
+    if (furnished === "true") where.furnished = "furnished";
+    else if (furnished) where.furnished = furnished;
+    if (condition) where.condition = condition;
+    if (status) where.status = status;
+    if (petFriendly !== undefined) where.petFriendly = petFriendly;
     if (promoted) where.promotionTier = { not: null };
+
+    if (
+      minConstructionMeters !== undefined ||
+      maxConstructionMeters !== undefined
+    ) {
+      where.squareMeters = {};
+      if (minConstructionMeters !== undefined)
+        where.squareMeters.gte = minConstructionMeters;
+      if (maxConstructionMeters !== undefined)
+        where.squareMeters.lte = maxConstructionMeters;
+    }
+
+    if (minLotSize !== undefined || maxLotSize !== undefined) {
+      where.lotSize = {};
+      if (minLotSize !== undefined) where.lotSize.gte = minLotSize;
+      if (maxLotSize !== undefined) where.lotSize.lte = maxLotSize;
+    }
+
+    // Multi-select lists arrive comma-separated from the UI.
+    const toList = (value?: string) =>
+      typeof value === "string"
+        ? value
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+    const amenityList = toList(amenities);
+    const serviceList = toList(services);
+    const financingList = toList(financing);
+    if (amenityList.length) where.amenities = { hasSome: amenityList };
+    if (serviceList.length) where.includedServices = { hasSome: serviceList };
+    if (financingList.length) where.financeOptions = { hasSome: financingList };
+
+    const search =
+      (typeof searchQuery === "string" && searchQuery.trim()) ||
+      (typeof q === "string" && q.trim()) ||
+      "";
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { colonia: { contains: search, mode: "insensitive" } },
+        { ciudad: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
     // Bounds filtering (rectangle)
     if (swLat !== undefined && neLat !== undefined && swLng !== undefined && neLng !== undefined) {
@@ -158,7 +247,7 @@ class PropertyService {
       },
     });
 
-    return { properties, total };
+    return { properties: properties.map(publicPropertyView), total };
   }
 
   async getOwnedProperties(ownerId: string, filters: PropertyFilter) {
@@ -222,7 +311,6 @@ class PropertyService {
 
 const propertiesPlugin: FastifyPluginAsync = async (app) => {
   const propertyService = new PropertyService(app.prisma);
-  const landlordService = new LandlordService(app.prisma);
 
   // GET /properties - Get filtered properties (public, but JWT-aware)
   app.route({
@@ -241,10 +329,23 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           maxPrice: { type: "number" },
           minRent: { type: "number" }, // NEW
           maxRent: { type: "number" }, // NEW
-          furnished: {
-            type: "string",
-            enum: ["unfurnished", "semi_furnished", "furnished", "equipada"],
-          },
+          // NOTE: Fastify strips query keys missing from this schema
+          // (ajv removeAdditional), so every filter the UI sends must be
+          // listed here or it is silently ignored.
+          furnished: { type: "string" },
+          condition: { type: "string" },
+          status: { type: "string" },
+          petFriendly: { type: "boolean" },
+          minConstructionMeters: { type: "number" },
+          maxConstructionMeters: { type: "number" },
+          minLotSize: { type: "number" },
+          maxLotSize: { type: "number" },
+          searchQuery: { type: "string" },
+          q: { type: "string" },
+          amenities: { type: "string" },
+          services: { type: "string" },
+          financing: { type: "string" },
+          promoted: { type: "boolean" },
           limit: { type: "number", default: 20 },
           offset: { type: "number", default: 0 },
         },
@@ -259,11 +360,18 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         const { properties, total } =
           await propertyService.getProperties(filters);
 
-        return reply.code(200).send({
-          success: true,
-          data: properties,
-          total,
-        });
+        // Public, address-stripped response — safe to edge-cache.
+        return reply
+          .header(
+            "Cache-Control",
+            "public, s-maxage=60, stale-while-revalidate=300",
+          )
+          .code(200)
+          .send({
+            success: true,
+            data: properties,
+            total,
+          });
       } catch (error: any) {
         if (error instanceof z.ZodError) {
           return reply.code(400).send({
@@ -319,7 +427,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
     },
     onRequest: [
       verifyJWT,
-      requireAnyRole(["seller", "wholesaler", "landlord", "admin"]),
+      requireAnyRole(["owner", "agent", "admin"]),
     ],
     handler: async (request, reply) => {
       try {
@@ -644,7 +752,6 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         }
 
         if (input.listingType === "for_rent") {
-          await landlordService.addLandlordRoleIfNeeded(user.id);
         }
 
         await cacheService.invalidate("location:filter:*");
@@ -679,7 +786,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
     url: "/properties/mine",
     onRequest: [
       verifyJWT,
-      requireAnyRole(["seller", "wholesaler", "landlord", "admin"]),
+      requireAnyRole(["owner", "agent", "admin"]),
     ],
     handler: async (request, reply) => {
       try {
@@ -746,7 +853,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
 
         return reply.code(200).send({
           success: true,
-          data: properties,
+          data: properties.map(publicPropertyView),
           total: properties.length,
         });
       } catch (error: any) {
@@ -767,28 +874,28 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
       try {
         const { id } = request.params as { id: string };
 
-        let sellerId: string | null = null;
+        let requesterId: string | null = null;
         try {
           const token =
             request.headers?.authorization?.replace("Bearer ", "") ||
             (request as any).cookies?.accessToken;
           if (token) {
             const decoded = app.jwt.verify(token) as any;
-            sellerId = decoded.id;
+            requesterId = decoded.id;
           }
         } catch {
           // Token invalid or expired — proceed as unauthenticated for public property view
         }
 
         let where: any = { id };
-        if (!sellerId) {
+        if (!requesterId) {
           where.visibility = "public";
           where.status = { not: "incompleto" };
         }
 
         const property = await app.prisma.property.findUnique({
           where,
-          include: sellerId
+          include: requesterId
             ? {
                 propertyRequests: {
                   select: { id: true, buyerId: true, status: true },
@@ -802,6 +909,25 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             success: false,
             error: "Property not found",
           });
+        }
+
+        const isOwner =
+          !!requesterId && (property as any).sellerId === requesterId;
+
+        if (!isOwner) {
+          const { propertyRequests: _ignored, ...rest } = property as any;
+          // Only the public (stripped) view is cacheable. The owner's full
+          // record must never be served from a shared cache.
+          return reply
+            .header(
+              "Cache-Control",
+              "public, s-maxage=60, stale-while-revalidate=300",
+            )
+            .code(200)
+            .send({
+              success: true,
+              data: publicPropertyView(rest),
+            });
         }
 
         return reply.code(200).send({
@@ -907,19 +1033,14 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         });
 
         // If changed to rental, add landlord role
-        if (
-          input.listingType === "for_rent" &&
-          existingProperty.listingType !== "for_rent"
-        ) {
-          await landlordService.addLandlordRoleIfNeeded(user.id);
-        }
+
+
 
         // If changed from rental to sale, check if should remove landlord role
         if (
           input.listingType === "for_sale" &&
           existingProperty.listingType === "for_rent"
         ) {
-          await landlordService.removeLandlordRoleIfNeeded(user.id);
         }
 
         // Invalidate location filter cache when property is updated
@@ -1149,11 +1270,6 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           where: { id },
         });
 
-        // If was a rental, check if should remove landlord role
-        if (property.listingType === "for_rent") {
-          await landlordService.removeLandlordRoleIfNeeded(user.id);
-        }
-
         return reply.code(200).send({
           success: true,
           message: "Property deleted successfully",
@@ -1187,7 +1303,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           orderBy: { createdAt: "desc" },
           take: limit,
         });
-        return reply.send({ properties: latest });
+        return reply.send({ properties: latest.map(publicPropertyView) });
       }
 
       const ids = topViewed.map((e) => e.entityId);
@@ -1201,7 +1317,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         (a, b) => (viewCounts.get(b.id) ?? 0) - (viewCounts.get(a.id) ?? 0),
       );
 
-      return reply.send({ properties });
+      return reply.send({ properties: properties.map(publicPropertyView) });
     } catch (error: any) {
       app.log.error(error);
       return reply

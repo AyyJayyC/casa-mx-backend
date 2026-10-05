@@ -22,10 +22,9 @@ async function main() {
       roles: {
         create: [
           { role: { connect: { name: "admin" } }, status: "approved" },
-          { role: { connect: { name: "buyer" } }, status: "approved" },
-          { role: { connect: { name: "seller" } }, status: "approved" },
-          { role: { connect: { name: "landlord" } }, status: "approved" },
-          { role: { connect: { name: "tenant" } }, status: "approved" },
+          { role: { connect: { name: "client" } }, status: "approved" },
+          { role: { connect: { name: "owner" } }, status: "approved" },
+          { role: { connect: { name: "agent" } }, status: "approved" },
         ],
       },
     },

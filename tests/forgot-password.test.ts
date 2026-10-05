@@ -29,7 +29,7 @@ describe("Forgot Password & Reset Password Flow", () => {
       await app.inject({
         method: "POST",
         url: "/auth/register",
-        payload: { email, name: "FP User", password, roles: ["buyer"] },
+        payload: { acceptLegal: true, email, name: "FP User", password, roles: ["client"] },
       });
 
       // Request password reset
@@ -105,10 +105,11 @@ describe("Forgot Password & Reset Password Flow", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Reset User",
           password: oldPassword,
-          roles: ["buyer"],
+          roles: ["client"],
         },
       });
 
@@ -166,10 +167,11 @@ describe("Forgot Password & Reset Password Flow", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Expired User",
           password: "Password1",
-          roles: ["buyer"],
+          roles: ["client"],
         },
       });
 
@@ -216,10 +218,11 @@ describe("Forgot Password & Reset Password Flow", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Weak Pass",
           password: "Password1",
-          roles: ["buyer"],
+          roles: ["client"],
         },
       });
 
@@ -264,10 +267,11 @@ describe("Forgot Password & Reset Password Flow", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Lockout User",
           password: "Password1",
-          roles: ["buyer"],
+          roles: ["client"],
         },
       });
 

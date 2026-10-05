@@ -7,11 +7,9 @@ const prisma = new PrismaClient();
 beforeAll(async () => {
   const requiredRoles = [
     "admin",
-    "landlord",
-    "buyer",
-    "seller",
-    "tenant",
-    "wholesaler",
+    "client",
+    "owner",
+    "agent",
   ];
   const roleMap: Record<string, string> = {};
 
@@ -75,9 +73,9 @@ beforeAll(async () => {
   );
   await ensureUserWithRoles(
     "seller@casamx.local",
-    "Seed Seller",
+    "Seed Owner",
     process.env.TEST_SELLER_PASSWORD || "seller123",
-    ["seller", "landlord"],
+    ["owner"],
   );
 });
 

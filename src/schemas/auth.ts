@@ -1,13 +1,6 @@
 import { z } from "zod";
 
-export const registerRoleSchema = z.enum([
-  "buyer",
-  "tenant",
-  "seller",
-  "landlord",
-  "wholesaler",
-  "admin",
-]);
+export const registerRoleSchema = z.enum(["client", "owner", "agent"]);
 
 export const RegisterSchema = z.object({
   email: z.string().email("Invalid email format").max(254, "Email is too long"),
@@ -26,8 +19,15 @@ export const RegisterSchema = z.object({
     .array(registerRoleSchema)
     .min(1, "Select at least one role")
     .optional()
-    .default(["buyer"]),
+    .default(["client"]),
   ref: z.string().max(20).optional(),
+  acceptLegal: z
+    .literal(true, {
+      errorMap: () => ({
+        message: "Debes aceptar los Términos y el Aviso de Privacidad",
+      }),
+    })
+    .describe("Must explicitly accept the legal terms"),
 });
 
 export const LoginSchema = z.object({

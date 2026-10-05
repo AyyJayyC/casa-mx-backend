@@ -315,13 +315,13 @@ describe("Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
   });
 
   describe("Seed Data Verification", () => {
-    it("should have landlord role in database", async () => {
+    it("should have owner role in database", async () => {
       const landlordRole = await prisma.role.findUnique({
-        where: { name: "landlord" },
+        where: { name: "owner" },
       });
 
       expect(landlordRole).toBeDefined();
-      expect(landlordRole!.name).toBe("landlord");
+      expect(landlordRole!.name).toBe("owner");
     });
 
     it("should have seeded rental properties", async () => {
@@ -348,7 +348,7 @@ describe("Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
       expect(applications.length).toBeGreaterThan(0); // At least some applications exist
     });
 
-    it("should have seller with landlord role", async () => {
+    it("should have seller with owner role", async () => {
       const seller = await prisma.user.findUnique({
         where: { email: "seller@casamx.local" },
         include: {
@@ -362,7 +362,7 @@ describe("Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
 
       expect(seller).toBeDefined();
       const hasLandlordRole = seller!.roles.some(
-        (ur) => ur.role.name === "landlord",
+        (ur) => ur.role.name === "owner",
       );
       expect(hasLandlordRole).toBe(true);
     });

@@ -25,17 +25,18 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
     await app.close();
   });
 
-  it("should allow user registration with selected roles and auto-approve tenant", async () => {
+  it("should allow user registration with selected roles and auto-approve client", async () => {
     const email = `test-${Date.now()}@example.com`;
 
     const response = await app.inject({
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email,
         name: "Test User",
         password: "Password1",
-        roles: ["tenant"],
+        roles: ["client"],
       },
     });
 
@@ -52,8 +53,8 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
     });
 
     expect(user).toBeDefined();
-    expect(user?.roles.some((r) => r.role.name === "tenant")).toBe(true);
-    expect(user?.roles.find((r) => r.role.name === "tenant")?.status).toBe(
+    expect(user?.roles.some((r) => r.role.name === "client")).toBe(true);
+    expect(user?.roles.find((r) => r.role.name === "client")?.status).toBe(
       "approved",
     );
   });
@@ -66,6 +67,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email,
         name: "User 1",
         password: "Password1",
@@ -77,6 +79,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email,
         name: "User 2",
         password: "Password1",
@@ -93,6 +96,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email: "not-an-email",
         name: "Test User",
         password: "Password1",
@@ -107,6 +111,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email: `test-short-${Date.now()}@example.com`,
         name: "Test User",
         password: "short",
@@ -125,6 +130,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email,
         name: "Test User",
         password,
@@ -156,6 +162,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email,
         name: "Test User",
         password: "Password1",
@@ -197,6 +204,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email,
         name: "Test User",
         password: "Password1",
@@ -236,6 +244,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email,
         name: "Test User",
         password: "Password1",
@@ -275,6 +284,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email,
         name: "Refresh Store User",
         password: "Password1",
@@ -309,6 +319,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email,
         name: "Refresh Rotate User",
         password: "Password1",
@@ -403,6 +414,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email,
         name: "Profile Test",
         password: "Password1",

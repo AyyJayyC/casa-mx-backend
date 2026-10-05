@@ -61,7 +61,7 @@ const envSchema = z
     AWS_ACCESS_KEY_ID: z.string().optional(),
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
     TEST_ADMIN_PASSWORD: z.string().optional().default("admin123"),
-    TEST_SELLER_PASSWORD: z.string().optional().default("seller123"),
+    TEST_OWNER_PASSWORD: z.string().optional().default("seller123"),
     DISABLE_SECURITY: z.enum(["true", "false"]).default("false"),
   })
   .superRefine((env, ctx) => {

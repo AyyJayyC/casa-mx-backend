@@ -20,6 +20,22 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
   });
 
   describe("getInitialRoleStatus (via register)", () => {
+    it("should reject public registration with the admin role", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/auth/register",
+        payload: {
+          acceptLegal: true,
+          email: `test-adminblock-${Date.now()}@example.com`,
+          name: "Wannabe Admin",
+          password: "Password1",
+          roles: ["admin"],
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
     it("should auto-approve all roles for ADMIN_EMAIL user, including admin", async () => {
       const adminEmail = process.env.ADMIN_EMAIL?.trim();
       if (!adminEmail) return; // skip if ADMIN_EMAIL not configured
@@ -40,10 +56,11 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Admin User",
           password,
-          roles: ["buyer", "admin"],
+          roles: ["client"],
         },
       });
 
@@ -74,7 +91,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
       expect(adminRole.status).toBe("approved");
 
       const buyerRole = body.user.roles.find(
-        (r: any) => r.roleName === "buyer",
+        (r: any) => r.roleName === "client",
       );
       expect(buyerRole).toBeDefined();
       expect(buyerRole.status).toBe("approved");
@@ -87,10 +104,11 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Regular User",
           password: "Password1",
-          roles: ["buyer"],
+          roles: ["client"],
         },
       });
 
@@ -105,54 +123,56 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
       expect(adminRole).toBeUndefined();
 
       const buyerRole = body.user.roles.find(
-        (r: any) => r.roleName === "buyer",
+        (r: any) => r.roleName === "client",
       );
       expect(buyerRole.status).toBe("approved");
     });
 
-    it("should auto-approve buyer/tenant for any user", async () => {
+    it("should auto-approve client for any user", async () => {
       const email = `test-autoroles-${Date.now()}@example.com`;
 
       const response = await app.inject({
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Auto Roles",
           password: "Password1",
-          roles: ["buyer", "tenant"],
+          roles: ["client", "client"],
         },
       });
 
       expect(response.statusCode).toBe(201);
       const body = response.json() as any;
       const buyerRole = body.user.roles.find(
-        (r: any) => r.roleName === "buyer",
+        (r: any) => r.roleName === "client",
       );
       const tenantRole = body.user.roles.find(
-        (r: any) => r.roleName === "tenant",
+        (r: any) => r.roleName === "client",
       );
       expect(buyerRole.status).toBe("approved");
       expect(tenantRole.status).toBe("approved");
     });
 
-    it("should set seller/landlord/wholesaler pending for regular user", async () => {
+    it("should set owner/agent pending for regular user", async () => {
       const email = `test-pendingroles-${Date.now()}@example.com`;
 
       const response = await app.inject({
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Pending Roles",
           password: "Password1",
-          roles: ["seller", "landlord", "wholesaler"],
+          roles: ["owner", "owner", "agent"],
         },
       });
 
       expect(response.statusCode).toBe(201);
       const body = response.json() as any;
-      for (const roleType of ["seller", "landlord", "wholesaler"]) {
+      for (const roleType of ["owner", "owner", "agent"]) {
         const role = body.user.roles.find((r: any) => r.roleName === roleType);
         expect(role).toBeDefined();
         expect(role.status).toBe("pending");
@@ -224,11 +244,11 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
       const email = `test-noauto-${Date.now()}@example.com`;
       const password = "Password1";
 
-      // Register as non-admin-email user with buyer role only
+      // Register as non-admin-email user with client role only
       const regRes = await app.inject({
         method: "POST",
         url: "/auth/register",
-        payload: { email, name: "No Auto", password, roles: ["buyer"] },
+        payload: { acceptLegal: true, email, name: "No Auto", password, roles: ["client"] },
       });
 
       expect(regRes.statusCode).toBe(201);

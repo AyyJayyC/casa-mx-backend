@@ -42,7 +42,7 @@ describe("Checkpoint 2 - Backend API Filters", () => {
     authToken = signRoleToken(app, {
       id: testSellerId,
       email: seller.email,
-      roles: ["seller"],
+      roles: ["owner"],
     });
   });
 
@@ -173,7 +173,7 @@ describe("Checkpoint 2 - Backend API Filters", () => {
     });
 
     it("should filter properties by código postal", async () => {
-      await app.prisma.property.create({
+      const created = await app.prisma.property.create({
         data: {
           title: "Polanco Property",
           listingType: "for_sale",
@@ -194,11 +194,10 @@ describe("Checkpoint 2 - Backend API Filters", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.success).toBe(true);
-      if (body.data.length > 0) {
-        expect(body.data.some((p: any) => p.codigoPostal === "11560")).toBe(
-          true,
-        );
-      }
+      const found = body.data.find((p: any) => p.id === created.id);
+      expect(found).toBeDefined();
+      // A1: public list must not expose the exact postal code
+      expect(found).not.toHaveProperty("codigoPostal");
     });
 
     it("should combine multiple filters", async () => {

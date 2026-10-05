@@ -7,40 +7,28 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // Create roles
-  const buyerRole = await prisma.role.upsert({
-    where: { name: "buyer" },
+  const clientRole = await prisma.role.upsert({
+    where: { name: "client" },
     update: {},
-    create: { name: "buyer" },
+    create: { name: "client" },
   });
 
-  const sellerRole = await prisma.role.upsert({
-    where: { name: "seller" },
+  const ownerRole = await prisma.role.upsert({
+    where: { name: "owner" },
     update: {},
-    create: { name: "seller" },
+    create: { name: "owner" },
   });
 
-  const tenantRole = await prisma.role.upsert({
-    where: { name: "tenant" },
+  const agentRole = await prisma.role.upsert({
+    where: { name: "agent" },
     update: {},
-    create: { name: "tenant" },
-  });
-
-  const wholesalerRole = await prisma.role.upsert({
-    where: { name: "wholesaler" },
-    update: {},
-    create: { name: "wholesaler" },
+    create: { name: "agent" },
   });
 
   const adminRole = await prisma.role.upsert({
     where: { name: "admin" },
     update: {},
     create: { name: "admin" },
-  });
-
-  const landlordRole = await prisma.role.upsert({
-    where: { name: "landlord" },
-    update: {},
-    create: { name: "landlord" },
   });
 
   console.log("✅ Roles created");
@@ -69,76 +57,52 @@ async function main() {
     id: adminUser.id,
   });
 
-  // Create test seller user
-  const sellerPassword = await bcrypt.hash("seller123", 10);
+  // Create test owner user
+  const ownerPassword = await bcrypt.hash("seller123", 10);
 
-  const sellerUser = await prisma.user.upsert({
+  const ownerUser = await prisma.user.upsert({
     where: { email: "seller@casamx.local" },
     update: {},
     create: {
       email: "seller@casamx.local",
-      name: "Test Seller",
-      password: sellerPassword,
+      name: "Test Owner",
+      password: ownerPassword,
       roles: {
         create: {
-          roleId: sellerRole.id,
+          roleId: ownerRole.id,
           status: "approved",
         },
       },
     },
   });
 
-  console.log("✅ Seller user created:", {
-    email: sellerUser.email,
-    id: sellerUser.id,
+  console.log("✅ Owner user created:", {
+    email: ownerUser.email,
+    id: ownerUser.id,
   });
 
-  // Create test buyer user
-  const buyerPassword = await bcrypt.hash("buyer123", 10);
+  // Create test client user
+  const clientPassword = await bcrypt.hash("buyer123", 10);
 
-  const buyerUser = await prisma.user.upsert({
+  const clientUser = await prisma.user.upsert({
     where: { email: "buyer@casamx.local" },
     update: {},
     create: {
       email: "buyer@casamx.local",
-      name: "Test Buyer",
-      password: buyerPassword,
+      name: "Test Client",
+      password: clientPassword,
       roles: {
         create: {
-          roleId: buyerRole.id,
+          roleId: clientRole.id,
           status: "approved",
         },
       },
     },
   });
 
-  console.log("✅ Buyer user created:", {
-    email: buyerUser.email,
-    id: buyerUser.id,
-  });
-
-  // Create test tenant user
-  const tenantPassword = await bcrypt.hash("tenant123", 10);
-
-  const tenantUser = await prisma.user.upsert({
-    where: { email: "tenant@casamx.local" },
-    update: {},
-    create: {
-      email: "tenant@casamx.local",
-      name: "Test Tenant",
-      password: tenantPassword,
-      roles: {
-        create: {
-          roleId: tenantRole.id,
-          status: "approved",
-        },
-      },
-    },
-  });
-
-  console.log("✅ Tenant user created:", {
-    email: tenantUser.email,
-    id: tenantUser.id,
+  console.log("✅ Client user created:", {
+    email: clientUser.email,
+    id: clientUser.id,
   });
 
   // Create sample properties for SALE with Mexican locations
@@ -155,7 +119,7 @@ async function main() {
       ciudad: "Ciudad de México",
       colonia: "Roma Norte",
       codigoPostal: "06700",
-      sellerId: sellerUser.id,
+      sellerId: ownerUser.id,
     },
     {
       title: "Departamento en Polanco",
@@ -169,7 +133,7 @@ async function main() {
       ciudad: "Ciudad de México",
       colonia: "Polanco",
       codigoPostal: "11560",
-      sellerId: sellerUser.id,
+      sellerId: ownerUser.id,
     },
     {
       title: "Residencia en Condesa",
@@ -183,7 +147,7 @@ async function main() {
       ciudad: "Ciudad de México",
       colonia: "Condesa",
       codigoPostal: "06140",
-      sellerId: sellerUser.id,
+      sellerId: ownerUser.id,
     },
     {
       title: "Casa en Guadalajara - Providencia",
@@ -197,7 +161,7 @@ async function main() {
       ciudad: "Guadalajara",
       colonia: "Providencia",
       codigoPostal: "44630",
-      sellerId: sellerUser.id,
+      sellerId: ownerUser.id,
     },
     {
       title: "Departamento en Zapopan",
@@ -211,7 +175,7 @@ async function main() {
       ciudad: "Zapopan",
       colonia: "Puerta de Hierro",
       codigoPostal: "45116",
-      sellerId: sellerUser.id,
+      sellerId: ownerUser.id,
     },
     {
       title: "Residencia en Monterrey",
@@ -225,7 +189,7 @@ async function main() {
       ciudad: "Monterrey",
       colonia: "San Pedro Garza García",
       codigoPostal: "66230",
-      sellerId: sellerUser.id,
+      sellerId: ownerUser.id,
     },
     {
       title: "Casa en Monterrey - Cumbres",
@@ -239,7 +203,7 @@ async function main() {
       ciudad: "Monterrey",
       colonia: "Cumbres",
       codigoPostal: "64610",
-      sellerId: sellerUser.id,
+      sellerId: ownerUser.id,
     },
   ];
 
@@ -263,7 +227,7 @@ async function main() {
       ciudad: "Ciudad de México",
       colonia: "Roma Norte",
       codigoPostal: "06700",
-      sellerId: sellerUser.id,
+      sellerId: ownerUser.id,
     },
     {
       title: "Departamento 2BR Polanco",
@@ -283,7 +247,7 @@ async function main() {
       ciudad: "Ciudad de México",
       colonia: "Polanco",
       codigoPostal: "11560",
-      sellerId: sellerUser.id,
+      sellerId: ownerUser.id,
     },
     {
       title: "Departamento en Guadalajara",
@@ -303,7 +267,7 @@ async function main() {
       ciudad: "Guadalajara",
       colonia: "Americana",
       codigoPostal: "44160",
-      sellerId: sellerUser.id,
+      sellerId: ownerUser.id,
     },
     {
       title: "Casa en Renta Monterrey",
@@ -323,7 +287,7 @@ async function main() {
       ciudad: "Monterrey",
       colonia: "Del Valle",
       codigoPostal: "66220",
-      sellerId: sellerUser.id,
+      sellerId: ownerUser.id,
     },
   ];
 
@@ -345,33 +309,15 @@ async function main() {
 
   console.log(`✅ ${rentalProperties.length} rental properties created`);
 
-  // Add landlord role to seller (since they have rental properties)
-  await prisma.userRole.upsert({
-    where: {
-      userId_roleId: {
-        userId: sellerUser.id,
-        roleId: landlordRole.id,
-      },
-    },
-    update: {},
-    create: {
-      userId: sellerUser.id,
-      roleId: landlordRole.id,
-      status: "approved",
-    },
-  });
-
-  console.log("✅ Landlord role added to seller");
-
   // Create sample rental applications
   if (createdRentals.length > 0) {
     const sampleApplications = [
       {
         propertyId: createdRentals[0].id,
-        applicantId: buyerUser.id,
+        applicantId: clientUser.id,
         status: "pending",
-        fullName: buyerUser.name,
-        email: buyerUser.email,
+        fullName: clientUser.name,
+        email: clientUser.email,
         phone: "+52 55 1234 5678",
         employer: "Tech Company SA de CV",
         jobTitle: "Desarrollador de Software",
@@ -389,10 +335,10 @@ async function main() {
       },
       {
         propertyId: createdRentals[1].id,
-        applicantId: buyerUser.id,
+        applicantId: clientUser.id,
         status: "under_review",
-        fullName: buyerUser.name,
-        email: buyerUser.email,
+        fullName: clientUser.name,
+        email: clientUser.email,
         phone: "+52 55 1234 5678",
         employer: "Tech Company SA de CV",
         jobTitle: "Desarrollador de Software",

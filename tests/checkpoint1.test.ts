@@ -79,7 +79,7 @@ describe("Checkpoint 1 - Database Models & Migrations", () => {
     });
 
     const buyerRole = await app.prisma.role.findUnique({
-      where: { name: "buyer" },
+      where: { name: "client" },
     });
 
     const userRole = await app.prisma.userRole.create({
@@ -115,7 +115,7 @@ describe("Checkpoint 1 - Database Models & Migrations", () => {
     });
 
     const buyerRole = await app.prisma.role.findUnique({
-      where: { name: "buyer" },
+      where: { name: "client" },
     });
 
     await app.prisma.userRole.create({
@@ -275,7 +275,7 @@ describe("Checkpoint 1 - Database Models & Migrations", () => {
     });
 
     const buyerRole = await app.prisma.role.findUnique({
-      where: { name: "buyer" },
+      where: { name: "client" },
     });
 
     await app.prisma.userRole.create({
@@ -302,8 +302,8 @@ describe("Checkpoint 1 - Database Models & Migrations", () => {
 
     const roleNames = roles.map((r) => r.name);
     expect(roleNames).toContain("admin");
-    expect(roleNames).toContain("buyer");
-    expect(roleNames).toContain("seller");
-    expect(roleNames).toContain("wholesaler");
+    expect(roleNames).toContain("client");
+    expect(roleNames).toContain("owner");
+    expect(roleNames).toContain("agent");
   });
 });

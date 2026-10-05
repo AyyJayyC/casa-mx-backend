@@ -4,7 +4,13 @@ import crypto from "node:crypto";
 import { RegisterInput, LoginInput } from "../schemas/auth.js";
 import { generateReferralCode as genRefCode } from "../utils/errorHandling.js";
 
-const AUTO_APPROVED_ROLES = new Set(["buyer", "tenant"]);
+const AUTO_APPROVED_ROLES = new Set(["client", "agent"]);
+
+/**
+ * Version identifier for the legal bundle (Términos y Condiciones + Aviso de
+ * Privacidad) a user accepts at signup. Bump when the text materially changes.
+ */
+export const CONSENT_VERSION = "1.0";
 
 export class AuthService {
   constructor(private prisma: PrismaClient) {}
@@ -34,7 +40,7 @@ export class AuthService {
 
   async register(data: RegisterInput) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
-    const requestedRoles = [...new Set(data.roles ?? ["buyer"])];
+    const requestedRoles: string[] = [...new Set(data.roles ?? ["client"])];
 
     // Auto-grant admin if registering with ADMIN_EMAIL
     const adminEmail = process.env.ADMIN_EMAIL?.trim();
@@ -49,6 +55,9 @@ export class AuthService {
     const referralCode = await this.ensureUniqueReferralCode();
 
     const ref = data.ref?.trim();
+
+    // Registration requires explicit legal acceptance (RegisterSchema enforces it).
+    const consentAt = new Date();
 
     // Check if ref is a user referral code or an agency code
     let referredById: string | undefined;
@@ -78,6 +87,9 @@ export class AuthService {
         referralCode,
         referredById,
         agencyId,
+        termsAcceptedAt: consentAt,
+        privacyAcceptedAt: consentAt,
+        consentVersion: CONSENT_VERSION,
         roles: {
           create: await Promise.all(
             requestedRoles.map(async (roleName) => ({
@@ -223,7 +235,7 @@ export class AuthService {
         });
       } else {
         // Create new user via OAuth
-        const defaultRoles = ["buyer", "tenant"];
+        const defaultRoles = ["client"];
         // Auto-grant admin if registering with ADMIN_EMAIL
         const adminEmail = process.env.ADMIN_EMAIL?.trim();
         if (

@@ -1,0 +1,1 @@
+{"nodes": [{"id": "c_users_axelj_appdata_local_temp_casa_mx_backend_prisma_migrations_20260506000000_drop_review_category_score_migration_sql", "label": "migration.sql", "file_type": "code", "source_file": "prisma/migrations/20260506000000_drop_review_category_score/migration.sql", "source_location": null}], "edges": []}

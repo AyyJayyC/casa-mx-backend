@@ -50,10 +50,11 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email: testEmail,
         name: "Admin Test User",
         password: "Password1",
-        roles: ["seller"],
+        roles: ["owner"],
       },
     });
     const createdUser = await app.prisma.user.findUnique({
@@ -128,10 +129,11 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email: denyTestEmail,
         name: "Deny Test User",
         password: "Password1",
-        roles: ["seller"],
+        roles: ["owner"],
       },
     });
     const denyTestRoleId = await getPendingRoleIdByEmail(denyTestEmail);
@@ -177,6 +179,7 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email: userEmail,
         name: "Non-Admin User",
         password: "Password1",
@@ -215,6 +218,7 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email: userEmail,
         name: "Deny Non-Admin",
         password: "Password1",
@@ -286,6 +290,7 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email: userEmail,
         name: "Audit Viewer",
         password: "Password1",
