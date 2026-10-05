@@ -15,6 +15,35 @@ import {
   type UpdatePropertyInput,
 } from "../schemas/properties.js";
 
+// Fields that must never leave the server on a public property response.
+const PUBLIC_STRIP_KEYS = [
+  "address",
+  "mapsUrl",
+  "inventoryNotes",
+  "codigoPostal",
+  "sellerId",
+  "verificationNote",
+  "verificationStatus",
+] as const;
+
+const roundCoord = (v: unknown) =>
+  typeof v === "number" ? Math.round(v * 1000) / 1000 : v;
+
+/**
+ * Public-safe projection of a property. Drops the exact address, maps link,
+ * internal notes, postal code and seller identity, and rounds coordinates to
+ * ~3 decimals (~110 m) so a listing cannot be triangulated to a doorstep.
+ */
+export function publicPropertyView<T extends object>(
+  p: T,
+): Record<string, any> {
+  const out: Record<string, any> = { ...p };
+  for (const key of PUBLIC_STRIP_KEYS) delete out[key];
+  if ("lat" in out) out.lat = roundCoord(out.lat);
+  if ("lng" in out) out.lng = roundCoord(out.lng);
+  return out;
+}
+
 class PropertyService {
   constructor(private prisma: PrismaClient) {}
 
@@ -157,7 +186,7 @@ class PropertyService {
       },
     });
 
-    return { properties, total };
+    return { properties: properties.map(publicPropertyView), total };
   }
 
   async getOwnedProperties(ownerId: string, filters: PropertyFilter) {
@@ -743,7 +772,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
 
         return reply.code(200).send({
           success: true,
-          data: properties,
+          data: properties.map(publicPropertyView),
           total: properties.length,
         });
       } catch (error: any) {
@@ -764,28 +793,28 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
       try {
         const { id } = request.params as { id: string };
 
-        let sellerId: string | null = null;
+        let requesterId: string | null = null;
         try {
           const token =
             request.headers?.authorization?.replace("Bearer ", "") ||
             (request as any).cookies?.accessToken;
           if (token) {
             const decoded = app.jwt.verify(token) as any;
-            sellerId = decoded.id;
+            requesterId = decoded.id;
           }
         } catch {
           // Token invalid or expired — proceed as unauthenticated for public property view
         }
 
         let where: any = { id };
-        if (!sellerId) {
+        if (!requesterId) {
           where.visibility = "public";
           where.status = { not: "incompleto" };
         }
 
         const property = await app.prisma.property.findUnique({
           where,
-          include: sellerId
+          include: requesterId
             ? {
                 propertyRequests: {
                   select: { id: true, buyerId: true, status: true },
@@ -798,6 +827,17 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           return reply.code(404).send({
             success: false,
             error: "Property not found",
+          });
+        }
+
+        const isOwner =
+          !!requesterId && (property as any).sellerId === requesterId;
+
+        if (!isOwner) {
+          const { propertyRequests: _ignored, ...rest } = property as any;
+          return reply.code(200).send({
+            success: true,
+            data: publicPropertyView(rest),
           });
         }
 
@@ -1174,7 +1214,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           orderBy: { createdAt: "desc" },
           take: limit,
         });
-        return reply.send({ properties: latest });
+        return reply.send({ properties: latest.map(publicPropertyView) });
       }
 
       const ids = topViewed.map((e) => e.entityId);
@@ -1188,7 +1228,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         (a, b) => (viewCounts.get(b.id) ?? 0) - (viewCounts.get(a.id) ?? 0),
       );
 
-      return reply.send({ properties });
+      return reply.send({ properties: properties.map(publicPropertyView) });
     } catch (error: any) {
       app.log.error(error);
       return reply
