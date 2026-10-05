@@ -6,6 +6,10 @@ import { cacheService } from "../services/cache.service.js";
 import { mapsService } from "../services/maps.service.js";
 import { notifyTagSubscribers } from "../services/notification.service.js";
 import {
+  deletePublicImage,
+  keyFromPublicUrl,
+} from "../services/s3.service.js";
+import {
   propertyFilterSchema,
   createPropertySchema,
   updatePropertySchema,
@@ -619,7 +623,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           title: input.title,
           description: input.description || "",
           address: input.address || "",
-          imageUrls: [],
+          imageUrls: input.imageUrls ?? [],
           price: input.price ?? null,
           lat: input.lat ?? null,
           lng: input.lng ?? null,
@@ -1263,6 +1267,28 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             success: false,
             error: "You can only delete your own properties",
           });
+        }
+
+        // Delete managed R2 image objects before removing the property.
+        // External URLs are skipped so we never delete third-party assets.
+        const imageUrls = Array.isArray(property.imageUrls)
+          ? property.imageUrls
+          : [];
+        const deletions = await Promise.allSettled(
+          imageUrls
+            .filter(
+              (url): url is string =>
+                typeof url === "string" && Boolean(keyFromPublicUrl(url)),
+            )
+            .map((url) => deletePublicImage(url)),
+        );
+        for (const result of deletions) {
+          if (result.status === "rejected") {
+            app.log.warn(
+              { err: result.reason },
+              "Failed to delete property image from R2",
+            );
+          }
         }
 
         // Delete property

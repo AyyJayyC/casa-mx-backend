@@ -14,13 +14,10 @@ import {
 // Base property schema with common fields
 const imageUrlSchema = z
   .string()
-  .max(2_000_000, "Each image payload must be <= 2MB of text data")
+  .max(500, "Each image URL must be <= 500 characters")
   .refine(
-    (value) =>
-      value.startsWith("http://") ||
-      value.startsWith("https://") ||
-      value.startsWith("data:image/"),
-    "Image must be an http(s) URL or data:image payload",
+    (value) => value.startsWith("https://"),
+    "Image must be an https URL",
   );
 
 const imageUrlsSchema = z
