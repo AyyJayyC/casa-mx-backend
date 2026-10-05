@@ -20,6 +20,22 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
   });
 
   describe("getInitialRoleStatus (via register)", () => {
+    it("should reject public registration with the admin role", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/auth/register",
+        payload: {
+          acceptLegal: true,
+          email: `test-adminblock-${Date.now()}@example.com`,
+          name: "Wannabe Admin",
+          password: "Password1",
+          roles: ["admin"],
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
     it("should auto-approve all roles for ADMIN_EMAIL user, including admin", async () => {
       const adminEmail = process.env.ADMIN_EMAIL?.trim();
       if (!adminEmail) return; // skip if ADMIN_EMAIL not configured
@@ -44,7 +60,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
           email,
           name: "Admin User",
           password,
-          roles: ["client", "admin"],
+          roles: ["client"],
         },
       });
 

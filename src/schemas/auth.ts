@@ -1,11 +1,6 @@
 import { z } from "zod";
 
-export const registerRoleSchema = z.enum([
-  "client",
-  "owner",
-  "agent",
-  "admin",
-]);
+export const registerRoleSchema = z.enum(["client", "owner", "agent"]);
 
 export const RegisterSchema = z.object({
   email: z.string().email("Invalid email format").max(254, "Email is too long"),
