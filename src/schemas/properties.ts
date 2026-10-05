@@ -223,9 +223,9 @@ export const propertyFilterSchema = z
     maxPrice: z.coerce.number().positive().optional(),
     minRent: z.coerce.number().positive().optional(),
     maxRent: z.coerce.number().positive().optional(),
-    furnished: z
-      .enum(["unfurnished", "semi_furnished", "furnished", "equipada"])
-      .optional(),
+    // String (not enum) because the UI sends a boolean-ish "true" for the
+    // "solo amuebladas" toggle; normalized to "furnished" in the service.
+    furnished: z.string().optional(),
     condition: z.string().optional(),
     status: z.string().optional(),
     visibility: z.string().optional(),
@@ -234,6 +234,13 @@ export const propertyFilterSchema = z
     maxConstructionMeters: z.coerce.number().positive().optional(),
     minLotSize: z.coerce.number().positive().optional(),
     maxLotSize: z.coerce.number().positive().optional(),
+    // Free-text search across title/colonia/ciudad. `q` is the UI alias.
+    searchQuery: z.string().optional(),
+    q: z.string().optional(),
+    // Comma-separated multi-select filters (Amenidades / Servicios / Pago).
+    amenities: z.string().optional(),
+    services: z.string().optional(),
+    financing: z.string().optional(),
     promoted: z.coerce.boolean().optional(),
     // Bounds search (rectangle): swLat/swLng = southwest corner, neLat/neLng = northeast corner
     swLat: z.coerce.number().min(-90).max(90).optional(),

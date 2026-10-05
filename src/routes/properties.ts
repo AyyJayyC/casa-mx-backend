@@ -113,6 +113,18 @@ class PropertyService {
       minRent,
       maxRent,
       furnished,
+      condition,
+      status,
+      petFriendly,
+      minConstructionMeters,
+      maxConstructionMeters,
+      minLotSize,
+      maxLotSize,
+      searchQuery,
+      q,
+      amenities,
+      services,
+      financing,
       promoted,
       swLat,
       swLng,
@@ -154,8 +166,57 @@ class PropertyService {
       if (maxRent !== undefined) where.monthlyRent.lte = maxRent;
     }
 
-    if (furnished !== undefined) where.furnished = furnished;
+    // "true" from the UI toggle means "solo amuebladas".
+    if (furnished === "true") where.furnished = "furnished";
+    else if (furnished) where.furnished = furnished;
+    if (condition) where.condition = condition;
+    if (status) where.status = status;
+    if (petFriendly !== undefined) where.petFriendly = petFriendly;
     if (promoted) where.promotionTier = { not: null };
+
+    if (
+      minConstructionMeters !== undefined ||
+      maxConstructionMeters !== undefined
+    ) {
+      where.squareMeters = {};
+      if (minConstructionMeters !== undefined)
+        where.squareMeters.gte = minConstructionMeters;
+      if (maxConstructionMeters !== undefined)
+        where.squareMeters.lte = maxConstructionMeters;
+    }
+
+    if (minLotSize !== undefined || maxLotSize !== undefined) {
+      where.lotSize = {};
+      if (minLotSize !== undefined) where.lotSize.gte = minLotSize;
+      if (maxLotSize !== undefined) where.lotSize.lte = maxLotSize;
+    }
+
+    // Multi-select lists arrive comma-separated from the UI.
+    const toList = (value?: string) =>
+      typeof value === "string"
+        ? value
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+    const amenityList = toList(amenities);
+    const serviceList = toList(services);
+    const financingList = toList(financing);
+    if (amenityList.length) where.amenities = { hasSome: amenityList };
+    if (serviceList.length) where.includedServices = { hasSome: serviceList };
+    if (financingList.length) where.financeOptions = { hasSome: financingList };
+
+    const search =
+      (typeof searchQuery === "string" && searchQuery.trim()) ||
+      (typeof q === "string" && q.trim()) ||
+      "";
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { colonia: { contains: search, mode: "insensitive" } },
+        { ciudad: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
     // Bounds filtering (rectangle)
     if (swLat !== undefined && neLat !== undefined && swLng !== undefined && neLng !== undefined) {
@@ -268,10 +329,23 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           maxPrice: { type: "number" },
           minRent: { type: "number" }, // NEW
           maxRent: { type: "number" }, // NEW
-          furnished: {
-            type: "string",
-            enum: ["unfurnished", "semi_furnished", "furnished", "equipada"],
-          },
+          // NOTE: Fastify strips query keys missing from this schema
+          // (ajv removeAdditional), so every filter the UI sends must be
+          // listed here or it is silently ignored.
+          furnished: { type: "string" },
+          condition: { type: "string" },
+          status: { type: "string" },
+          petFriendly: { type: "boolean" },
+          minConstructionMeters: { type: "number" },
+          maxConstructionMeters: { type: "number" },
+          minLotSize: { type: "number" },
+          maxLotSize: { type: "number" },
+          searchQuery: { type: "string" },
+          q: { type: "string" },
+          amenities: { type: "string" },
+          services: { type: "string" },
+          financing: { type: "string" },
+          promoted: { type: "boolean" },
           limit: { type: "number", default: 20 },
           offset: { type: "number", default: 0 },
         },
