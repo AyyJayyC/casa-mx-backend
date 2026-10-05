@@ -33,6 +33,7 @@ describe("Checkpoint 3 - Authorization & Guards", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email: testEmail,
         name: "Authorization Test User",
         password: "Password1",
@@ -240,6 +241,7 @@ describe("Checkpoint 3 - Authorization & Guards", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         email: testEmail2,
         name: "Pending Test",
         password: "Password1",

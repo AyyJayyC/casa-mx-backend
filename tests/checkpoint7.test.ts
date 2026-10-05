@@ -35,6 +35,7 @@ describe("CHECKPOINT 7 — Hardening & Production Readiness (Core Tests)", () =>
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           name: "Test User",
           email: "invalid-email",
           password: "Password123!",
@@ -53,6 +54,7 @@ describe("CHECKPOINT 7 — Hardening & Production Readiness (Core Tests)", () =>
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           name: "Test User",
           email: "test@example.com",
           password: "123",
@@ -70,6 +72,7 @@ describe("CHECKPOINT 7 — Hardening & Production Readiness (Core Tests)", () =>
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email: "test@example.com",
           // Missing name and password
         },
@@ -339,6 +342,7 @@ describe("CHECKPOINT 7 — Hardening & Production Readiness (Rate Limiting)", ()
             method: "POST",
             url: "/auth/register",
             payload: {
+              acceptLegal: true,
               name: `Test User ${i}`,
               email: `rate-test-${timestamp}-${i}@example.com`,
               password: "Password123!",

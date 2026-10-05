@@ -6,6 +6,12 @@ import { generateReferralCode as genRefCode } from "../utils/errorHandling.js";
 
 const AUTO_APPROVED_ROLES = new Set(["client", "agent"]);
 
+/**
+ * Version identifier for the legal bundle (Términos y Condiciones + Aviso de
+ * Privacidad) a user accepts at signup. Bump when the text materially changes.
+ */
+export const CONSENT_VERSION = "1.0";
+
 export class AuthService {
   constructor(private prisma: PrismaClient) {}
 
@@ -50,6 +56,9 @@ export class AuthService {
 
     const ref = data.ref?.trim();
 
+    // Registration requires explicit legal acceptance (RegisterSchema enforces it).
+    const consentAt = new Date();
+
     // Check if ref is a user referral code or an agency code
     let referredById: string | undefined;
     let agencyId: string | undefined;
@@ -78,6 +87,9 @@ export class AuthService {
         referralCode,
         referredById,
         agencyId,
+        termsAcceptedAt: consentAt,
+        privacyAcceptedAt: consentAt,
+        consentVersion: CONSENT_VERSION,
         roles: {
           create: await Promise.all(
             requestedRoles.map(async (roleName) => ({

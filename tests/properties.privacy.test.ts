@@ -38,7 +38,7 @@ describe("Property public/private views (privacy)", () => {
     const ownerRes = await app.inject({
       method: "POST",
       url: "/auth/register",
-      payload: { name: "Privacy Owner", email: ownerEmail, password, roles: ["owner"] },
+      payload: { acceptLegal: true, name: "Privacy Owner", email: ownerEmail, password, roles: ["owner"] },
     });
     expect(ownerRes.statusCode).toBe(201);
     ownerId = ownerRes.json().user.id;
@@ -48,7 +48,7 @@ describe("Property public/private views (privacy)", () => {
     const otherRes = await app.inject({
       method: "POST",
       url: "/auth/register",
-      payload: { name: "Privacy Other", email: otherEmail, password, roles: ["client"] },
+      payload: { acceptLegal: true, name: "Privacy Other", email: otherEmail, password, roles: ["client"] },
     });
     expect(otherRes.statusCode).toBe(201);
     otherId = otherRes.json().user.id;

@@ -25,6 +25,7 @@ describe("Owned properties API", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         name: "Owned Property Landlord",
         email: landlordEmail,
         password,
@@ -41,6 +42,7 @@ describe("Owned properties API", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         name: "Other Owner",
         email: otherEmail,
         password,

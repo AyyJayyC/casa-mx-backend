@@ -33,6 +33,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
+        acceptLegal: true,
         name: "Rental Test User",
         email: `rental-test-${Date.now()}@test.com`,
         password: "TestPassword123!",
@@ -328,6 +329,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           name: "Other User",
           email: `other-user-${Date.now()}@test.com`,
           password: "TestPassword123!",
@@ -615,6 +617,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           name: "Property Owner",
           email: `prop-owner-${Date.now()}@test.com`,
           password: "TestPassword123!",

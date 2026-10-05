@@ -26,6 +26,13 @@ export const RegisterSchema = z.object({
     .optional()
     .default(["client"]),
   ref: z.string().max(20).optional(),
+  acceptLegal: z
+    .literal(true, {
+      errorMap: () => ({
+        message: "Debes aceptar los Términos y el Aviso de Privacidad",
+      }),
+    })
+    .describe("Must explicitly accept the legal terms"),
 });
 
 export const LoginSchema = z.object({

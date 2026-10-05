@@ -21,6 +21,12 @@ model User {
   rfc       String?  // Mexican tax ID (RFC)
   razonSocial String? // legal/business name for invoices
   usoCFDI   String?  // CFDI usage code for invoices (G03, D01, etc.)
+
+  // Legal consent (email/password signup only; OAuth signups stay null)
+  termsAcceptedAt   DateTime? // when the user accepted the Términos y Condiciones
+  privacyAcceptedAt DateTime? // when the user accepted the Aviso de Privacidad
+  consentVersion    String?   // version of the accepted legal bundle
+
   emailVerified     Boolean  @default(false)
   phoneVerified     Boolean  @default(false)
   pendingEmail      String?  // email que el usuario quiere cambiar, pendiente de verificar

@@ -40,6 +40,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Admin User",
           password,
@@ -87,6 +88,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Regular User",
           password: "Password1",
@@ -117,6 +119,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Auto Roles",
           password: "Password1",
@@ -143,6 +146,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
+          acceptLegal: true,
           email,
           name: "Pending Roles",
           password: "Password1",
@@ -228,7 +232,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
       const regRes = await app.inject({
         method: "POST",
         url: "/auth/register",
-        payload: { email, name: "No Auto", password, roles: ["client"] },
+        payload: { acceptLegal: true, email, name: "No Auto", password, roles: ["client"] },
       });
 
       expect(regRes.statusCode).toBe(201);
