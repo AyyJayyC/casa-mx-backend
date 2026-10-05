@@ -40,7 +40,7 @@ export class AuthService {
 
   async register(data: RegisterInput) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
-    const requestedRoles = [...new Set(data.roles ?? ["client"])];
+    const requestedRoles: string[] = [...new Set(data.roles ?? ["client"])];
 
     // Auto-grant admin if registering with ADMIN_EMAIL
     const adminEmail = process.env.ADMIN_EMAIL?.trim();
