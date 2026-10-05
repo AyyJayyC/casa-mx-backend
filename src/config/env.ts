@@ -60,6 +60,13 @@ const envSchema = z
     AWS_BUCKET: z.string().optional(),
     AWS_ACCESS_KEY_ID: z.string().optional(),
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
+    // Cloudflare R2 (public property images). Optional so local/test boots.
+    R2_ENDPOINT: z.string().optional(),
+    R2_ACCESS_KEY_ID: z.string().optional(),
+    R2_SECRET_ACCESS_KEY: z.string().optional(),
+    R2_REGION: z.string().optional().default("auto"),
+    R2_IMAGES_BUCKET: z.string().optional(),
+    R2_PUBLIC_BASE_URL: z.string().optional(),
     TEST_ADMIN_PASSWORD: z.string().optional().default("admin123"),
     TEST_OWNER_PASSWORD: z.string().optional().default("seller123"),
     DISABLE_SECURITY: z.enum(["true", "false"]).default("false"),
