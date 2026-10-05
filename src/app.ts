@@ -95,7 +95,7 @@ export async function buildApp() {
           ]);
           if (
             allowed.has(origin) ||
-            /^https:\/\/.*\.vercel\.app$/.test(origin)
+            /^https:\/\/casa-mx(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)
           ) {
             callback(null, true);
           } else {
