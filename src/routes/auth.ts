@@ -526,6 +526,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({ id_token: idToken }).toString(),
+          signal: AbortSignal.timeout(8000),
         });
 
         if (!res.ok) {
@@ -640,6 +641,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         // Verify token by calling Facebook Graph API
         const verifyRes = await fetch(
           `https://graph.facebook.com/v19.0/me?fields=id,email,name,picture.type(large)&access_token=${encodeURIComponent(accessToken)}`,
+          { signal: AbortSignal.timeout(8000) },
         );
 
         if (!verifyRes.ok) {
@@ -659,6 +661,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         if (env.FACEBOOK_APP_ID && env.FACEBOOK_APP_SECRET) {
           const debugRes = await fetch(
             `https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${env.FACEBOOK_APP_ID}|${env.FACEBOOK_APP_SECRET}`,
+            { signal: AbortSignal.timeout(8000) },
           );
           const debugData = (await debugRes.json()) as {
             data?: { app_id?: string; is_valid?: boolean };
@@ -780,6 +783,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             code: authorizationCode,
             grant_type: "authorization_code",
           }).toString(),
+          signal: AbortSignal.timeout(8000),
         });
 
         if (!tokenRes.ok) {

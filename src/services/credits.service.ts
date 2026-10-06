@@ -18,7 +18,9 @@ export class CreditsService {
     private prisma: PrismaClient,
     stripeSecretKey?: string,
   ) {
-    this.stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+    this.stripe = stripeSecretKey
+      ? new Stripe(stripeSecretKey, { timeout: 8000 })
+      : null;
   }
 
   async getBalance(userId: string): Promise<number> {
