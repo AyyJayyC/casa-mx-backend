@@ -7,6 +7,9 @@ interface StripePaymentIntentLike {
   metadata?: Record<string, string>;
 }
 
+/** Cost in credits to unlock one verified contact. Single source of truth. */
+export const CREDIT_SPEND_COST = 10;
+
 export class CreditsService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private stripe: any;
@@ -56,7 +59,7 @@ export class CreditsService {
   }
 
   /**
-   * Deduct 1 credit to unlock a lead's contact info.
+   * Deduct 10 credits to unlock a lead's contact info.
    * leadType: 'application' (RentalApplication) | 'request' (PropertyRequest) | 'offer' (PropertyOffer).
    * The caller must be the property's seller/landlord.
    * Idempotent: if the user already unlocked this lead, return immediately.
@@ -131,7 +134,7 @@ export class CreditsService {
     }
 
     // Atomic check + deduct using interactive transaction to prevent race conditions
-    const SPEND_AMOUNT = 10;
+    const SPEND_AMOUNT = CREDIT_SPEND_COST;
     const spendResult = await this.prisma.$transaction(async (tx) => {
       const balance = await tx.creditBalance.findUnique({ where: { userId } });
       if (!balance || balance.balance < SPEND_AMOUNT) {

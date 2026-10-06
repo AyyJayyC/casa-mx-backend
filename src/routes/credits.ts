@@ -71,7 +71,7 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // POST /credits/spend - Seller spends 1 credit to unlock a lead's contact info
+  // POST /credits/spend - Seller spends 10 credits to unlock a lead's contact info
   fastify.post(
     "/credits/spend",
     {
