@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import { buildApp } from "./app.js";
 import { env } from "./config/env.js";
 import { cacheService } from "./services/cache.service.js";
@@ -102,6 +103,17 @@ async function runStartupChecks() {
 
 async function start() {
   console.log("[startup] Beginning server initialization...");
+
+  // Error reporting is opt-in: only initialise when a DSN is provided.
+  if (env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: env.SENTRY_DSN,
+      environment: env.SENTRY_ENVIRONMENT || env.NODE_ENV,
+      tracesSampleRate: 0.1,
+    });
+    console.log("[startup] Sentry initialized");
+  }
+
   try {
     await runStartupChecks();
 

@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import * as Sentry from "@sentry/node";
 import cookie from "@fastify/cookie";
 import csrfProtection from "@fastify/csrf-protection";
 import cors from "@fastify/cors";
@@ -352,6 +353,11 @@ export async function buildApp() {
       };
 
       app.log.error(errorLog, "Unhandled server error");
+
+      // Forward to Sentry when configured (no-op without a DSN).
+      if (env.SENTRY_DSN) {
+        Sentry.captureException(errorObj);
+      }
     }
 
     // Send error response
