@@ -910,14 +910,8 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           // Token invalid or expired — proceed as unauthenticated for public property view
         }
 
-        let where: any = { id };
-        if (!requesterId) {
-          where.visibility = "public";
-          where.status = { not: "incompleto" };
-        }
-
         const property = await app.prisma.property.findUnique({
-          where,
+          where: { id },
           include: requesterId
             ? {
                 propertyRequests: {
@@ -936,6 +930,17 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
 
         const isOwner =
           !!requesterId && (property as any).sellerId === requesterId;
+
+        // Draft/private listings are only visible to their owner.
+        if (
+          !isOwner &&
+          (property.visibility !== "public" || property.status === "incompleto")
+        ) {
+          return reply.code(404).send({
+            success: false,
+            error: "Property not found",
+          });
+        }
 
         if (!isOwner) {
           const { propertyRequests: _ignored, ...rest } = property as any;
