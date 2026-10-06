@@ -63,6 +63,9 @@ export async function buildApp(
     env.FRONTEND_URL.includes("0.0.0.0");
 
   const app = Fastify({
+    // Behind the Railway edge proxy: trust X-Forwarded-For so request.ip (and
+    // therefore rate-limit buckets) reflects the real client, not the edge.
+    trustProxy: true,
     bodyLimit: 5 * 1024 * 1024, // 5 MB
     maxParamLength: 100,
     connectionTimeout: 5000,
