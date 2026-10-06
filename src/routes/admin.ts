@@ -513,8 +513,13 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
                 .send({ success: false, error: "ADMIN_EMAIL not set" });
             }
             const bcrypt = require("bcrypt");
-            const adminPassword =
-              process.env.ADMIN_INITIAL_PASSWORD || "CasaMX2026!";
+            const adminPassword = process.env.ADMIN_INITIAL_PASSWORD;
+            if (!adminPassword) {
+              return reply.code(400).send({
+                success: false,
+                error: "ADMIN_INITIAL_PASSWORD not set",
+              });
+            }
             const hashedPassword = await bcrypt.hash(adminPassword, 10);
             await fastify.prisma.user.update({
               where: { email: adminEmail },
@@ -556,15 +561,20 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
         // Set password
         const bcrypt = await import("bcrypt");
-        const adminPassword =
-          process.env.ADMIN_INITIAL_PASSWORD || "CasaMX2026!";
+        const adminPassword = process.env.ADMIN_INITIAL_PASSWORD;
+        if (!adminPassword) {
+          return reply.code(400).send({
+            success: false,
+            error: "ADMIN_INITIAL_PASSWORD not set",
+          });
+        }
         const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
         const user = await fastify.prisma.user.upsert({
           where: { email: adminEmail },
           create: {
             email: adminEmail,
-            name: "Axel Castro",
+            name: "Admin",
             password: hashedPassword,
             emailVerified: true,
           },

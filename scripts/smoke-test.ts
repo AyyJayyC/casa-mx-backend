@@ -10,7 +10,7 @@
  */
 
 const BACKEND_URL = process.env.BACKEND_URL || "https://api.casa-mx.com";
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "5axelj@gmail.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const SLACK_WEBHOOK = process.env.SLACK_WEBHOOK;
 
@@ -55,9 +55,9 @@ async function fetchJson(url: string, init?: RequestInit) {
 async function main() {
   // No admin credentials configured (e.g. a fork without the secret): skip
   // rather than reporting a false failure.
-  if (!ADMIN_PASSWORD) {
+  if (!ADMIN_PASSWORD || !ADMIN_EMAIL) {
     console.warn(
-      "[smoke] ADMIN_PASSWORD is not set — skipping smoke test (exit 0).",
+      "[smoke] ADMIN_PASSWORD/ADMIN_EMAIL not set — skipping smoke test (exit 0).",
     );
     return;
   }
