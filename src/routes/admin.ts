@@ -126,14 +126,26 @@ export class AdminService {
   }
 
   async getAllUsers() {
+    // Explicit allow-list: never expose password hashes or auth tokens.
     return this.prisma.user.findMany({
-      include: {
-        roles: {
-          include: {
-            role: true,
-          },
-        },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        whatsapp: true,
+        provider: true,
+        avatarUrl: true,
+        emailVerified: true,
+        phoneVerified: true,
+        referralCode: true,
+        agencyId: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+        roles: { include: { role: true } },
       },
+      orderBy: { createdAt: "desc" },
     });
   }
 }
