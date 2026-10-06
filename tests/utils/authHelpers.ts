@@ -19,7 +19,7 @@ export async function registerUser(
   const registerRes = await app.inject({
     method: "POST",
     url: "/auth/register",
-    payload: { ...payload, acceptLegal: true },
+    payload: { ...payload, acceptLegal: true, isAdult: true, isAdult: true },
   });
 
   if (registerRes.statusCode !== 201) {

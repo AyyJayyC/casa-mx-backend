@@ -21,7 +21,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         name: "Test Tenant",
         email: "tenant@test.com",
         password: "TestPassword123!",
@@ -58,7 +58,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         name: "Test Landlord",
         email: "landlord@test.com",
         password: "TestPassword123!",
@@ -471,7 +471,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           name: "Other Landlord",
           email: uniqueEmail,
           password: "TestPassword123!",
@@ -614,7 +614,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           name: "Test Tenant 2",
           email: uniqueTenant2Email,
           password: "TestPassword123!",

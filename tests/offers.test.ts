@@ -51,7 +51,7 @@ describe("B5 - offers work on published properties", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "B5 Buyer",
         password: "Password1",

@@ -84,7 +84,7 @@ describe("property image pipeline (R2)", () => {
     const res = await app.inject({
       method: "POST",
       url: "/auth/register",
-      payload: { acceptLegal: true, name, email, password, roles },
+      payload: { acceptLegal: true, isAdult: true, name, email, password, roles },
     });
     expect(res.statusCode).toBe(201);
     const id = res.json().user.id;

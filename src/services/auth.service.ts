@@ -267,6 +267,9 @@ export class AuthService {
       name: user.name,
       avatarUrl: user.avatarUrl,
       provider: user.provider,
+      // OAuth providers can't collect our legal/age consent during the
+      // round-trip, so the client must show a consent step until accepted.
+      consentRequired: !user.termsAcceptedAt || !user.privacyAcceptedAt,
       roles: user.roles.map((ur) => ({
         roleId: ur.roleId,
         roleName: ur.role.name,

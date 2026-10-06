@@ -10,9 +10,11 @@ import {
   OAuthAppleSchema,
   ForgotPasswordSchema,
   ResetPasswordSchema,
+  ConsentSchema,
 } from "../schemas/auth.js";
-import { AuthService } from "../services/auth.service.js";
+import { AuthService, CONSENT_VERSION } from "../services/auth.service.js";
 import { refreshTokenStoreService } from "../services/refreshTokenStore.service.js";
+import { verifyJWT } from "../utils/guards.js";
 import { env } from "../config/env.js";
 import {
   sendVerificationEmail,
@@ -598,6 +600,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             name: user.name,
             avatarUrl: user.avatarUrl,
             provider: user.provider,
+            consentRequired: user.consentRequired,
             roles: user.roles,
           },
         });
@@ -726,6 +729,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             name: user.name,
             avatarUrl: user.avatarUrl,
             provider: user.provider,
+            consentRequired: user.consentRequired,
             roles: user.roles,
           },
         });
@@ -858,6 +862,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             name: user.name,
             avatarUrl: user.avatarUrl,
             provider: user.provider,
+            consentRequired: user.consentRequired,
             roles: user.roles,
           },
         });
@@ -875,6 +880,35 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         return reply
           .code(500)
           .send({ success: false, error: "Apple login failed" });
+      }
+    },
+  );
+
+  // POST /auth/consent — post-OAuth legal + 18+ consent step
+  fastify.post(
+    "/auth/consent",
+    { onRequest: [verifyJWT] },
+    async (request, reply) => {
+      try {
+        ConsentSchema.parse(request.body);
+        const now = new Date();
+        await fastify.prisma.user.update({
+          where: { id: request.user.id },
+          data: {
+            termsAcceptedAt: now,
+            privacyAcceptedAt: now,
+            consentVersion: CONSENT_VERSION,
+          },
+        });
+        return reply.send({ success: true });
+      } catch (error: any) {
+        if (isZodError(error)) {
+          return reply.code(400).send(createValidationErrorResponse(error));
+        }
+        fastify.log.error(error);
+        return reply
+          .code(500)
+          .send({ success: false, error: "Failed to record consent" });
       }
     },
   );

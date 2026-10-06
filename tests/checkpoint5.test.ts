@@ -29,7 +29,7 @@ beforeAll(async () => {
     method: "POST",
     url: "/auth/register",
     payload: {
-      acceptLegal: true,
+      acceptLegal: true, isAdult: true,
       email: adminEmail,
       name: "Admin User",
       password: "AdminPassword123!",
@@ -42,7 +42,7 @@ beforeAll(async () => {
     method: "POST",
     url: "/auth/register",
     payload: {
-      acceptLegal: true,
+      acceptLegal: true, isAdult: true,
       email: userEmail,
       name: "Test User",
       password: "TestPassword123!",

@@ -15,7 +15,7 @@ async function registerUser(prefix: string, roles: string[] = ["client"]) {
     method: "POST",
     url: "/auth/register",
     payload: {
-      acceptLegal: true,
+      acceptLegal: true, isAdult: true,
       email,
       name: `ARCO ${prefix}`,
       password,

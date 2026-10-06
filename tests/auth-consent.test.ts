@@ -60,7 +60,7 @@ describe("Registration consent (A2)", () => {
         email,
         password,
         roles: ["client"],
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
       },
     });
     expect(res.statusCode).toBe(201);
@@ -88,5 +88,72 @@ describe("Registration consent (A2)", () => {
     expect(row?.termsAcceptedAt).toBeNull();
     expect(row?.privacyAcceptedAt).toBeNull();
     expect(row?.consentVersion).toBeNull();
+  });
+
+  it("rejects registration when isAdult is missing or false", async () => {
+    const base = {
+      name: "Minor",
+      password,
+      roles: ["client"],
+      acceptLegal: true,
+    };
+
+    const missing = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      payload: { ...base, email: `minor-missing-${suffix}@test.com` },
+    });
+    expect(missing.statusCode).toBe(400);
+
+    const underage = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      payload: {
+        ...base,
+        email: `minor-false-${suffix}@test.com`,
+        isAdult: false,
+      },
+    });
+    expect(underage.statusCode).toBe(400);
+  });
+
+  it("flags OAuth logins as consentRequired until consent is recorded", async () => {
+    const email = `oauth-gate-${suffix}@test.com`;
+    const service = new AuthService(app.prisma);
+    const user = await service.loginOrCreateOAuthUser({
+      provider: "google",
+      providerId: `gate-${suffix}`,
+      email,
+      name: "Gate User",
+    });
+    createdUserIds.push(user.id);
+    expect(user.consentRequired).toBe(true);
+
+    const token = app.jwt.sign(
+      { id: user.id, email, roles: [] },
+      { expiresIn: "1h" },
+    );
+
+    // Under-18 / missing attestation is rejected.
+    const underage = await app.inject({
+      method: "POST",
+      url: "/auth/consent",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { acceptLegal: true },
+    });
+    expect(underage.statusCode).toBe(400);
+
+    const ok = await app.inject({
+      method: "POST",
+      url: "/auth/consent",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { acceptLegal: true, isAdult: true },
+    });
+    expect(ok.statusCode).toBe(200);
+
+    const row = await app.prisma.user.findUnique({ where: { id: user.id } });
+    expect(row?.termsAcceptedAt).toBeInstanceOf(Date);
+    expect(row?.privacyAcceptedAt).toBeInstanceOf(Date);
+    expect(row?.consentVersion).toBe(CONSENT_VERSION);
   });
 });

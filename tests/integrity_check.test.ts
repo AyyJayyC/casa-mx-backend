@@ -39,7 +39,7 @@ describe("Integrity Check - Adversarial Tests", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         name: "Admin Integrity",
         email: `admin-integrity-${Date.now()}@test.com`,
         password: "AdminPassword123!",
@@ -80,7 +80,7 @@ describe("Integrity Check - Adversarial Tests", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         name: "Regular User",
         email: `user-integrity-${Date.now()}@test.com`,
         password: "UserPassword123!",

@@ -25,7 +25,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email: `test-adminblock-${Date.now()}@example.com`,
           name: "Wannabe Admin",
           password: "Password1",
@@ -56,7 +56,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Admin User",
           password,
@@ -104,7 +104,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Regular User",
           password: "Password1",
@@ -135,7 +135,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Auto Roles",
           password: "Password1",
@@ -162,7 +162,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Pending Roles",
           password: "Password1",
@@ -256,7 +256,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
       const regRes = await app.inject({
         method: "POST",
         url: "/auth/register",
-        payload: { acceptLegal: true, email, name: "No Auto", password, roles: ["client"] },
+        payload: { acceptLegal: true, isAdult: true, email, name: "No Auto", password, roles: ["client"] },
       });
 
       expect(regRes.statusCode).toBe(201);

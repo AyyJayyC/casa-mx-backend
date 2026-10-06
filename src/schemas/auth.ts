@@ -28,6 +28,12 @@ export const RegisterSchema = z.object({
       }),
     })
     .describe("Must explicitly accept the legal terms"),
+  // 18+ is a legal requirement for the Mexican market.
+  isAdult: z.literal(true, {
+    errorMap: () => ({
+      message: "Debes confirmar que eres mayor de 18 años",
+    }),
+  }),
 });
 
 export const LoginSchema = z.object({
@@ -73,6 +79,24 @@ export const OAuthAppleSchema = z.object({
 
 export const ForgotPasswordSchema = z.object({
   email: z.string().email("Invalid email format").max(254, "Email is too long"),
+});
+
+/**
+ * Post-OAuth consent step. OAuth signups cannot accept terms during the
+ * provider round-trip, so we collect consent (and the 18+ attestation) right
+ * after the session is established.
+ */
+export const ConsentSchema = z.object({
+  acceptLegal: z.literal(true, {
+    errorMap: () => ({
+      message: "Debes aceptar los Términos y el Aviso de Privacidad",
+    }),
+  }),
+  isAdult: z.literal(true, {
+    errorMap: () => ({
+      message: "Debes confirmar que eres mayor de 18 años",
+    }),
+  }),
 });
 
 export const ResetPasswordSchema = z.object({

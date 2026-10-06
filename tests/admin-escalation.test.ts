@@ -37,7 +37,7 @@ describe("B1 - Admin escalation is impossible from register/OAuth/login", () => 
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email: ADMIN_EMAIL,
         name: "Escalation Attempt",
         password: "Password1",
@@ -103,7 +103,7 @@ describe("B1 - Admin escalation is impossible from register/OAuth/login", () => 
     const reg = await app.inject({
       method: "POST",
       url: "/auth/register",
-      payload: { acceptLegal: true, email, name: "Login Mutate", password, roles: ["client"] },
+      payload: { acceptLegal: true, isAdult: true, email, name: "Login Mutate", password, roles: ["client"] },
     });
     expect(reg.statusCode).toBe(201);
 

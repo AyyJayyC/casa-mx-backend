@@ -17,7 +17,7 @@ describe("Users Routes", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "Users Test",
         password: "Password1",
