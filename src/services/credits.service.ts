@@ -135,26 +135,43 @@ export class CreditsService {
 
     // Atomic check + deduct using interactive transaction to prevent race conditions
     const SPEND_AMOUNT = CREDIT_SPEND_COST;
-    const spendResult = await this.prisma.$transaction(async (tx) => {
-      const balance = await tx.creditBalance.findUnique({ where: { userId } });
-      if (!balance || balance.balance < SPEND_AMOUNT) {
-        return { success: false as const, newBalance: balance?.balance ?? 0 };
+    let spendResult: { success: boolean; newBalance: number };
+    try {
+      spendResult = await this.prisma.$transaction(async (tx) => {
+        const balance = await tx.creditBalance.findUnique({ where: { userId } });
+        if (!balance || balance.balance < SPEND_AMOUNT) {
+          return { success: false as const, newBalance: balance?.balance ?? 0 };
+        }
+        const updated = await tx.creditBalance.update({
+          where: { userId },
+          data: { balance: { decrement: SPEND_AMOUNT } },
+        });
+        await tx.creditTransaction.create({
+          data: {
+            userId,
+            type: "spend",
+            amount: -SPEND_AMOUNT,
+            description: `Contacto de interesado desbloqueado (${leadType})`,
+            referenceId: leadId,
+          },
+        });
+        return { success: true as const, newBalance: updated.balance };
+      });
+    } catch (err: any) {
+      // A concurrent spend won the race: the unique index rejected our insert
+      // and the transaction (including the decrement) rolled back.
+      if (err?.code === "P2002") {
+        const balance = await this.getBalance(userId);
+        const contact = await resolveContact();
+        return {
+          success: true,
+          newBalance: balance,
+          alreadyUnlocked: true,
+          contact: contact ?? undefined,
+        };
       }
-      const updated = await tx.creditBalance.update({
-        where: { userId },
-        data: { balance: { decrement: SPEND_AMOUNT } },
-      });
-      await tx.creditTransaction.create({
-        data: {
-          userId,
-          type: "spend",
-          amount: -SPEND_AMOUNT,
-          description: `Contacto de interesado desbloqueado (${leadType})`,
-          referenceId: leadId,
-        },
-      });
-      return { success: true as const, newBalance: updated.balance };
-    });
+      throw err;
+    }
 
     if (!spendResult.success) {
       return spendResult;
