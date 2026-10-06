@@ -141,7 +141,7 @@ export class AuthService {
       ? await bcrypt.compare(data.password, user.password ?? dummyHash)
       : await bcrypt.compare(data.password, dummyHash);
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new Error("Invalid email or password");
     }
 

@@ -58,6 +58,9 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // Soft-delete / ARCO erasure marker. When set, the account is anonymized and
+  // cannot authenticate; the row (and legally-required transactions) is kept.
+  deletedAt DateTime?
 
   @@unique([provider, providerId])
   @@index([email])
@@ -68,6 +71,7 @@ model User {
   @@index([referredById])
   @@index([agencyId])
   @@index([createdAt])
+  @@index([deletedAt])
 }
 
 model Agency {
