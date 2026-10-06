@@ -49,8 +49,13 @@ import {
 import { MapsService } from "./services/maps.service.js";
 import { LoggingService } from "./services/logging.service.js";
 
-export async function buildApp() {
-  const disableSecurity = env.DISABLE_SECURITY === "true";
+export async function buildApp(
+  options: { forceSecurity?: boolean } = {},
+) {
+  // `forceSecurity` lets tests exercise the hardened path even though the test
+  // env sets DISABLE_SECURITY=true.
+  const disableSecurity =
+    env.DISABLE_SECURITY === "true" && !options.forceSecurity;
 
   const isLocalFrontend =
     env.FRONTEND_URL.includes("localhost") ||
@@ -80,29 +85,28 @@ export async function buildApp() {
 
   const frontendUrl = env.FRONTEND_URL.replace(/\/$/, "");
 
-  // Register CORS — open on staging, strict on production
+  // Register CORS — allowlist the frontend + project Vercel previews. Kept
+  // independent of DISABLE_SECURITY so the origin policy is always enforced.
   await app.register(cors, {
-    origin: disableSecurity
-      ? true
-      : (origin, callback) => {
-          if (!origin) {
-            callback(null, true);
-            return;
-          }
-          const allowed = new Set<string>([
-            frontendUrl,
-            "https://casa-mx.com",
-            "https://www.casa-mx.com",
-          ]);
-          if (
-            allowed.has(origin) ||
-            /^https:\/\/casa-mx(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)
-          ) {
-            callback(null, true);
-          } else {
-            callback(null, false);
-          }
-        },
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const allowed = new Set<string>([
+        frontendUrl,
+        "https://casa-mx.com",
+        "https://www.casa-mx.com",
+      ]);
+      if (
+        allowed.has(origin) ||
+        /^https:\/\/casa-mx(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)
+      ) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
@@ -184,7 +188,66 @@ export async function buildApp() {
 
   await app.register(cookie);
   if (!disableSecurity) {
-    await app.register(csrfProtection, { cookieOpts: { signed: false } });
+    await app.register(csrfProtection, {
+      // `_csrf` holds the secret and stays httpOnly; the derived token is
+      // mirrored into the readable `csrfToken` cookie for the SPA.
+      cookieOpts: {
+        signed: false,
+        httpOnly: true,
+        sameSite: "lax",
+        secure: true,
+        path: "/",
+      },
+    });
+
+    // Issue/refresh a double-submit token on every request so the SPA always
+    // has one before its first mutation.
+    app.addHook("onRequest", (_request, reply, done) => {
+      try {
+        const token = (reply as any).generateCsrf();
+        if (token) {
+          reply.setCookie("csrfToken", token, {
+            httpOnly: false,
+            sameSite: "lax",
+            secure: true,
+            path: "/",
+          });
+        }
+      } catch {
+        // Ignore — the enforcement hook below decides what to do.
+      }
+      done();
+    });
+
+    // Enforce CSRF on state-changing requests. Exemptions:
+    //  - Stripe webhook: authenticated by signature, not cookies.
+    //  - Auth bootstrap routes: they run before a token can exist; login CSRF
+    //    is mitigated by SameSite=Lax + the strict CORS allowlist.
+    const csrfExempt = new Set([
+      "POST /credits/webhook",
+      "POST /auth/register",
+      "POST /auth/login",
+      "POST /auth/refresh",
+      "POST /auth/forgot-password",
+      "POST /auth/reset-password",
+    ]);
+
+    // Cast to any: @fastify/csrf-protection's handler uses the callback style,
+    // which doesn't line up with Fastify's async preHandler overload here.
+    app.addHook(
+      "preHandler",
+      ((request: any, reply: any, done: any) => {
+        const method = request.method.toUpperCase();
+        if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
+          return done();
+        }
+        const path = request.url.split("?")[0];
+        if (csrfExempt.has(`${method} ${path}`)) {
+          return done();
+        }
+        return (app as any).csrfProtection(request, reply, done);
+      }) as any,
+    );
   }
   await app.register(jwtPlugin);
 

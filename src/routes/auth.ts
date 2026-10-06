@@ -29,7 +29,6 @@ import {
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authService = new AuthService(fastify.prisma);
-  const isProduction = env.NODE_ENV === "production";
   const isLocalFrontend =
     env.FRONTEND_URL.includes("localhost") ||
     env.FRONTEND_URL.includes("127.0.0.1") ||
@@ -41,7 +40,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     : `.${new URL(env.FRONTEND_URL).hostname.replace(/^www\./, "")}`;
   const cookieOptions = {
     httpOnly: true,
-    sameSite: (isProduction ? "none" : "lax") as "lax" | "none",
+    // Lax blocks cookies on cross-site POSTs — the main CSRF mitigation now
+    // that the frontend and API share the casa-mx.com registrable domain.
+    sameSite: "lax" as const,
     secure: true,
     path: "/",
     ...(cookieDomain ? { domain: cookieDomain } : {}),
@@ -299,9 +300,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 60 * 60 * 24 * 7,
           });
 
-        try {
-          reply.generateCsrf();
-        } catch {}
+        // CSRF token + cookie are issued by the app-level onRequest hook.
 
         // Notify user of new login
         const ip =
@@ -456,9 +455,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               maxAge: 60 * 60 * 24 * 7,
             });
 
-          try {
-            reply.generateCsrf();
-          } catch {}
+          // CSRF token + cookie are issued by the app-level onRequest hook.
 
           return reply.code(200).send({
             success: true,
@@ -712,9 +709,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 7 * 24 * 60 * 60,
           });
 
-        try {
-          reply.generateCsrf();
-        } catch {}
+        // CSRF token + cookie are issued by the app-level onRequest hook.
 
         return reply.code(200).send({
           success: true,
@@ -842,9 +837,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 7 * 24 * 60 * 60,
           });
 
-        try {
-          reply.generateCsrf();
-        } catch {}
+        // CSRF token + cookie are issued by the app-level onRequest hook.
 
         return reply.code(200).send({
           success: true,
@@ -976,9 +969,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 7 * 24 * 60 * 60,
           });
 
-        try {
-          reply.generateCsrf();
-        } catch {}
+        // CSRF token + cookie are issued by the app-level onRequest hook.
 
         return reply.code(200).send({
           success: true,

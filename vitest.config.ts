@@ -17,6 +17,9 @@ export default defineConfig({
       RESEND_API_KEY: 're_test_dummy_key',
       RESEND_FROM_EMAIL: 'noreply@casa-mx.test',
       RESEND_FROM_NAME: 'CasaMX Test',
+      // CSRF/helmet are enforced in app.ts unless disabled; app.inject tests
+      // do not send CSRF tokens. The dedicated CSRF test forces security on.
+      DISABLE_SECURITY: 'true',
     },
     testTimeout: 30000,      // 30 second timeout per test
     hookTimeout: 30000,      // 30 second timeout for hooks

@@ -108,13 +108,21 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
             "offer",
             offer.id,
           );
-          await sendOfferReceivedEmail({
-            sellerEmail: seller.email,
-            sellerName: seller.name,
-            propertyTitle: property.title,
-            offeredAmount: Number(input.offerAmount),
-            buyerName: buyer?.name ?? "Un comprador",
-          });
+          // Email delivery must not fail the offer submission.
+          try {
+            await sendOfferReceivedEmail({
+              sellerEmail: seller.email,
+              sellerName: seller.name,
+              propertyTitle: property.title,
+              offeredAmount: Number(input.offerAmount),
+              buyerName: buyer?.name ?? "Un comprador",
+            });
+          } catch (emailErr) {
+            fastify.log.error(
+              { err: emailErr },
+              "Failed to send offer received email",
+            );
+          }
         }
 
         return reply.code(201).send({ success: true, data: offer });
@@ -387,18 +395,26 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
             propertyTitle: offer.property.title,
             offeredAmount: Number(offer.offerAmount),
           };
-          if (input.status === "accepted")
-            await sendOfferAcceptedEmail(emailOpts);
-          else if (input.status === "rejected")
-            await sendOfferRejectedEmail(emailOpts);
-          else if (input.status === "countered")
-            await sendOfferCounteredEmail({
-              buyerEmail: buyer.email,
-              buyerName: buyer.name,
-              propertyTitle: offer.property.title,
-              counterAmount: Number(input.counterAmount),
-              sellerNote: input.sellerNote,
-            });
+          // Email delivery must not fail the response to the offer.
+          try {
+            if (input.status === "accepted")
+              await sendOfferAcceptedEmail(emailOpts);
+            else if (input.status === "rejected")
+              await sendOfferRejectedEmail(emailOpts);
+            else if (input.status === "countered")
+              await sendOfferCounteredEmail({
+                buyerEmail: buyer.email,
+                buyerName: buyer.name,
+                propertyTitle: offer.property.title,
+                counterAmount: Number(input.counterAmount),
+                sellerNote: input.sellerNote,
+              });
+          } catch (emailErr) {
+            fastify.log.error(
+              { err: emailErr },
+              "Failed to send offer status email",
+            );
+          }
         }
 
         return reply.send({ success: true, data: updated });
