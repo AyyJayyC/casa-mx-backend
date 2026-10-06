@@ -12,6 +12,7 @@ import {
   createServerErrorResponse,
 } from "../utils/errorHandling.js";
 import { createNotification } from "../services/notification.service.js";
+import { PUBLISHED_STATUSES } from "../constants/propertyOptions.js";
 import {
   sendOfferAcceptedEmail,
   sendOfferRejectedEmail,
@@ -63,7 +64,7 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
               error: "Offers can only be made on sale properties",
             });
         }
-        if (property.status !== "available") {
+        if (!(PUBLISHED_STATUSES as readonly string[]).includes(property.status)) {
           return reply
             .code(400)
             .send({
