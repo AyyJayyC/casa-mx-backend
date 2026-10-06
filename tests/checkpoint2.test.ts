@@ -264,13 +264,12 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
     const refreshToken =
       getCookie(loginResponse, "refreshToken") ?? loginBody.refreshToken;
 
-    // Use refresh token to get new access token
+    // Use refresh token to get new access token. /auth/refresh reads the
+    // httpOnly cookie only (never the body) to prevent XSS token exfiltration.
     const refreshResponse = await app.inject({
       method: "POST",
       url: "/auth/refresh",
-      payload: {
-        refreshToken,
-      },
+      headers: { cookie: `refreshToken=${refreshToken}` },
     });
 
     expect(refreshResponse.statusCode).toBe(200);
@@ -343,9 +342,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
     const refreshResponse = await app.inject({
       method: "POST",
       url: "/auth/refresh",
-      payload: {
-        refreshToken: firstRefreshToken,
-      },
+      headers: { cookie: `refreshToken=${firstRefreshToken}` },
     });
 
     expect(refreshResponse.statusCode).toBe(200);
@@ -370,9 +367,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
     const response = await app.inject({
       method: "POST",
       url: "/auth/refresh",
-      payload: {
-        refreshToken: "invalid-token",
-      },
+      headers: { cookie: "refreshToken=invalid-token" },
     });
 
     expect(response.statusCode).toBe(401);

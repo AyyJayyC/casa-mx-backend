@@ -172,11 +172,19 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
 
       expect(response.statusCode).toBe(201);
       const body = response.json() as any;
-      for (const roleType of ["owner", "owner", "agent"]) {
-        const role = body.user.roles.find((r: any) => r.roleName === roleType);
-        expect(role).toBeDefined();
-        expect(role.status).toBe("pending");
-      }
+
+      // "agent" is auto-approved (AUTO_APPROVED_ROLES); "owner" still needs
+      // manual approval.
+      const ownerRole = body.user.roles.find(
+        (r: any) => r.roleName === "owner",
+      );
+      const agentRole = body.user.roles.find(
+        (r: any) => r.roleName === "agent",
+      );
+      expect(ownerRole).toBeDefined();
+      expect(ownerRole.status).toBe("pending");
+      expect(agentRole).toBeDefined();
+      expect(agentRole.status).toBe("approved");
     });
   });
 

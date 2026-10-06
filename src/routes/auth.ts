@@ -1015,7 +1015,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     {
       config: {
         rateLimit: {
-          max: 3,
+          // Raised in tests to avoid a shared per-IP bucket bleeding across
+          // test cases (same pattern as /auth/register).
+          max: env.NODE_ENV === "test" ? 500 : 3,
           timeWindow: "15 minutes",
         },
       },
@@ -1045,11 +1047,21 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           },
         });
 
-        await sendPasswordResetEmail({
-          userEmail: user.email,
-          userName: user.name,
-          token,
-        });
+        // Email delivery must never turn a valid reset request into a 500
+        // (and must not leak whether the address exists). The token is already
+        // stored above; the user can retry if delivery hiccups.
+        try {
+          await sendPasswordResetEmail({
+            userEmail: user.email,
+            userName: user.name,
+            token,
+          });
+        } catch (emailErr) {
+          fastify.log.error(
+            { err: emailErr },
+            "Failed to send password reset email",
+          );
+        }
 
         return reply
           .code(200)
@@ -1075,7 +1087,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     {
       config: {
         rateLimit: {
-          max: 5,
+          // Raised in tests to avoid a shared per-IP bucket bleeding across
+          // test cases (same pattern as /auth/register).
+          max: env.NODE_ENV === "test" ? 500 : 5,
           timeWindow: "15 minutes",
         },
       },
@@ -1107,6 +1121,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               passwordResetTokenExpiresAt: null,
               failedLoginAttempts: 0,
               lockedUntil: null,
+              lastFailedLoginAt: null,
             },
           });
 

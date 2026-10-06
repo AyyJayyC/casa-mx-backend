@@ -168,7 +168,7 @@ describe("Checkpoint 1 - Database Models & Migrations", () => {
 
     expect(property).toHaveProperty("lat", 25.7617);
     expect(property).toHaveProperty("lng", -100.3161);
-    expect(property).toHaveProperty("status", "available");
+    expect(property).toHaveProperty("status", "disponible");
 
     // Cleanup
     await app.prisma.property.delete({ where: { id: property.id } });

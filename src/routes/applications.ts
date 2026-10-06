@@ -21,7 +21,12 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
     {
       onRequest: [verifyJWT],
       config: {
-        rateLimit: { max: 10, timeWindow: "15 minutes" },
+        // Raised in tests to avoid a shared per-IP bucket bleeding across
+        // test cases.
+        rateLimit: {
+          max: process.env.NODE_ENV === "test" ? 200 : 10,
+          timeWindow: "15 minutes",
+        },
       },
     },
     async (request, reply) => {
@@ -385,19 +390,28 @@ const applicationsRoutes: FastifyPluginAsync = async (fastify) => {
             select: { email: true, name: true },
           });
           if (applicantUser) {
-            if (input.status === "approved") {
-              await sendApplicationApprovedEmail({
-                tenantEmail: applicantUser.email,
-                tenantName: applicantUser.name,
-                propertyTitle: application.property.title,
-                monthlyRent: Number(application.property.monthlyRent ?? 0),
-              });
-            } else if (input.status === "rejected") {
-              await sendApplicationRejectedEmail({
-                tenantEmail: applicantUser.email,
-                tenantName: applicantUser.name,
-                propertyTitle: application.property.title,
-              });
+            // Email delivery must not turn a successful status change into a
+            // 500 for the landlord.
+            try {
+              if (input.status === "approved") {
+                await sendApplicationApprovedEmail({
+                  tenantEmail: applicantUser.email,
+                  tenantName: applicantUser.name,
+                  propertyTitle: application.property.title,
+                  monthlyRent: Number(application.property.monthlyRent ?? 0),
+                });
+              } else if (input.status === "rejected") {
+                await sendApplicationRejectedEmail({
+                  tenantEmail: applicantUser.email,
+                  tenantName: applicantUser.name,
+                  propertyTitle: application.property.title,
+                });
+              }
+            } catch (emailErr) {
+              fastify.log.error(
+                { err: emailErr },
+                "Failed to send application status email",
+              );
             }
           }
         }

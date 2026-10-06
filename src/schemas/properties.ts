@@ -206,6 +206,23 @@ export const updatePropertySchema = z.object({
   includedServices: includedServicesSchema.optional(),
   amenities: amenitiesSchema.optional(),
   financeOptions: financeOptionsSchema,
+}).superRefine((input, ctx) => {
+  // Switching listing type requires the matching price field, otherwise the
+  // property would end up with neither a sale price nor a monthly rent.
+  if (input.listingType === "for_sale" && input.price === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["price"],
+      message: "price is required when listingType is for_sale",
+    });
+  }
+  if (input.listingType === "for_rent" && input.monthlyRent === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["monthlyRent"],
+      message: "monthlyRent is required when listingType is for_rent",
+    });
+  }
 });
 
 // Schema for property filters
@@ -248,7 +265,7 @@ export const propertyFilterSchema = z
     centerLat: z.coerce.number().min(-90).max(90).optional(),
     centerLng: z.coerce.number().min(-180).max(180).optional(),
     radiusKm: z.coerce.number().positive().max(500).optional(),
-    limit: z.coerce.number().int().min(1).max(1000).default(20),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
     offset: z.coerce.number().int().min(0).default(0),
   })
   .passthrough();

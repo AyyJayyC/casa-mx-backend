@@ -523,6 +523,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
       const before = await app.inject({
         method: "GET",
         url: `/properties/${rentalPropertyId}`,
+        headers: { authorization: `Bearer ${authToken}` },
       });
       const beforeData = before.json().data;
 
