@@ -20,7 +20,11 @@ jobs:
         env:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-        run: npx tsx scripts/smoke-test.ts
+        run: |
+          if [ -z "$ADMIN_PASSWORD" ]; then
+            echo "::warning::ADMIN_PASSWORD secret not set — smoke test will skip (exit 0)."
+          fi
+          npx tsx scripts/smoke-test.ts
 
   deploy-verification:
     runs-on: ubuntu-latest

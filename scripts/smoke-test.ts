@@ -53,6 +53,15 @@ async function fetchJson(url: string, init?: RequestInit) {
 }
 
 async function main() {
+  // No admin credentials configured (e.g. a fork without the secret): skip
+  // rather than reporting a false failure.
+  if (!ADMIN_PASSWORD) {
+    console.warn(
+      "[smoke] ADMIN_PASSWORD is not set — skipping smoke test (exit 0).",
+    );
+    return;
+  }
+
   console.log(`\n🔍 Smoke test — ${new Date().toISOString()}\n`);
 
   // 1. Health check
