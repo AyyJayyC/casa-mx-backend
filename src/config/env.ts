@@ -33,6 +33,8 @@ const envSchema = z
     JWT_SECRET: z.string().min(32),
     JWT_ACCESS_EXPIRY: z.string().default("15m"),
     JWT_REFRESH_EXPIRY: z.string().default("7d"),
+    // Separate signing key for refresh tokens; falls back to JWT_SECRET.
+    JWT_REFRESH_SECRET: z.string().optional(),
     FRONTEND_URL: z.string().url().default("http://localhost:3000"),
     MAPS_API_KEY: z.string().optional(),
     ENABLE_BILLABLE_MAPS: z.enum(["true", "false"]).default("false"),

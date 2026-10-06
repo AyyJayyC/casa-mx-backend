@@ -58,20 +58,40 @@ function extractTokenFromRequest(
 }
 
 const jwtPlugin: FastifyPluginAsync = async (fastify) => {
+  // Refresh tokens use their own key when configured; fall back to the access
+  // secret so existing deployments keep working during rotation.
+  const refreshSecret = env.JWT_REFRESH_SECRET || env.JWT_SECRET;
+
+  const isRefreshPayload = (payload: JwtSignInput): boolean =>
+    typeof payload === "object" &&
+    payload !== null &&
+    (payload as any).type === "refresh";
+
   const jwtTools = {
     sign(payload: JwtSignInput, options?: JwtSignConfig) {
       const expiresIn = (options?.expiresIn ??
         env.JWT_ACCESS_EXPIRY) as SignOptions["expiresIn"];
 
-      return jwt.sign(payload, env.JWT_SECRET, {
-        algorithm: "HS256",
-        expiresIn,
-      });
+      return jwt.sign(
+        payload,
+        isRefreshPayload(payload) ? refreshSecret : env.JWT_SECRET,
+        {
+          algorithm: "HS256",
+          expiresIn,
+        },
+      );
     },
     verify(token: string) {
-      return jwt.verify(token, env.JWT_SECRET, {
-        algorithms: ["HS256"],
-      }) as JwtUser | string;
+      try {
+        return jwt.verify(token, env.JWT_SECRET, {
+          algorithms: ["HS256"],
+        }) as JwtUser | string;
+      } catch (err) {
+        if (refreshSecret === env.JWT_SECRET) throw err;
+        return jwt.verify(token, refreshSecret, {
+          algorithms: ["HS256"],
+        }) as JwtUser | string;
+      }
     },
     decode(token: string) {
       return jwt.decode(token) as JwtPayload | string | null;
@@ -91,6 +111,11 @@ const jwtPlugin: FastifyPluginAsync = async (fastify) => {
         typeof decoded !== "object"
       ) {
         throw new Error("Invalid token payload");
+      }
+
+      // A refresh token must never authenticate access routes.
+      if (decoded.type === "refresh") {
+        throw new Error("Refresh token cannot be used for authentication");
       }
 
       this.user = {
