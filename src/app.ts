@@ -88,27 +88,25 @@ export async function buildApp(
 
   const frontendUrl = env.FRONTEND_URL.replace(/\/$/, "");
 
-  // Register CORS — allowlist the frontend + project Vercel previews. Kept
-  // independent of DISABLE_SECURITY so the origin policy is always enforced.
+  // Register CORS — strict allowlist. No wildcard *.vercel.app: preview
+  // origins must be listed explicitly via CORS_EXTRA_ORIGINS (comma-separated).
   await app.register(cors, {
     origin: (origin, callback) => {
       if (!origin) {
         callback(null, true);
         return;
       }
+      const extra = (process.env.CORS_EXTRA_ORIGINS ?? "")
+        .split(",")
+        .map((o) => o.trim())
+        .filter(Boolean);
       const allowed = new Set<string>([
         frontendUrl,
         "https://casa-mx.com",
         "https://www.casa-mx.com",
+        ...extra,
       ]);
-      if (
-        allowed.has(origin) ||
-        /^https:\/\/casa-mx(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)
-      ) {
-        callback(null, true);
-      } else {
-        callback(null, false);
-      }
+      callback(null, allowed.has(origin));
     },
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
