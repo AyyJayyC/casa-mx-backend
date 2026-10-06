@@ -71,7 +71,6 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
           where: { id: userId },
           data: {
             ...(input.name !== undefined ? { name: input.name } : {}),
-            ...(input.email !== undefined ? { email: input.email } : {}),
             ...(input.phone !== undefined ? { phone: input.phone } : {}),
             ...(input.whatsapp !== undefined
               ? { whatsapp: input.whatsapp }
