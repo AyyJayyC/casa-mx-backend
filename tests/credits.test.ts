@@ -132,4 +132,27 @@ describe("B10 - credit spend cost is 10", () => {
     });
     expect(dbBalance?.balance).toBe(9);
   });
+
+  it("returns a plain receipt with no fake CFDI RFC", async () => {
+    const txn = await app.prisma.creditTransaction.create({
+      data: {
+        userId: sellerId,
+        type: "purchase",
+        amount: 100,
+        description: "Compra de prueba",
+      },
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/credits/invoice/${txn.id}`,
+      headers: { authorization: `Bearer ${sellerToken}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as any;
+    expect(body.success).toBe(true);
+    expect(body.receipt).toBeTruthy();
+    expect(JSON.stringify(body)).not.toContain("XAXX010101000");
+  });
 });

@@ -312,7 +312,7 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
-  // GET /credits/invoice/:transactionId — Generate purchase comprobante
+  // GET /credits/invoice/:transactionId — Generar comprobante de compra (no CFDI)
   fastify.get<{ Params: { transactionId: string } }>(
     "/credits/invoice/:transactionId",
     { onRequest: [verifyJWT] },
@@ -357,28 +357,27 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
 
         return reply.send({
           success: true,
-          invoice: {
-            invoiceNumber: `CASAMX-${transaction.createdAt.getFullYear()}-${String(transaction.createdAt.getMonth() + 1).padStart(2, "0")}-${transaction.id.substring(0, 8).toUpperCase()}`,
+          receipt: {
+            receiptNumber: `CASAMX-${transaction.createdAt.getFullYear()}-${String(transaction.createdAt.getMonth() + 1).padStart(2, "0")}-${transaction.id.substring(0, 8).toUpperCase()}`,
             date: transaction.createdAt.toISOString(),
-            client: {
+            customer: {
               name: user?.name || "Cliente",
               email: user?.email || "",
-              rfc: user?.rfc || "XAXX010101000",
-              razonSocial: user?.razonSocial || user?.name || "Cliente",
-              usoCFDI: user?.usoCFDI || "G03",
+              rfc: user?.rfc || null,
+              razonSocial: user?.razonSocial || null,
+              usoCFDI: user?.usoCFDI || null,
             },
             items: [
               {
                 description: pkg?.name || "Paquete de créditos",
                 credits: Math.abs(transaction.amount),
-                priceMXN: pkg?.priceMXN || 0,
-                subtotal: (pkg?.priceMXN || 0) / 1.16,
-                iva: (pkg?.priceMXN || 0) - (pkg?.priceMXN || 0) / 1.16,
-                total: pkg?.priceMXN || 0,
+                priceMXN: pkg?.priceMXN ?? null,
+                total: pkg?.priceMXN ?? null,
               },
             ],
-            total: pkg?.priceMXN || 0,
-            status: "issued",
+            total: pkg?.priceMXN ?? null,
+            currency: "MXN",
+            note: "Este es un comprobante de compra, no un CFDI. Para factura, contáctanos.",
           },
         });
       } catch (error: any) {
