@@ -33,6 +33,9 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
     }
   };
 
+  // Anonymous debug-log writes are disabled unless explicitly opted in.
+  const publicDebugEnabled = () => process.env.ENABLE_PUBLIC_DEBUG === "true";
+
   /**
    * POST /debug/session
    * Create a new debug session (public endpoint, no auth required)
@@ -67,6 +70,9 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!publicDebugEnabled()) {
+        return reply.code(404).send({ success: false, error: "Not found" });
+      }
       const session = await loggingService.createDebugSession({
         userId: request.user?.id,
         initialRoute:
@@ -116,6 +122,9 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!publicDebugEnabled()) {
+        return reply.code(404).send({ success: false, error: "Not found" });
+      }
       const {
         sessionId,
         actionType,
@@ -177,6 +186,9 @@ export async function setupDebugRoutes(fastify: FastifyInstance) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!publicDebugEnabled()) {
+        return reply.code(404).send({ success: false, error: "Not found" });
+      }
       const {
         sessionId,
         errorMessage,

@@ -72,6 +72,8 @@ const envSchema = z
     TEST_ADMIN_PASSWORD: z.string().optional().default("admin123"),
     TEST_OWNER_PASSWORD: z.string().optional().default("seller123"),
     DISABLE_SECURITY: z.enum(["true", "false"]).default("false"),
+    // Anonymous /debug/* write endpoints are off unless explicitly enabled.
+    ENABLE_PUBLIC_DEBUG: z.enum(["true", "false"]).default("false"),
     // Optional error reporting. When unset, Sentry is a no-op (local/CI).
     SENTRY_DSN: z.string().optional(),
     SENTRY_ENVIRONMENT: z.string().optional(),
