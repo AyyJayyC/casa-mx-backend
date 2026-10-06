@@ -23,6 +23,16 @@ export async function bootstrapAdmin(fastify: FastifyInstance) {
       return;
     }
 
+    // Admin may only be granted to an email-verified account. Unverified
+    // signups that merely know ADMIN_EMAIL must never become admin.
+    if (!user.emailVerified) {
+      fastify.log.warn(
+        { adminEmail },
+        "ADMIN_EMAIL user is not email-verified — refusing to grant admin",
+      );
+      return;
+    }
+
     const hasAdmin = user.roles.some(
       (r) => r.role.name === "admin" && r.status === "approved",
     );
