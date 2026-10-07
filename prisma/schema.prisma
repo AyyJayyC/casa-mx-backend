@@ -45,6 +45,10 @@ model User {
   userDocuments      UserDocument[]     @relation("UserDocuments")
   publisherApiKeys   PublisherApiKey[]  @relation("PublisherApiKeys")
 
+  // Lead attribution: offers/requests that arrived through this user's ref code
+  referredOffers     PropertyOffer[]    @relation("PropertyOfferReferringAgent")
+  referredRequests   PropertyRequest[]  @relation("PropertyRequestReferringAgent")
+
   // Referral system
   referralCode   String?  @unique
   referredById   String?
@@ -250,21 +254,27 @@ model UserDocument {
 }
 
 model PropertyRequest {
-  id         String   @id @default(uuid())
-  propertyId String
-  buyerId    String
-  name       String?  // buyer's name for contact
-  phone      String?  // buyer's phone for contact
-  message    String?
-  status     String   @default("pending") // pending, contacted
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            String   @id @default(uuid())
+  propertyId    String
+  buyerId       String
+  name          String?  // buyer's name for contact
+  phone         String?  // buyer's phone for contact
+  message       String?
+  status        String   @default("pending") // pending, contacted
+  // Lead attribution (referred lead). Null = direct lead.
+  referringAgentId String?
+  attributionCode  String?
+  attributedAt     DateTime?
+  referringAgent   User?  @relation("PropertyRequestReferringAgent", fields: [referringAgentId], references: [id], onDelete: SetNull)
+  property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@unique([propertyId, buyerId])
   @@index([propertyId])
   @@index([buyerId])
   @@index([status])
+  @@index([referringAgentId])
 }
 
 model RentalApplication {
@@ -647,7 +657,13 @@ model PropertyOffer {
   // Seller response
   sellerNote     String?  @db.Text
   counterAmount  Float?   // set if seller counters
-  
+
+  // Lead attribution (referred lead). Null = direct lead.
+  referringAgentId String?
+  attributionCode  String?
+  attributedAt     DateTime?
+  referringAgent   User?  @relation("PropertyOfferReferringAgent", fields: [referringAgentId], references: [id], onDelete: SetNull)
+
   property       Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   
   createdAt      DateTime @default(now())
@@ -657,6 +673,7 @@ model PropertyOffer {
   @@index([buyerId])
   @@index([status])
   @@index([createdAt])
+  @@index([referringAgentId])
 }
 
 model PropertyImage {
