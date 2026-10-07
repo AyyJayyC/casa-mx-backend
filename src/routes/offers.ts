@@ -288,6 +288,7 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
 
         const offers = await fastify.prisma.propertyOffer.findMany({
           where: { propertyId },
+          include: { referringAgent: { select: { name: true } } },
           orderBy: { createdAt: "desc" },
         });
 
@@ -370,6 +371,7 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
                 estado: true,
               },
             },
+            referringAgent: { select: { name: true } },
           },
           orderBy: { createdAt: "desc" },
         });

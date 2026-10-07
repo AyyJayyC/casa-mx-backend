@@ -229,6 +229,7 @@ const requestsRoutes: FastifyPluginAsync = async (fastify) => {
                 monthlyRent: true,
               },
             },
+            referringAgent: { select: { name: true } },
           },
           orderBy: { createdAt: "desc" },
         });
