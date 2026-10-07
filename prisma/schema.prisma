@@ -43,6 +43,7 @@ model User {
   listedProperties   Property[] @relation("PropertySeller")
   uploadedDocuments  PropertyDocument[] @relation("DocumentUploader")
   userDocuments      UserDocument[]     @relation("UserDocuments")
+  publisherApiKeys   PublisherApiKey[]  @relation("PublisherApiKeys")
 
   // Referral system
   referralCode   String?  @unique
@@ -149,6 +150,9 @@ model Property {
   financeOptions String[] @default([])  // cash, bankLoan, INFONAVIT, FOVISSSTE, paymentPlan, other
   sellerId    String
   seller      User     @relation("PropertySeller", fields: [sellerId], references: [id])
+  // External id from the publisher pipeline; NULL for app-created listings.
+  // The compound unique lets the Publisher API upsert by (sellerId, externalId).
+  externalId  String?
   
   // Ownership verification
   verificationStatus String  @default("unverified") // unverified | docs_uploaded | verified | rejected
@@ -195,6 +199,7 @@ model Property {
   documents          PropertyDocument[]
   images             PropertyImage[]
 
+  @@unique([sellerId, externalId])
   @@index([sellerId])
   @@index([status])
   @@index([price])
@@ -698,6 +703,26 @@ model CarouselSlide {
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+// API keys for the Casa MX Publisher API (external listing pipelines).
+model PublisherApiKey {
+  id          String    @id @default(uuid())
+  label       String
+  keyHash     String    @unique          // sha256 hex of the raw key
+  keyPrefix   String                     // e.g. "cmx_pub_ab12"
+  userId      String
+  user        User      @relation("PublisherApiKeys", fields: [userId], references: [id], onDelete: Cascade)
+  scopes      String[]  @default(["listings:write"])
+  active      Boolean   @default(true)
+  skipIneVerification Boolean @default(false)
+  revokedAt   DateTime?
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  @@index([userId])
+  @@index([active])
 }
 
 model TagSubscription {
