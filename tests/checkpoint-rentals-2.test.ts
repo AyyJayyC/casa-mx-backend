@@ -33,7 +33,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         name: "Rental Test User",
         email: `rental-test-${Date.now()}@test.com`,
         password: "TestPassword123!",
@@ -329,7 +329,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           name: "Other User",
           email: `other-user-${Date.now()}@test.com`,
           password: "TestPassword123!",
@@ -523,6 +523,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
       const before = await app.inject({
         method: "GET",
         url: `/properties/${rentalPropertyId}`,
+        headers: { authorization: `Bearer ${authToken}` },
       });
       const beforeData = before.json().data;
 
@@ -617,7 +618,7 @@ describe("Checkpoint 2 - Rental Properties API", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           name: "Property Owner",
           email: `prop-owner-${Date.now()}@test.com`,
           password: "TestPassword123!",

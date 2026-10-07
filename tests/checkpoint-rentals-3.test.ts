@@ -21,7 +21,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         name: "Test Tenant",
         email: "tenant@test.com",
         password: "TestPassword123!",
@@ -58,7 +58,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         name: "Test Landlord",
         email: "landlord@test.com",
         password: "TestPassword123!",
@@ -72,12 +72,11 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
     const landlordRole = await app.prisma.role.findUnique({
       where: { name: "owner" },
     });
-    await app.prisma.userRole.create({
-      data: {
-        userId: landlordId,
-        roleId: landlordRole!.id,
-        status: "approved",
-      },
+    // register() already created a pending owner role (see AUTO_APPROVED_ROLES);
+    // approve it instead of inserting a duplicate (unique userId+roleId).
+    await app.prisma.userRole.updateMany({
+      where: { userId: landlordId, roleId: landlordRole!.id },
+      data: { status: "approved" },
     });
 
     // Login as landlord (AFTER role added to get correct token)
@@ -472,7 +471,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           name: "Other Landlord",
           email: uniqueEmail,
           password: "TestPassword123!",
@@ -490,12 +489,9 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
       const landlordRole = await app.prisma.role.findUnique({
         where: { name: "owner" },
       });
-      await app.prisma.userRole.create({
-        data: {
-          userId: otherLandlordId,
-          roleId: landlordRole!.id,
-          status: "approved",
-        },
+      await app.prisma.userRole.updateMany({
+        where: { userId: otherLandlordId, roleId: landlordRole!.id },
+        data: { status: "approved" },
       });
 
       const otherLandlordLogin = await app.inject({
@@ -618,7 +614,7 @@ describe("Checkpoint 3 - Rental Application Endpoints", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           name: "Test Tenant 2",
           email: uniqueTenant2Email,
           password: "TestPassword123!",

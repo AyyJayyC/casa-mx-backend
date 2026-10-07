@@ -25,7 +25,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email: `test-adminblock-${Date.now()}@example.com`,
           name: "Wannabe Admin",
           password: "Password1",
@@ -56,7 +56,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Admin User",
           password,
@@ -104,7 +104,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Regular User",
           password: "Password1",
@@ -135,7 +135,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Auto Roles",
           password: "Password1",
@@ -162,7 +162,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Pending Roles",
           password: "Password1",
@@ -172,11 +172,19 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
 
       expect(response.statusCode).toBe(201);
       const body = response.json() as any;
-      for (const roleType of ["owner", "owner", "agent"]) {
-        const role = body.user.roles.find((r: any) => r.roleName === roleType);
-        expect(role).toBeDefined();
-        expect(role.status).toBe("pending");
-      }
+
+      // "agent" is auto-approved (AUTO_APPROVED_ROLES); "owner" still needs
+      // manual approval.
+      const ownerRole = body.user.roles.find(
+        (r: any) => r.roleName === "owner",
+      );
+      const agentRole = body.user.roles.find(
+        (r: any) => r.roleName === "agent",
+      );
+      expect(ownerRole).toBeDefined();
+      expect(ownerRole.status).toBe("pending");
+      expect(agentRole).toBeDefined();
+      expect(agentRole.status).toBe("approved");
     });
   });
 
@@ -248,7 +256,7 @@ describe("Auth Roles - Admin auto-approval & self-healing", () => {
       const regRes = await app.inject({
         method: "POST",
         url: "/auth/register",
-        payload: { acceptLegal: true, email, name: "No Auto", password, roles: ["client"] },
+        payload: { acceptLegal: true, isAdult: true, email, name: "No Auto", password, roles: ["client"] },
       });
 
       expect(regRes.statusCode).toBe(201);

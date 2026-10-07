@@ -38,7 +38,7 @@ describe("Property public/private views (privacy)", () => {
     const ownerRes = await app.inject({
       method: "POST",
       url: "/auth/register",
-      payload: { acceptLegal: true, name: "Privacy Owner", email: ownerEmail, password, roles: ["owner"] },
+      payload: { acceptLegal: true, isAdult: true, name: "Privacy Owner", email: ownerEmail, password, roles: ["owner"] },
     });
     expect(ownerRes.statusCode).toBe(201);
     ownerId = ownerRes.json().user.id;
@@ -48,7 +48,7 @@ describe("Property public/private views (privacy)", () => {
     const otherRes = await app.inject({
       method: "POST",
       url: "/auth/register",
-      payload: { acceptLegal: true, name: "Privacy Other", email: otherEmail, password, roles: ["client"] },
+      payload: { acceptLegal: true, isAdult: true, name: "Privacy Other", email: otherEmail, password, roles: ["client"] },
     });
     expect(otherRes.statusCode).toBe(201);
     otherId = otherRes.json().user.id;
@@ -94,7 +94,14 @@ describe("Property public/private views (privacy)", () => {
 
   afterAll(async () => {
     await app.prisma.analyticsEvent.deleteMany({ where: { entityId: propertyId } });
-    await app.prisma.property.deleteMany({ where: { id: propertyId } });
+    await app.prisma.property.deleteMany({
+      where: {
+        OR: [
+          { id: propertyId },
+          { title: { in: ["Privacy Private Property", "Privacy Draft Property"] } },
+        ],
+      },
+    });
     await app.prisma.user.deleteMany({ where: { id: { in: [ownerId, otherId] } } });
     await app.close();
   });
@@ -165,5 +172,64 @@ describe("Property public/private views (privacy)", () => {
     const found = res.json().properties.find((p: any) => p.id === propertyId);
     expect(found).toBeDefined();
     expectTrimmed(found);
+  });
+
+  it("hides a private property from other authenticated users and anonymous", async () => {
+    const priv = await app.prisma.property.create({
+      data: {
+        title: "Privacy Private Property",
+        listingType: "for_sale",
+        price: 100,
+        visibility: "private",
+        status: "disponible",
+        estado: "Ciudad de México",
+        sellerId: ownerId,
+      },
+    });
+
+    const other = await app.inject({
+      method: "GET",
+      url: `/properties/${priv.id}`,
+      headers: { authorization: `Bearer ${otherToken}` },
+    });
+    expect(other.statusCode).toBe(404);
+
+    const anon = await app.inject({ method: "GET", url: `/properties/${priv.id}` });
+    expect(anon.statusCode).toBe(404);
+
+    const owner = await app.inject({
+      method: "GET",
+      url: `/properties/${priv.id}`,
+      headers: { authorization: `Bearer ${ownerToken}` },
+    });
+    expect(owner.statusCode).toBe(200);
+  });
+
+  it("hides a draft (incompleto) property from other authenticated users", async () => {
+    const draft = await app.prisma.property.create({
+      data: {
+        title: "Privacy Draft Property",
+        listingType: "for_sale",
+        price: 100,
+        visibility: "public",
+        status: "incompleto",
+        estado: "Ciudad de México",
+        sellerId: ownerId,
+      },
+    });
+
+    const other = await app.inject({
+      method: "GET",
+      url: `/properties/${draft.id}`,
+      headers: { authorization: `Bearer ${otherToken}` },
+    });
+    expect(other.statusCode).toBe(404);
+
+    const owner = await app.inject({
+      method: "GET",
+      url: `/properties/${draft.id}`,
+      headers: { authorization: `Bearer ${ownerToken}` },
+    });
+    expect(owner.statusCode).toBe(200);
   });
 });

@@ -5,6 +5,7 @@
  */
 
 import { loggingService } from "../services/logging.service.js";
+import { env } from "../config/env.js";
 import pino from "pino";
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
@@ -16,6 +17,27 @@ const logger = pino();
 
 // Skip logging for health checks and static assets
 const SKIP_ENDPOINTS = ["/health", "/metrics", "/.well-known", "/static"];
+
+// ponytail: in production the per-request debug logging writes two DB rows per
+// request. Keep it for admins and a small sample; raise DEBUG_LOG_SAMPLE_RATE
+// to capture more. Non-production behaviour is unchanged.
+const isProduction = env.NODE_ENV === "production";
+const DEBUG_LOG_SAMPLE_RATE = Number(process.env.DEBUG_LOG_SAMPLE_RATE ?? "0.01");
+
+/** Best-effort (not verified) decode to spot admin callers before auth runs. */
+function isAdminRequest(request: FastifyRequest): boolean {
+  try {
+    const auth = request.headers["authorization"];
+    const token = typeof auth === "string" ? auth.replace("Bearer ", "") : "";
+    if (!token) return false;
+    const payload = JSON.parse(
+      Buffer.from(token.split(".")[1] ?? "", "base64url").toString(),
+    );
+    return Array.isArray(payload.roles) && payload.roles.includes("admin");
+  } catch {
+    return false;
+  }
+}
 
 export async function setupLoggingMiddleware(fastify: FastifyInstance) {
   /**
@@ -34,7 +56,16 @@ export async function setupLoggingMiddleware(fastify: FastifyInstance) {
         request.url.startsWith(ep),
       );
 
-      if (!shouldSkip && !sessionId) {
+      // Decide whether to persist debug logging for this request.
+      const debugEnabled = shouldSkip
+        ? false
+        : !isProduction ||
+          Boolean(sessionId) ||
+          isAdminRequest(request) ||
+          Math.random() < DEBUG_LOG_SAMPLE_RATE;
+      (request as any).debugLoggingEnabled = debugEnabled;
+
+      if (debugEnabled && !sessionId) {
         // Create new session automatically
         const session = await loggingService.createDebugSession({
           userId: request.user?.id,
@@ -59,7 +90,7 @@ export async function setupLoggingMiddleware(fastify: FastifyInstance) {
     // Skip logging for certain endpoints
     const shouldSkip = SKIP_ENDPOINTS.some((ep) => request.url.startsWith(ep));
 
-    if (shouldSkip) return;
+    if (shouldSkip || !(request as any).debugLoggingEnabled) return;
 
     try {
       const responseTime = Date.now() - (request.startTime || 0);
@@ -107,6 +138,7 @@ export async function setupLoggingMiddleware(fastify: FastifyInstance) {
    * Log only here; response shaping is handled by the app-level error handler.
    */
   fastify.addHook("onError", async (request, reply, error) => {
+    if (!(request as any).debugLoggingEnabled) return;
     const sessionId = request.sessionId;
     const responseTime = Date.now() - (request.startTime || 0);
     const { errorObj, statusCode } = normalizeError(error);

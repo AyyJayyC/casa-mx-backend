@@ -17,7 +17,7 @@ describe("Users Routes", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "Users Test",
         password: "Password1",
@@ -102,6 +102,39 @@ describe("Users Routes", () => {
     });
 
     expect(response.statusCode).toBe(400);
+  });
+
+  it("PATCH /users/me rejects an email-only change (email needs verification)", async () => {
+    const before = await app.prisma.user.findUnique({ where: { id: userId } });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/users/me",
+      headers: { authorization: `Bearer ${userToken}` },
+      payload: { email: "attacker2@example.com" },
+    });
+    expect(response.statusCode).toBe(400);
+
+    const after = await app.prisma.user.findUnique({ where: { id: userId } });
+    expect(after?.email).toBe(before?.email);
+    expect(after?.emailVerified).toBe(before?.emailVerified);
+  });
+
+  it("PATCH /users/me ignores email in a mixed payload", async () => {
+    const before = await app.prisma.user.findUnique({ where: { id: userId } });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/users/me",
+      headers: { authorization: `Bearer ${userToken}` },
+      payload: { name: "Still Same Email", email: "attacker@example.com" },
+    });
+    expect(response.statusCode).toBe(200);
+
+    const after = await app.prisma.user.findUnique({ where: { id: userId } });
+    expect(after?.email).toBe(before?.email);
+    expect(after?.emailVerified).toBe(before?.emailVerified);
+    expect(after?.name).toBe("Still Same Email");
   });
 
   it("GET /users/:id should allow self access", async () => {

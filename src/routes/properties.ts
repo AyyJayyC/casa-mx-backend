@@ -6,6 +6,10 @@ import { cacheService } from "../services/cache.service.js";
 import { mapsService } from "../services/maps.service.js";
 import { notifyTagSubscribers } from "../services/notification.service.js";
 import {
+  deletePublicImage,
+  keyFromPublicUrl,
+} from "../services/s3.service.js";
+import {
   propertyFilterSchema,
   createPropertySchema,
   updatePropertySchema,
@@ -619,7 +623,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           title: input.title,
           description: input.description || "",
           address: input.address || "",
-          imageUrls: [],
+          imageUrls: input.imageUrls ?? [],
           price: input.price ?? null,
           lat: input.lat ?? null,
           lng: input.lng ?? null,
@@ -672,6 +676,25 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         }
 
         const property = await app.prisma.property.create({ data });
+
+        // Publishing a property auto-grants the owner role (approved), without
+        // creating duplicates if the user already has it.
+        const ownerRole = await app.prisma.role.findUnique({
+          where: { name: "owner" },
+        });
+        if (ownerRole) {
+          await app.prisma.userRole.upsert({
+            where: {
+              userId_roleId: { userId: user.id, roleId: ownerRole.id },
+            },
+            create: {
+              userId: user.id,
+              roleId: ownerRole.id,
+              status: "approved",
+            },
+            update: {},
+          });
+        }
 
         // Auto-geocode address to populate lat/lng
         if (!input.lat || !input.lng) {
@@ -887,14 +910,8 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           // Token invalid or expired — proceed as unauthenticated for public property view
         }
 
-        let where: any = { id };
-        if (!requesterId) {
-          where.visibility = "public";
-          where.status = { not: "incompleto" };
-        }
-
         const property = await app.prisma.property.findUnique({
-          where,
+          where: { id },
           include: requesterId
             ? {
                 propertyRequests: {
@@ -913,6 +930,17 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
 
         const isOwner =
           !!requesterId && (property as any).sellerId === requesterId;
+
+        // Draft/private listings are only visible to their owner.
+        if (
+          !isOwner &&
+          (property.visibility !== "public" || property.status === "incompleto")
+        ) {
+          return reply.code(404).send({
+            success: false,
+            error: "Property not found",
+          });
+        }
 
         if (!isOwner) {
           const { propertyRequests: _ignored, ...rest } = property as any;
@@ -980,9 +1008,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
         const input = updatePropertySchema.parse(request.body);
 
         // Update property
-        const updated = await app.prisma.property.update({
-          where: { id },
-          data: {
+        const updateData: any = {
             title: input.title,
             description: input.description,
             address: input.address,
@@ -1029,7 +1055,14 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
             childrenWelcome: input.childrenWelcome,
             issuesInvoice: input.issuesInvoice,
             visibility: input.visibility,
-          },
+        };
+        // Clear the price/rent that no longer applies on a listing-type switch.
+        if (input.listingType === "for_sale") updateData.monthlyRent = null;
+        if (input.listingType === "for_rent") updateData.price = null;
+
+        const updated = await app.prisma.property.update({
+          where: { id },
+          data: updateData,
         });
 
         // If changed to rental, add landlord role
@@ -1265,10 +1298,48 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           });
         }
 
+        // Delete managed R2 image objects before removing the property.
+        // External URLs are skipped so we never delete third-party assets.
+        const imageUrls = Array.isArray(property.imageUrls)
+          ? property.imageUrls
+          : [];
+        const deletions = await Promise.allSettled(
+          imageUrls
+            .filter(
+              (url): url is string =>
+                typeof url === "string" && Boolean(keyFromPublicUrl(url)),
+            )
+            .map((url) => deletePublicImage(url)),
+        );
+        for (const result of deletions) {
+          if (result.status === "rejected") {
+            app.log.warn(
+              { err: result.reason },
+              "Failed to delete property image from R2",
+            );
+          }
+        }
+
         // Delete property
         await app.prisma.property.delete({
           where: { id },
         });
+
+        // Remove the owner role once a user has no properties left. It is
+        // re-added automatically when they publish again.
+        const remaining = await app.prisma.property.count({
+          where: { sellerId: user.id },
+        });
+        if (remaining === 0) {
+          const ownerRole = await app.prisma.role.findUnique({
+            where: { name: "owner" },
+          });
+          if (ownerRole) {
+            await app.prisma.userRole.deleteMany({
+              where: { userId: user.id, roleId: ownerRole.id },
+            });
+          }
+        }
 
         return reply.code(200).send({
           success: true,

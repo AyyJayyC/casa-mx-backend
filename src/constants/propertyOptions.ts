@@ -54,3 +54,10 @@ export const FURNISHED_OPTIONS = [
   "furnished",
   "equipada",
 ] as const;
+
+/**
+ * Property statuses that mean a listing is live and can receive offers.
+ * The canonical published status is "disponible"; "available" is kept for
+ * legacy rows written before the status vocabulary was unified.
+ */
+export const PUBLISHED_STATUSES = ["disponible", "available"] as const;

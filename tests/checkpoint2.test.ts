@@ -32,7 +32,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "Test User",
         password: "Password1",
@@ -67,7 +67,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "User 1",
         password: "Password1",
@@ -79,7 +79,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "User 2",
         password: "Password1",
@@ -96,7 +96,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email: "not-an-email",
         name: "Test User",
         password: "Password1",
@@ -111,7 +111,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email: `test-short-${Date.now()}@example.com`,
         name: "Test User",
         password: "short",
@@ -130,7 +130,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "Test User",
         password,
@@ -162,7 +162,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "Test User",
         password: "Password1",
@@ -204,7 +204,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "Test User",
         password: "Password1",
@@ -244,7 +244,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "Test User",
         password: "Password1",
@@ -264,13 +264,12 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
     const refreshToken =
       getCookie(loginResponse, "refreshToken") ?? loginBody.refreshToken;
 
-    // Use refresh token to get new access token
+    // Use refresh token to get new access token. /auth/refresh reads the
+    // httpOnly cookie only (never the body) to prevent XSS token exfiltration.
     const refreshResponse = await app.inject({
       method: "POST",
       url: "/auth/refresh",
-      payload: {
-        refreshToken,
-      },
+      headers: { cookie: `refreshToken=${refreshToken}` },
     });
 
     expect(refreshResponse.statusCode).toBe(200);
@@ -284,7 +283,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "Refresh Store User",
         password: "Password1",
@@ -319,7 +318,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "Refresh Rotate User",
         password: "Password1",
@@ -343,9 +342,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
     const refreshResponse = await app.inject({
       method: "POST",
       url: "/auth/refresh",
-      payload: {
-        refreshToken: firstRefreshToken,
-      },
+      headers: { cookie: `refreshToken=${firstRefreshToken}` },
     });
 
     expect(refreshResponse.statusCode).toBe(200);
@@ -370,9 +367,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
     const response = await app.inject({
       method: "POST",
       url: "/auth/refresh",
-      payload: {
-        refreshToken: "invalid-token",
-      },
+      headers: { cookie: "refreshToken=invalid-token" },
     });
 
     expect(response.statusCode).toBe(401);
@@ -414,7 +409,7 @@ describe("Checkpoint 2 - Authentication & Admin Bootstrap", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email,
         name: "Profile Test",
         password: "Password1",

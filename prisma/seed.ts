@@ -34,7 +34,10 @@ async function main() {
   console.log("✅ Roles created");
 
   // Create admin user
-  const adminPassword = await bcrypt.hash("admin123", 10);
+  const adminPassword = await bcrypt.hash(
+    process.env.SEED_ADMIN_PASSWORD || "seed-admin-password",
+    10,
+  );
 
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@casamx.local" },
@@ -58,7 +61,10 @@ async function main() {
   });
 
   // Create test owner user
-  const ownerPassword = await bcrypt.hash("seller123", 10);
+  const ownerPassword = await bcrypt.hash(
+    process.env.SEED_OWNER_PASSWORD || "seed-owner-password",
+    10,
+  );
 
   const ownerUser = await prisma.user.upsert({
     where: { email: "seller@casamx.local" },
@@ -82,7 +88,10 @@ async function main() {
   });
 
   // Create test client user
-  const clientPassword = await bcrypt.hash("buyer123", 10);
+  const clientPassword = await bcrypt.hash(
+    process.env.SEED_CLIENT_PASSWORD || "seed-client-password",
+    10,
+  );
 
   const clientUser = await prisma.user.upsert({
     where: { email: "buyer@casamx.local" },

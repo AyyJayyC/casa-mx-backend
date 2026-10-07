@@ -1,10 +1,12 @@
 import { FastifyPluginAsync } from "fastify";
-import { pipeline } from "node:stream/promises";
-import { createWriteStream, createReadStream, existsSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
-import { join, extname } from "node:path";
-import { randomUUID } from "node:crypto";
 import { verifyJWT } from "../utils/guards.js";
+import {
+  uploadToS3,
+  getPresignedUrl,
+  isS3Configured,
+  validateFileContent,
+  formatS3Error,
+} from "../services/s3.service.js";
 
 // Allowed MIME types for rental application documents
 const ALLOWED_TYPES = new Set([
@@ -14,11 +16,7 @@ const ALLOWED_TYPES = new Set([
   "image/webp",
 ]);
 
-const UPLOADS_DIR = join(process.cwd(), "uploads", "documents");
-
-async function ensureUploadsDir() {
-  await mkdir(UPLOADS_DIR, { recursive: true });
-}
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 /**
  * Verify that the requesting user is either the applicant or the
@@ -42,15 +40,14 @@ async function canAccessApplication(
 }
 
 const documentsRoutes: FastifyPluginAsync = async (fastify) => {
-  await ensureUploadsDir();
-
   /**
    * POST /documents/upload/:applicationId
-   * Upload a document for a rental application.
+   * Upload a rental application document to S3 (never local disk).
    * Field name determines which field is updated:
    *   - "idDocument"    → idDocumentUrl
    *   - "incomeProof"   → incomeProofUrl
    *   - "additional"    → appended to additionalDocsUrls
+   * The stored value is the S3 object key; use /documents/access to resolve it.
    */
   fastify.post<{ Params: { applicationId: string } }>(
     "/documents/upload/:applicationId",
@@ -73,28 +70,62 @@ const documentsRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       if (!ALLOWED_TYPES.has(data.mimetype)) {
-        return reply
-          .code(415)
-          .send({
-            success: false,
-            error: "File type not allowed. Use PDF, JPEG, PNG, or WebP.",
-          });
+        return reply.code(415).send({
+          success: false,
+          error: "File type not allowed. Use PDF, JPEG, PNG, or WebP.",
+        });
       }
 
-      const ext = extname(data.filename) || ".bin";
-      const filename = `${randomUUID()}${ext}`;
-      const filePath = join(UPLOADS_DIR, filename);
+      // Read into memory (capped) so we can validate content before upload.
+      const chunks: Buffer[] = [];
+      let total = 0;
+      for await (const chunk of data.file) {
+        total += chunk.length;
+        if (total > MAX_FILE_SIZE) {
+          return reply
+            .code(413)
+            .send({ success: false, error: "File too large. Maximum 10 MB." });
+        }
+        chunks.push(chunk as Buffer);
+      }
+      const buffer = Buffer.concat(chunks);
 
-      await pipeline(data.file, createWriteStream(filePath));
+      const contentCheck = validateFileContent(buffer, data.mimetype);
+      if (!contentCheck.valid) {
+        return reply.code(400).send({ success: false, error: contentCheck.error });
+      }
 
-      const fileUrl = `/documents/file/${filename}`;
+      if (!isS3Configured()) {
+        return reply.code(503).send({
+          success: false,
+          error: "Document storage is not configured",
+        });
+      }
+
+      let key: string;
+      try {
+        const uploaded = await uploadToS3(
+          buffer,
+          data.filename || "document",
+          data.mimetype,
+          `rental-documents/${applicationId}`,
+        );
+        key = uploaded.key;
+      } catch (err: any) {
+        fastify.log.error(
+          { err, applicationId, userId },
+          "S3 upload failed for rental document",
+        );
+        return reply.code(500).send({ success: false, error: formatS3Error(err) });
+      }
+
       const fieldName = data.fieldname; // idDocument | incomeProof | additional
 
       const updateData: Record<string, any> = {};
       if (fieldName === "idDocument") {
-        updateData.idDocumentUrl = fileUrl;
+        updateData.idDocumentUrl = key;
       } else if (fieldName === "incomeProof") {
-        updateData.incomeProofUrl = fileUrl;
+        updateData.incomeProofUrl = key;
       } else {
         // additional documents — append
         const application = await fastify.prisma.rentalApplication.findUnique({
@@ -103,7 +134,7 @@ const documentsRoutes: FastifyPluginAsync = async (fastify) => {
         });
         updateData.additionalDocsUrls = [
           ...(application?.additionalDocsUrls ?? []),
-          fileUrl,
+          key,
         ];
       }
 
@@ -112,43 +143,31 @@ const documentsRoutes: FastifyPluginAsync = async (fastify) => {
         data: updateData,
       });
 
-      return reply.code(201).send({ success: true, url: fileUrl });
+      return reply.code(201).send({ success: true, url: key });
     },
   );
 
   /**
-   * GET /documents/file/:filename
-   * Serve a document file. Requires authentication.
-   * Caller must have access to the application that references this file
-   * (enforced via referencing only URLs obtained from the application object).
+   * GET /documents/access?key=<s3-key>
+   * Resolve a stored document key to a short-lived presigned URL, after
+   * verifying the caller has access to an application referencing that key.
    */
-  fastify.get<{ Params: { filename: string } }>(
-    "/documents/file/:filename",
+  fastify.get<{ Querystring: { key?: string } }>(
+    "/documents/access",
     { onRequest: [verifyJWT] },
     async (request, reply) => {
-      const { filename } = request.params;
-
-      // Prevent path traversal
-      if (
-        filename.includes("..") ||
-        filename.includes("/") ||
-        filename.includes("\\")
-      ) {
-        return reply
-          .code(400)
-          .send({ success: false, error: "Invalid filename" });
+      const key = request.query.key;
+      if (!key || key.includes("..")) {
+        return reply.code(400).send({ success: false, error: "Invalid key" });
       }
 
-      // Verify the requesting user has access to an application referencing this file
-      const fileUrl = `/documents/file/${filename}`;
       const userId = request.user.id;
-
       const application = await fastify.prisma.rentalApplication.findFirst({
         where: {
           OR: [
-            { idDocumentUrl: fileUrl },
-            { incomeProofUrl: fileUrl },
-            { additionalDocsUrls: { has: fileUrl } },
+            { idDocumentUrl: key },
+            { incomeProofUrl: key },
+            { additionalDocsUrls: { has: key } },
           ],
         },
         include: { property: { select: { sellerId: true } } },
@@ -167,28 +186,22 @@ const documentsRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(403).send({ success: false, error: "Access denied" });
       }
 
-      const filePath = join(UPLOADS_DIR, filename);
-      if (!existsSync(filePath)) {
-        return reply
-          .code(404)
-          .send({ success: false, error: "File not found on disk" });
+      if (!isS3Configured()) {
+        return reply.code(503).send({
+          success: false,
+          error: "Document storage is not configured",
+        });
       }
 
-      // Set content type based on extension
-      const ext = extname(filename).toLowerCase();
-      const mimeMap: Record<string, string> = {
-        ".pdf": "application/pdf",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".png": "image/png",
-        ".webp": "image/webp",
-      };
-      const contentType = mimeMap[ext] ?? "application/octet-stream";
-
-      reply.header("Content-Type", contentType);
-      reply.header("Content-Disposition", `inline; filename="${filename}"`);
-      reply.header("Cache-Control", "private, no-cache");
-      reply.send(createReadStream(filePath));
+      try {
+        const url = await getPresignedUrl(key);
+        return reply.send({ success: true, url });
+      } catch (err: any) {
+        fastify.log.error({ err, key }, "Failed to presign document");
+        return reply
+          .code(500)
+          .send({ success: false, error: "Failed to resolve document" });
+      }
     },
   );
 };

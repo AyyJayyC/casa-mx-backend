@@ -7,6 +7,9 @@ interface StripePaymentIntentLike {
   metadata?: Record<string, string>;
 }
 
+/** Cost in credits to unlock one verified contact. Single source of truth. */
+export const CREDIT_SPEND_COST = 10;
+
 export class CreditsService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private stripe: any;
@@ -15,7 +18,9 @@ export class CreditsService {
     private prisma: PrismaClient,
     stripeSecretKey?: string,
   ) {
-    this.stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+    this.stripe = stripeSecretKey
+      ? new Stripe(stripeSecretKey, { timeout: 8000 })
+      : null;
   }
 
   async getBalance(userId: string): Promise<number> {
@@ -56,7 +61,7 @@ export class CreditsService {
   }
 
   /**
-   * Deduct 1 credit to unlock a lead's contact info.
+   * Deduct 10 credits to unlock a lead's contact info.
    * leadType: 'application' (RentalApplication) | 'request' (PropertyRequest) | 'offer' (PropertyOffer).
    * The caller must be the property's seller/landlord.
    * Idempotent: if the user already unlocked this lead, return immediately.
@@ -131,27 +136,44 @@ export class CreditsService {
     }
 
     // Atomic check + deduct using interactive transaction to prevent race conditions
-    const SPEND_AMOUNT = 10;
-    const spendResult = await this.prisma.$transaction(async (tx) => {
-      const balance = await tx.creditBalance.findUnique({ where: { userId } });
-      if (!balance || balance.balance < SPEND_AMOUNT) {
-        return { success: false as const, newBalance: balance?.balance ?? 0 };
+    const SPEND_AMOUNT = CREDIT_SPEND_COST;
+    let spendResult: { success: boolean; newBalance: number };
+    try {
+      spendResult = await this.prisma.$transaction(async (tx) => {
+        const balance = await tx.creditBalance.findUnique({ where: { userId } });
+        if (!balance || balance.balance < SPEND_AMOUNT) {
+          return { success: false as const, newBalance: balance?.balance ?? 0 };
+        }
+        const updated = await tx.creditBalance.update({
+          where: { userId },
+          data: { balance: { decrement: SPEND_AMOUNT } },
+        });
+        await tx.creditTransaction.create({
+          data: {
+            userId,
+            type: "spend",
+            amount: -SPEND_AMOUNT,
+            description: `Contacto de interesado desbloqueado (${leadType})`,
+            referenceId: leadId,
+          },
+        });
+        return { success: true as const, newBalance: updated.balance };
+      });
+    } catch (err: any) {
+      // A concurrent spend won the race: the unique index rejected our insert
+      // and the transaction (including the decrement) rolled back.
+      if (err?.code === "P2002") {
+        const balance = await this.getBalance(userId);
+        const contact = await resolveContact();
+        return {
+          success: true,
+          newBalance: balance,
+          alreadyUnlocked: true,
+          contact: contact ?? undefined,
+        };
       }
-      const updated = await tx.creditBalance.update({
-        where: { userId },
-        data: { balance: { decrement: SPEND_AMOUNT } },
-      });
-      await tx.creditTransaction.create({
-        data: {
-          userId,
-          type: "spend",
-          amount: -SPEND_AMOUNT,
-          description: `Contacto de interesado desbloqueado (${leadType})`,
-          referenceId: leadId,
-        },
-      });
-      return { success: true as const, newBalance: updated.balance };
-    });
+      throw err;
+    }
 
     if (!spendResult.success) {
       return spendResult;

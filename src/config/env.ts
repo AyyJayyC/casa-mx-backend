@@ -33,6 +33,8 @@ const envSchema = z
     JWT_SECRET: z.string().min(32),
     JWT_ACCESS_EXPIRY: z.string().default("15m"),
     JWT_REFRESH_EXPIRY: z.string().default("7d"),
+    // Separate signing key for refresh tokens; falls back to JWT_SECRET.
+    JWT_REFRESH_SECRET: z.string().optional(),
     FRONTEND_URL: z.string().url().default("http://localhost:3000"),
     MAPS_API_KEY: z.string().optional(),
     ENABLE_BILLABLE_MAPS: z.enum(["true", "false"]).default("false"),
@@ -60,9 +62,21 @@ const envSchema = z
     AWS_BUCKET: z.string().optional(),
     AWS_ACCESS_KEY_ID: z.string().optional(),
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
+    // Cloudflare R2 (public property images). Optional so local/test boots.
+    R2_ENDPOINT: z.string().optional(),
+    R2_ACCESS_KEY_ID: z.string().optional(),
+    R2_SECRET_ACCESS_KEY: z.string().optional(),
+    R2_REGION: z.string().optional().default("auto"),
+    R2_IMAGES_BUCKET: z.string().optional(),
+    R2_PUBLIC_BASE_URL: z.string().optional(),
     TEST_ADMIN_PASSWORD: z.string().optional().default("admin123"),
     TEST_OWNER_PASSWORD: z.string().optional().default("seller123"),
     DISABLE_SECURITY: z.enum(["true", "false"]).default("false"),
+    // Anonymous /debug/* write endpoints are off unless explicitly enabled.
+    ENABLE_PUBLIC_DEBUG: z.enum(["true", "false"]).default("false"),
+    // Optional error reporting. When unset, Sentry is a no-op (local/CI).
+    SENTRY_DSN: z.string().optional(),
+    SENTRY_ENVIRONMENT: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === "test") {

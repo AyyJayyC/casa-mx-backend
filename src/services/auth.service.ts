@@ -42,7 +42,9 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const requestedRoles: string[] = [...new Set(data.roles ?? ["client"])];
 
-    // Auto-grant admin if registering with ADMIN_EMAIL
+    // The ADMIN_EMAIL account gets a *pending* admin role record. It can never
+    // be approved here — approval happens only in bootstrapAdmin, and only once
+    // the user has verified their email. This is not a grant of privilege.
     const adminEmail = process.env.ADMIN_EMAIL?.trim();
     if (
       adminEmail &&
@@ -91,12 +93,12 @@ export class AuthService {
         privacyAcceptedAt: consentAt,
         consentVersion: CONSENT_VERSION,
         roles: {
-          create: await Promise.all(
-            requestedRoles.map(async (roleName) => ({
-              roleId: await this.getRoleId(roleName),
-              status: this.getInitialRoleStatus(roleName, data.email),
-            })),
-          ),
+            create: await Promise.all(
+              requestedRoles.map(async (roleName) => ({
+                roleId: await this.getRoleId(roleName),
+                status: this.getInitialRoleStatus(roleName, false),
+              })),
+            ),
         },
       },
       include: { roles: { include: { role: true } } },
@@ -139,7 +141,7 @@ export class AuthService {
       ? await bcrypt.compare(data.password, user.password ?? dummyHash)
       : await bcrypt.compare(data.password, dummyHash);
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new Error("Invalid email or password");
     }
 
@@ -236,15 +238,6 @@ export class AuthService {
       } else {
         // Create new user via OAuth
         const defaultRoles = ["client"];
-        // Auto-grant admin if registering with ADMIN_EMAIL
-        const adminEmail = process.env.ADMIN_EMAIL?.trim();
-        if (
-          adminEmail &&
-          data.email === adminEmail &&
-          !defaultRoles.includes("admin")
-        ) {
-          defaultRoles.push("admin");
-        }
         const referralCode = await this.ensureUniqueReferralCode();
         user = await this.prisma.user.create({
           data: {
@@ -258,7 +251,7 @@ export class AuthService {
               create: await Promise.all(
                 defaultRoles.map(async (roleName) => ({
                   roleId: await this.getRoleId(roleName),
-                  status: this.getInitialRoleStatus(roleName, data.email),
+                  status: this.getInitialRoleStatus(roleName, false),
                 })),
               ),
             },
@@ -274,6 +267,9 @@ export class AuthService {
       name: user.name,
       avatarUrl: user.avatarUrl,
       provider: user.provider,
+      // OAuth providers can't collect our legal/age consent during the
+      // round-trip, so the client must show a consent step until accepted.
+      consentRequired: !user.termsAcceptedAt || !user.privacyAcceptedAt,
       roles: user.roles.map((ur) => ({
         roleId: ur.roleId,
         roleName: ur.role.name,
@@ -296,13 +292,11 @@ export class AuthService {
     return role.id;
   }
 
-  private getInitialRoleStatus(roleName: string, email?: string): string {
-    // ADMIN_EMAIL user gets all roles auto-approved, including admin
-    const adminEmail = process.env.ADMIN_EMAIL?.trim();
-    if (adminEmail && email === adminEmail) return "approved";
-
-    // Admin role requires manual approval by existing admin for non-ADMIN_EMAIL users
-    if (roleName === "admin") return "pending";
+  private getInitialRoleStatus(roleName: string, emailVerified: boolean): string {
+    // Admin is NEVER approved at registration/OAuth. `emailVerified` must be
+    // true, and that path is only reachable from bootstrapAdmin after the user
+    // has verified their email.
+    if (roleName === "admin") return emailVerified ? "approved" : "pending";
 
     return AUTO_APPROVED_ROLES.has(roleName) ? "approved" : "pending";
   }

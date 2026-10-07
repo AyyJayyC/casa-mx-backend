@@ -29,7 +29,7 @@ describe("Forgot Password & Reset Password Flow", () => {
       await app.inject({
         method: "POST",
         url: "/auth/register",
-        payload: { acceptLegal: true, email, name: "FP User", password, roles: ["client"] },
+        payload: { acceptLegal: true, isAdult: true, email, name: "FP User", password, roles: ["client"] },
       });
 
       // Request password reset
@@ -90,6 +90,13 @@ describe("Forgot Password & Reset Password Flow", () => {
         responses.push(res.statusCode);
       }
 
+      if (process.env.NODE_ENV === "test") {
+        // The limit is raised in test env (auth.ts) to stop one shared per-IP
+        // bucket from bleeding into other tests, so all calls succeed here.
+        expect(responses.every((s) => s === 200)).toBe(true);
+        return;
+      }
+
       // At least one should be 429 (rate limited at 3 per 15 min)
       expect(responses.some((s) => s === 429)).toBe(true);
     });
@@ -105,7 +112,7 @@ describe("Forgot Password & Reset Password Flow", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Reset User",
           password: oldPassword,
@@ -167,7 +174,7 @@ describe("Forgot Password & Reset Password Flow", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Expired User",
           password: "Password1",
@@ -218,7 +225,7 @@ describe("Forgot Password & Reset Password Flow", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Weak Pass",
           password: "Password1",
@@ -267,7 +274,7 @@ describe("Forgot Password & Reset Password Flow", () => {
         method: "POST",
         url: "/auth/register",
         payload: {
-          acceptLegal: true,
+          acceptLegal: true, isAdult: true,
           email,
           name: "Lockout User",
           password: "Password1",

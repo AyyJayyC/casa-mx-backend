@@ -7,6 +7,7 @@ describe("Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
   let testProperty: any;
   let testUser: any;
   let rentalProperty: any;
+  let seller: any;
 
   beforeAll(async () => {
     // Create a test user for applications
@@ -19,7 +20,7 @@ describe("Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
     });
 
     // Create a test seller
-    const seller = await prisma.user.create({
+    seller = await prisma.user.create({
       data: {
         email: `seller-${Date.now()}@test.com`,
         name: "Test Seller",
@@ -59,10 +60,20 @@ describe("Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
   });
 
   afterAll(async () => {
-    // Cleanup
-    await prisma.rentalApplication.deleteMany({});
-    await prisma.property.deleteMany({});
-    await prisma.user.deleteMany({ where: { email: { contains: "test" } } });
+    // Cleanup only this file's data; a global wipe would break the seeded
+    // dataset other test files depend on.
+    await prisma.rentalApplication.deleteMany({
+      where: {
+        OR: [{ propertyId: rentalProperty.id }, { applicantId: testUser.id }],
+      },
+    });
+    await prisma.notification.deleteMany({ where: { userId: testUser.id } });
+    await prisma.property.deleteMany({
+      where: { id: { in: [testProperty.id, rentalProperty.id] } },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: [testUser.id, seller.id] } },
+    });
     await prisma.$disconnect();
   });
 
@@ -165,6 +176,12 @@ describe("Checkpoint Rentals 1: Database Schema - Rental Properties & Applicatio
     });
 
     it("should support all application statuses", async () => {
+      // Unique (propertyId, applicantId) constraint: clear any application left
+      // by an earlier test so the loop can create one per status.
+      await prisma.rentalApplication.deleteMany({
+        where: { propertyId: rentalProperty.id, applicantId: testUser.id },
+      });
+
       const statuses = [
         "pending",
         "under_review",

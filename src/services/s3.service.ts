@@ -178,3 +178,144 @@ export function isS3Configured(): boolean {
     env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.AWS_BUCKET,
   );
 }
+
+// ─── Cloudflare R2 (public property images) ─────────────────────────────────
+// Deliberately separate from the AWS client above: documents keep using AWS_*,
+// images use R2_* and a public r2.dev URL. Do not merge the two.
+
+const R2_IMAGE_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+export function getR2Client(): S3Client | null {
+  if (!env.R2_ENDPOINT || !env.R2_ACCESS_KEY_ID || !env.R2_SECRET_ACCESS_KEY) {
+    return null;
+  }
+  return new S3Client({
+    region: env.R2_REGION ?? "auto",
+    endpoint: env.R2_ENDPOINT,
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: env.R2_ACCESS_KEY_ID,
+      secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+    },
+  });
+}
+
+export function isR2Configured(): boolean {
+  return Boolean(
+    env.R2_ENDPOINT &&
+      env.R2_ACCESS_KEY_ID &&
+      env.R2_SECRET_ACCESS_KEY &&
+      env.R2_IMAGES_BUCKET,
+  );
+}
+
+function r2PublicBase(): string {
+  return (env.R2_PUBLIC_BASE_URL ?? "").replace(/\/+$/, "");
+}
+
+export function getPublicUrl(key: string): string {
+  return `${r2PublicBase()}/${key.replace(/^\/+/, "")}`;
+}
+
+/**
+ * Return the R2 object key for a URL served from R2_PUBLIC_BASE_URL.
+ * Returns null for any other host so external URLs are never mutated.
+ */
+export function keyFromPublicUrl(url: string): string | null {
+  const base = r2PublicBase();
+  if (!base) return null;
+
+  let parsed: URL;
+  let baseParsed: URL;
+  try {
+    parsed = new URL(url);
+    baseParsed = new URL(base);
+  } catch {
+    return null;
+  }
+
+  if (parsed.protocol !== baseParsed.protocol || parsed.host !== baseParsed.host) {
+    return null;
+  }
+
+  const prefix = baseParsed.pathname.replace(/\/+$/, "");
+  let path = parsed.pathname;
+  if (prefix && path.startsWith(`${prefix}/`)) {
+    path = path.slice(prefix.length + 1);
+  } else {
+    path = path.replace(/^\/+/, "");
+  }
+  if (!path) return null;
+
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
+}
+
+/**
+ * Upload a public property image to the R2 images bucket.
+ * Validates the declared type against the magic bytes before writing.
+ */
+export async function uploadPublicImage(
+  buffer: Buffer,
+  mimeType: string,
+  keyPrefix: string,
+): Promise<{ key: string; publicUrl: string }> {
+  const client = getR2Client();
+  if (!client || !env.R2_IMAGES_BUCKET) {
+    throw new Error(
+      "R2 image storage is not configured. Set R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_IMAGES_BUCKET.",
+    );
+  }
+
+  const ext = R2_IMAGE_EXTENSIONS[mimeType];
+  if (!ext) {
+    throw new Error("File type not allowed. Use JPEG, PNG, or WebP.");
+  }
+
+  const contentCheck = validateFileContent(buffer, mimeType);
+  if (!contentCheck.valid) {
+    throw new Error(contentCheck.error);
+  }
+
+  const key = `${keyPrefix.replace(/\/+$/, "")}/${randomUUID()}.${ext}`;
+
+  await client.send(
+    new PutObjectCommand({
+      Bucket: env.R2_IMAGES_BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: mimeType,
+    }),
+  );
+
+  return { key, publicUrl: getPublicUrl(key) };
+}
+
+/**
+ * Delete a public image from R2. Accepts either a full URL or a raw key.
+ * External URLs (host mismatch) are skipped silently.
+ */
+export async function deletePublicImage(urlOrKey: string): Promise<void> {
+  const client = getR2Client();
+  if (!client || !env.R2_IMAGES_BUCKET) return;
+
+  let key: string | null;
+  if (/^https?:\/\//i.test(urlOrKey)) {
+    key = keyFromPublicUrl(urlOrKey);
+    if (!key) return; // external URL — never touch it
+  } else {
+    key = urlOrKey.replace(/^\/+/, "");
+  }
+  if (!key) return;
+
+  await client.send(
+    new DeleteObjectCommand({ Bucket: env.R2_IMAGES_BUCKET, Key: key }),
+  );
+}

@@ -623,7 +623,9 @@ export class MapsService {
       ) {
         url += `&location=${opts.biasLat},${opts.biasLng}`;
       }
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(8000),
+      });
       const data = (await res.json()) as any;
       const took = Date.now() - start;
       const status = data.status || (res.ok ? "OK" : "ERROR");
@@ -770,7 +772,9 @@ export class MapsService {
         ? `&sessiontoken=${encodeURIComponent(opts.sessionToken)}`
         : "";
       const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=address&components=country:mx&language=es&region=mx${sessionParam}&key=${key}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(8000),
+      });
       const data = (await res.json()) as any;
       const took = Date.now() - start;
       await this.logRequest({

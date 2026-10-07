@@ -3,7 +3,8 @@ import { z } from "zod";
 export const updateMeSchema = z
   .object({
     name: z.string().min(2, "Name must be at least 2 characters").optional(),
-    email: z.string().email("Invalid email").optional(),
+    // Email is intentionally excluded: changing it requires the verified
+    // email-change token flow (see src/routes/verification.ts).
     phone: z.string().optional(),
     whatsapp: z.string().optional(),
     rfc: z.string().min(12, "RFC must be 12-13 characters").max(13).optional(),
@@ -17,7 +18,6 @@ export const updateMeSchema = z
   .refine(
     (data) =>
       data.name !== undefined ||
-      data.email !== undefined ||
       data.phone !== undefined ||
       data.whatsapp !== undefined ||
       data.rfc !== undefined ||

@@ -10,9 +10,11 @@ import {
   OAuthAppleSchema,
   ForgotPasswordSchema,
   ResetPasswordSchema,
+  ConsentSchema,
 } from "../schemas/auth.js";
-import { AuthService } from "../services/auth.service.js";
+import { AuthService, CONSENT_VERSION } from "../services/auth.service.js";
 import { refreshTokenStoreService } from "../services/refreshTokenStore.service.js";
+import { verifyJWT } from "../utils/guards.js";
 import { env } from "../config/env.js";
 import {
   sendVerificationEmail,
@@ -29,7 +31,6 @@ import {
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authService = new AuthService(fastify.prisma);
-  const isProduction = env.NODE_ENV === "production";
   const isLocalFrontend =
     env.FRONTEND_URL.includes("localhost") ||
     env.FRONTEND_URL.includes("127.0.0.1") ||
@@ -41,7 +42,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     : `.${new URL(env.FRONTEND_URL).hostname.replace(/^www\./, "")}`;
   const cookieOptions = {
     httpOnly: true,
-    sameSite: (isProduction ? "none" : "lax") as "lax" | "none",
+    // Lax blocks cookies on cross-site POSTs — the main CSRF mitigation now
+    // that the frontend and API share the casa-mx.com registrable domain.
+    sameSite: "lax" as const,
     secure: true,
     path: "/",
     ...(cookieDomain ? { domain: cookieDomain } : {}),
@@ -138,127 +141,6 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         const input = LoginSchema.parse(request.body);
         const user = await authService.login(input);
 
-        // ─── Self-healing: ensure ADMIN_EMAIL has all roles approved ──────────
-        const adminEmail = process.env.ADMIN_EMAIL?.trim();
-        fastify.log.info(
-          { email: input.email, adminEmail },
-          "[login] ADMIN_EMAIL check",
-        );
-        if (
-          adminEmail &&
-          input.email.toLowerCase() === adminEmail.toLowerCase()
-        ) {
-          const allRoles = await fastify.prisma.role.findMany();
-          const adminRole = allRoles.find((r) => r.name === "admin");
-          fastify.log.info(
-            {
-              userId: user.id,
-              currentRoles: user.roles.map((r) => `${r.roleName}:${r.status}`),
-            },
-            "[login] ADMIN_EMAIL user — running self-healing",
-          );
-
-          // 1. Create missing admin role if it doesn't exist
-          if (adminRole) {
-            const hasAdmin = user.roles.find((r) => r.roleName === "admin");
-            if (hasAdmin && hasAdmin.status === "pending") {
-              await fastify.prisma.userRole.update({
-                where: {
-                  userId_roleId: { userId: user.id, roleId: hasAdmin.roleId },
-                },
-                data: { status: "approved" },
-              });
-              hasAdmin.status = "approved";
-              fastify.log.info(
-                "[login] Self-heal: approved pending admin role",
-              );
-            } else if (!hasAdmin) {
-              const newRole = await fastify.prisma.userRole.create({
-                data: {
-                  userId: user.id,
-                  roleId: adminRole.id,
-                  status: "approved",
-                },
-              });
-              user.roles.push({
-                roleId: adminRole.id,
-                roleName: "admin",
-                status: "approved",
-              });
-              fastify.log.info(
-                { roleId: newRole.id },
-                "[login] Self-heal: created missing admin role",
-              );
-            }
-          }
-
-          // 2. Approve ALL other pending roles
-          for (const role of user.roles) {
-            if (role.status === "pending") {
-              await fastify.prisma.userRole.update({
-                where: {
-                  userId_roleId: { userId: user.id, roleId: role.roleId },
-                },
-                data: { status: "approved" },
-              });
-              role.status = "approved";
-              fastify.log.info(
-                { roleName: role.roleName },
-                "[login] Self-heal: approved pending role",
-              );
-            }
-          }
-
-          // 3. Ensure admin has owner and client roles
-          const extraRoles = ["owner", "client"];
-          for (const roleName of extraRoles) {
-            const dbRole = allRoles.find((r) => r.name === roleName);
-            if (!dbRole) {
-              fastify.log.warn(
-                { roleName },
-                "[login] Self-heal: role not found in DB — skipping",
-              );
-              continue;
-            }
-            const userRole = user.roles.find((r) => r.roleName === roleName);
-            if (userRole && userRole.status === "pending") {
-              await fastify.prisma.userRole.update({
-                where: {
-                  userId_roleId: { userId: user.id, roleId: userRole.roleId },
-                },
-                data: { status: "approved" },
-              });
-              userRole.status = "approved";
-              fastify.log.info(
-                { roleName },
-                "[login] Self-heal: approved pending extra role",
-              );
-            } else if (!userRole) {
-              await fastify.prisma.userRole.create({
-                data: { userId: user.id, roleId: dbRole.id, status: "approved" },
-              });
-              user.roles.push({
-                roleId: dbRole.id,
-                roleName,
-                status: "approved",
-              });
-              fastify.log.info(
-                { roleName },
-                "[login] Self-heal: created missing role",
-              );
-            }
-          }
-
-          fastify.log.info(
-            { finalRoles: user.roles.map((r) => `${r.roleName}:${r.status}`) },
-            "[login] Self-healing complete",
-          );
-        } else {
-          fastify.log.info(
-            "[login] Not ADMIN_EMAIL user — skipping self-healing",
-          );
-        }
-
         // Generate JWT token
         const token = fastify.jwt.sign(
           {
@@ -299,9 +181,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 60 * 60 * 24 * 7,
           });
 
-        try {
-          reply.generateCsrf();
-        } catch {}
+        // CSRF token + cookie are issued by the app-level onRequest hook.
 
         // Notify user of new login
         const ip =
@@ -456,9 +336,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               maxAge: 60 * 60 * 24 * 7,
             });
 
-          try {
-            reply.generateCsrf();
-          } catch {}
+          // CSRF token + cookie are issued by the app-level onRequest hook.
 
           return reply.code(200).send({
             success: true,
@@ -648,6 +526,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({ id_token: idToken }).toString(),
+          signal: AbortSignal.timeout(8000),
         });
 
         if (!res.ok) {
@@ -712,9 +591,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 7 * 24 * 60 * 60,
           });
 
-        try {
-          reply.generateCsrf();
-        } catch {}
+        // CSRF token + cookie are issued by the app-level onRequest hook.
 
         return reply.code(200).send({
           success: true,
@@ -724,6 +601,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             name: user.name,
             avatarUrl: user.avatarUrl,
             provider: user.provider,
+            consentRequired: user.consentRequired,
             roles: user.roles,
           },
         });
@@ -763,6 +641,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         // Verify token by calling Facebook Graph API
         const verifyRes = await fetch(
           `https://graph.facebook.com/v19.0/me?fields=id,email,name,picture.type(large)&access_token=${encodeURIComponent(accessToken)}`,
+          { signal: AbortSignal.timeout(8000) },
         );
 
         if (!verifyRes.ok) {
@@ -782,6 +661,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         if (env.FACEBOOK_APP_ID && env.FACEBOOK_APP_SECRET) {
           const debugRes = await fetch(
             `https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${env.FACEBOOK_APP_ID}|${env.FACEBOOK_APP_SECRET}`,
+            { signal: AbortSignal.timeout(8000) },
           );
           const debugData = (await debugRes.json()) as {
             data?: { app_id?: string; is_valid?: boolean };
@@ -842,9 +722,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 7 * 24 * 60 * 60,
           });
 
-        try {
-          reply.generateCsrf();
-        } catch {}
+        // CSRF token + cookie are issued by the app-level onRequest hook.
 
         return reply.code(200).send({
           success: true,
@@ -854,6 +732,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             name: user.name,
             avatarUrl: user.avatarUrl,
             provider: user.provider,
+            consentRequired: user.consentRequired,
             roles: user.roles,
           },
         });
@@ -904,6 +783,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             code: authorizationCode,
             grant_type: "authorization_code",
           }).toString(),
+          signal: AbortSignal.timeout(8000),
         });
 
         if (!tokenRes.ok) {
@@ -976,9 +856,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             maxAge: 7 * 24 * 60 * 60,
           });
 
-        try {
-          reply.generateCsrf();
-        } catch {}
+        // CSRF token + cookie are issued by the app-level onRequest hook.
 
         return reply.code(200).send({
           success: true,
@@ -988,6 +866,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             name: user.name,
             avatarUrl: user.avatarUrl,
             provider: user.provider,
+            consentRequired: user.consentRequired,
             roles: user.roles,
           },
         });
@@ -1009,13 +888,44 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  // POST /auth/consent — post-OAuth legal + 18+ consent step
+  fastify.post(
+    "/auth/consent",
+    { onRequest: [verifyJWT] },
+    async (request, reply) => {
+      try {
+        ConsentSchema.parse(request.body);
+        const now = new Date();
+        await fastify.prisma.user.update({
+          where: { id: request.user.id },
+          data: {
+            termsAcceptedAt: now,
+            privacyAcceptedAt: now,
+            consentVersion: CONSENT_VERSION,
+          },
+        });
+        return reply.send({ success: true });
+      } catch (error: any) {
+        if (isZodError(error)) {
+          return reply.code(400).send(createValidationErrorResponse(error));
+        }
+        fastify.log.error(error);
+        return reply
+          .code(500)
+          .send({ success: false, error: "Failed to record consent" });
+      }
+    },
+  );
+
   // POST /auth/forgot-password — sends reset link
   fastify.post<{ Body: Record<string, any> }>(
     "/auth/forgot-password",
     {
       config: {
         rateLimit: {
-          max: 3,
+          // Raised in tests to avoid a shared per-IP bucket bleeding across
+          // test cases (same pattern as /auth/register).
+          max: env.NODE_ENV === "test" ? 500 : 3,
           timeWindow: "15 minutes",
         },
       },
@@ -1045,11 +955,21 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           },
         });
 
-        await sendPasswordResetEmail({
-          userEmail: user.email,
-          userName: user.name,
-          token,
-        });
+        // Email delivery must never turn a valid reset request into a 500
+        // (and must not leak whether the address exists). The token is already
+        // stored above; the user can retry if delivery hiccups.
+        try {
+          await sendPasswordResetEmail({
+            userEmail: user.email,
+            userName: user.name,
+            token,
+          });
+        } catch (emailErr) {
+          fastify.log.error(
+            { err: emailErr },
+            "Failed to send password reset email",
+          );
+        }
 
         return reply
           .code(200)
@@ -1075,7 +995,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     {
       config: {
         rateLimit: {
-          max: 5,
+          // Raised in tests to avoid a shared per-IP bucket bleeding across
+          // test cases (same pattern as /auth/register).
+          max: env.NODE_ENV === "test" ? 500 : 5,
           timeWindow: "15 minutes",
         },
       },
@@ -1107,6 +1029,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
               passwordResetTokenExpiresAt: null,
               failedLoginAttempts: 0,
               lockedUntil: null,
+              lastFailedLoginAt: null,
             },
           });
 

@@ -68,8 +68,8 @@ async function setup() {
 
   // Approve seller role via admin (if admin exists) — skip if failing, try later
   const adminLogin = await api("POST", "/auth/login", null, {
-    email: "admin@casamx.local",
-    password: "admin123",
+    email: process.env.ADMIN_EMAIL || "admin@casamx.local",
+    password: process.env.TEST_ADMIN_PASSWORD || "seed-admin-password",
   });
   if (adminLogin.status === 200 && adminLogin.data.token) {
     console.log("  Admin found — will try to approve seller role");

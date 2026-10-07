@@ -24,10 +24,21 @@ describe("CORS origin policy (A10)", () => {
       },
     });
 
-  it("allows project-scoped Vercel preview origins", async () => {
+  it("rejects project-looking Vercel preview origins by default", async () => {
     const origin = "https://casa-mx-abc123-team.vercel.app";
     const res = await preflight(origin);
-    expect(res.headers["access-control-allow-origin"]).toBe(origin);
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
+  it("allows an explicitly listed preview origin", async () => {
+    const origin = "https://casa-mx-preview.vercel.app";
+    process.env.CORS_EXTRA_ORIGINS = origin;
+    try {
+      const res = await preflight(origin);
+      expect(res.headers["access-control-allow-origin"]).toBe(origin);
+    } finally {
+      delete process.env.CORS_EXTRA_ORIGINS;
+    }
   });
 
   it("allows the production domains", async () => {

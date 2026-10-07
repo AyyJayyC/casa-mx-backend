@@ -50,7 +50,7 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email: testEmail,
         name: "Admin Test User",
         password: "Password1",
@@ -129,7 +129,7 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email: denyTestEmail,
         name: "Deny Test User",
         password: "Password1",
@@ -179,7 +179,7 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email: userEmail,
         name: "Non-Admin User",
         password: "Password1",
@@ -218,7 +218,7 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email: userEmail,
         name: "Deny Non-Admin",
         password: "Password1",
@@ -290,7 +290,7 @@ describe("Checkpoint 4 - Admin Authority & Audit Logs", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         email: userEmail,
         name: "Audit Viewer",
         password: "Password1",

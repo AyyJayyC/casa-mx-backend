@@ -39,7 +39,7 @@ describe("Integrity Check - Adversarial Tests", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         name: "Admin Integrity",
         email: `admin-integrity-${Date.now()}@test.com`,
         password: "AdminPassword123!",
@@ -80,7 +80,7 @@ describe("Integrity Check - Adversarial Tests", () => {
       method: "POST",
       url: "/auth/register",
       payload: {
-        acceptLegal: true,
+        acceptLegal: true, isAdult: true,
         name: "Regular User",
         email: `user-integrity-${Date.now()}@test.com`,
         password: "UserPassword123!",
@@ -125,9 +125,14 @@ describe("Integrity Check - Adversarial Tests", () => {
   });
 
   afterAll(async () => {
-    // Cleanup
-    await prisma.rentalApplication.deleteMany({});
-    await prisma.property.deleteMany({});
+    // Cleanup only the data this file created. A global wipe would delete the
+    // seeded dataset other test files rely on.
+    await prisma.rentalApplication.deleteMany({
+      where: {
+        OR: [{ applicantId: userId }, { propertyId: rentalPropertyId }],
+      },
+    });
+    await prisma.property.deleteMany({ where: { sellerId: adminUserId } });
     await prisma.userRole.deleteMany({
       where: { userId: { in: [adminUserId, userId] } },
     });
@@ -431,7 +436,7 @@ describe("Integrity Check - Adversarial Tests", () => {
       // Reset property status
       await prisma.property.update({
         where: { id: rentalPropertyId },
-        data: { status: "available" },
+        data: { status: "disponible" },
       });
     });
 
@@ -514,8 +519,8 @@ describe("Integrity Check - Adversarial Tests", () => {
         },
       });
 
-      // Verify property status is "available" before approval
-      expect(property.status).toBe("available");
+      // Verify property status is "disponible" (the model default) before approval
+      expect(property.status).toBe("disponible");
 
       // Create application as regular user
       const appResponse = await app.inject({
@@ -575,7 +580,7 @@ describe("Integrity Check - Adversarial Tests", () => {
       });
 
       expect(propertyAfter?.status).toBe("rented");
-      expect(propertyAfter?.status).not.toBe("available"); // MUST change
+      expect(propertyAfter?.status).not.toBe("disponible"); // MUST change
 
       // Cleanup
       await prisma.rentalApplication.deleteMany({

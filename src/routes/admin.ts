@@ -1,12 +1,21 @@
 import { FastifyPluginAsync } from "fastify";
 import { PrismaClient } from "@prisma/client";
 import { execSync } from "node:child_process";
+import crypto from "node:crypto";
 import { requireAdmin, verifyJWT } from "../utils/guards.js";
 import { UserRoleIdParamSchema } from "../schemas/admin.js";
 import {
   sendRoleApprovedEmail,
   sendRoleDeniedEmail,
 } from "../services/email.service.js";
+
+/** Length-safe constant-time comparison for shared secrets. */
+function secretsMatch(provided: unknown, expected: string | undefined): boolean {
+  if (!expected || typeof provided !== "string") return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 export class AdminService {
   constructor(private prisma: PrismaClient) {}
@@ -117,14 +126,26 @@ export class AdminService {
   }
 
   async getAllUsers() {
+    // Explicit allow-list: never expose password hashes or auth tokens.
     return this.prisma.user.findMany({
-      include: {
-        roles: {
-          include: {
-            role: true,
-          },
-        },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        whatsapp: true,
+        provider: true,
+        avatarUrl: true,
+        emailVerified: true,
+        phoneVerified: true,
+        referralCode: true,
+        agencyId: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+        roles: { include: { role: true } },
       },
+      orderBy: { createdAt: "desc" },
     });
   }
 }
@@ -412,14 +433,20 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  // ─── Emergency recovery endpoints ─────────────────────────────────────────
+  // Never registered in production: they can reset the admin password and run
+  // `prisma db push --accept-data-loss`. Dev/staging only.
+  if (process.env.NODE_ENV === "production") return;
+
   // POST /admin/run-migrations — apply pending database migrations
   // Secured by MIGRATION_SECRET env var (one-time use)
   fastify.post<{ Body: { secret: string; action?: string } }>(
     "/admin/run-migrations",
     async (request, reply) => {
       try {
-        const expectedSecret = process.env.MIGRATION_SECRET?.trim();
-        if (!expectedSecret || request.body.secret !== expectedSecret) {
+        if (
+          !secretsMatch(request.body.secret, process.env.MIGRATION_SECRET?.trim())
+        ) {
           return reply
             .code(403)
             .send({ success: false, error: "Invalid secret" });
@@ -512,9 +539,14 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
                 .code(400)
                 .send({ success: false, error: "ADMIN_EMAIL not set" });
             }
-            const bcrypt = require("bcrypt");
-            const adminPassword =
-              process.env.ADMIN_INITIAL_PASSWORD || "CasaMX2026!";
+            const bcrypt = await import("bcrypt");
+            const adminPassword = process.env.ADMIN_INITIAL_PASSWORD;
+            if (!adminPassword) {
+              return reply.code(400).send({
+                success: false,
+                error: "ADMIN_INITIAL_PASSWORD not set",
+              });
+            }
             const hashedPassword = await bcrypt.hash(adminPassword, 10);
             await fastify.prisma.user.update({
               where: { email: adminEmail },
@@ -540,8 +572,9 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     "/admin/setup-admin",
     async (request, reply) => {
       try {
-        const expectedSecret = process.env.MIGRATION_SECRET?.trim();
-        if (!expectedSecret || request.body.secret !== expectedSecret) {
+        if (
+          !secretsMatch(request.body.secret, process.env.MIGRATION_SECRET?.trim())
+        ) {
           return reply
             .code(403)
             .send({ success: false, error: "Invalid secret" });
@@ -556,15 +589,20 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
         // Set password
         const bcrypt = await import("bcrypt");
-        const adminPassword =
-          process.env.ADMIN_INITIAL_PASSWORD || "CasaMX2026!";
+        const adminPassword = process.env.ADMIN_INITIAL_PASSWORD;
+        if (!adminPassword) {
+          return reply.code(400).send({
+            success: false,
+            error: "ADMIN_INITIAL_PASSWORD not set",
+          });
+        }
         const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
         const user = await fastify.prisma.user.upsert({
           where: { email: adminEmail },
           create: {
             email: adminEmail,
-            name: "Axel Castro",
+            name: "Admin",
             password: hashedPassword,
             emailVerified: true,
           },

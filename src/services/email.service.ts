@@ -27,6 +27,24 @@ function client(): Resend | null {
   return resend;
 }
 
+const OUTBOUND_TIMEOUT_MS = 8000;
+
+// ponytail: the Resend SDK v6 has no AbortSignal/timeout option, so we bound
+// the caller's wait with a race. The underlying request may still finish in the
+// background; swap for a native signal if the SDK adds one.
+function withTimeout<T>(p: Promise<T>, label: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${OUTBOUND_TIMEOUT_MS}ms`)),
+      OUTBOUND_TIMEOUT_MS,
+    );
+  });
+  return Promise.race([p, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 export function isConfigured(): boolean {
   return Boolean(
     env.RESEND_API_KEY && !env.RESEND_API_KEY.startsWith("re_placeholder"),
@@ -114,13 +132,16 @@ async function sendEmail(
     return;
   }
   try {
-    const result = await r.emails.send({
-      from: `${env.RESEND_FROM_NAME} <${env.RESEND_FROM_EMAIL}>`,
-      to,
-      subject,
-      html,
-      text,
-    });
+    const result = await withTimeout(
+      r.emails.send({
+        from: `${env.RESEND_FROM_NAME} <${env.RESEND_FROM_EMAIL}>`,
+        to,
+        subject,
+        html,
+        text,
+      }),
+      "Resend send",
+    );
     if (result.error) {
       console.error(
         "[email] Resend delivery error:",
