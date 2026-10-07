@@ -86,43 +86,48 @@ const creditsRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       try {
         const { leadId, leadType } = SpendCreditSchema.parse(request.body);
-        const sellerId = request.user.id;
+        const requesterId = request.user.id;
 
-        // Verify the requester owns the property this lead belongs to
-        let propertyOwnerId: string | null = null;
+        // Resolve the payer: on a referred lead the REFERRING agent pays;
+        // otherwise the capturing agent (property owner/seller) pays.
+        let payerId: string | null = null;
         if (leadType === "application") {
           const app = await fastify.prisma.rentalApplication.findUnique({
             where: { id: leadId },
             include: { property: { select: { sellerId: true } } },
           });
-          propertyOwnerId = (app as any)?.property?.sellerId ?? null;
+          payerId = (app as any)?.property?.sellerId ?? null;
         } else if (leadType === "offer") {
           const offer = await fastify.prisma.propertyOffer.findUnique({
             where: { id: leadId },
             include: { property: { select: { sellerId: true } } },
           });
-          propertyOwnerId = (offer as any)?.property?.sellerId ?? null;
+          if (offer) {
+            payerId = offer.referringAgentId ?? (offer as any).property?.sellerId ?? null;
+          }
         } else {
           const req = await fastify.prisma.propertyRequest.findUnique({
             where: { id: leadId },
             include: { property: { select: { sellerId: true } } },
           });
-          propertyOwnerId = (req as any)?.property?.sellerId ?? null;
+          if (req) {
+            payerId = req.referringAgentId ?? (req as any).property?.sellerId ?? null;
+          }
         }
 
-        if (!propertyOwnerId) {
+        if (!payerId) {
           return reply
             .code(404)
             .send({ success: false, error: "Lead not found" });
         }
-        if (propertyOwnerId !== sellerId) {
+        if (payerId !== requesterId) {
           return reply
             .code(403)
             .send({ success: false, error: "No autorizado" });
         }
 
         const result = await creditsService.spendCredit(
-          sellerId,
+          payerId,
           leadId,
           leadType,
         );

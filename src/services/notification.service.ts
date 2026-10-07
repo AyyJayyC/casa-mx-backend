@@ -8,7 +8,11 @@ export type NotificationType =
   | "application_rejected"
   | "offer_received"
   | "application_received"
-  | "new_property_in_area";
+  | "request_received"
+  | "new_property_in_area"
+  // Lead attribution
+  | "lead_referred"
+  | "lead_referred_received";
 
 export async function createNotification(
   prisma: PrismaClient,

@@ -1,6 +1,14 @@
 import { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { verifyJWT } from "../utils/guards.js";
+import { createNotification } from "../services/notification.service.js";
+import { sendReferredLeadEmail } from "../services/email.service.js";
+import {
+  resolveRefCode,
+  resolveLeadRouting,
+  recordAttribution,
+  canSeeBuyerContact,
+} from "../services/attribution.service.js";
 
 const createRequestSchema = z.object({
   propertyId: z.string().min(1),
@@ -40,6 +48,97 @@ const requestsRoutes: FastifyPluginAsync = async (fastify) => {
             status: "pending",
           },
         });
+
+        // Lead attribution. A valid ref makes this a referred lead.
+        const refCode = (request.cookies as any)?.cmx_ref ?? null;
+        const refAgentId = await resolveRefCode(
+          fastify.prisma,
+          refCode,
+          input.propertyId,
+        );
+        const routing = resolveLeadRouting({
+          sellerId: property.sellerId!,
+          buyerId: user.id,
+          refAgentId,
+        });
+
+        if (refAgentId) {
+          await recordAttribution(fastify.prisma, {
+            leadType: "request",
+            leadId: created.id,
+            propertyId: input.propertyId,
+            buyerId: user.id,
+            refAgentId,
+            code: refCode,
+          });
+        }
+
+        const propertyTitle =
+          (
+            await fastify.prisma.property.findUnique({
+              where: { id: input.propertyId },
+              select: { title: true },
+            })
+          )?.title ?? "tu propiedad";
+
+        if (routing.captureHeadsUp && refAgentId) {
+          const agent = await fastify.prisma.user.findUnique({
+            where: { id: refAgentId },
+            select: { email: true, name: true },
+          });
+          const buyerEmail = (await fastify.prisma.user.findUnique({
+            where: { id: user.id },
+            select: { email: true },
+          }))?.email;
+
+          await createNotification(
+            fastify.prisma,
+            refAgentId,
+            "lead_referred",
+            "Nuevo lead referido",
+            `${input.name} solicitó información de "${propertyTitle}". Contacto: ${input.phone}${buyerEmail ? ` · ${buyerEmail}` : ""}`,
+            "request",
+            created.id,
+          );
+          try {
+            if (agent) {
+              await sendReferredLeadEmail({
+                agentEmail: agent.email,
+                agentName: agent.name,
+                leadKind: "request",
+                propertyTitle,
+                buyerName: input.name,
+                buyerEmail,
+                buyerPhone: input.phone,
+              });
+            }
+          } catch (emailErr) {
+            fastify.log.error(
+              { err: emailErr },
+              "Failed to send referred lead email",
+            );
+          }
+          await createNotification(
+            fastify.prisma,
+            property.sellerId!,
+            "lead_referred_received",
+            "Un agente contactará a un interesado de tu propiedad",
+            "Un agente hará una oferta por tu propiedad; el agente te contactará.",
+            "request",
+            created.id,
+          );
+        } else {
+          // Direct request: notify the capturing agent (previously missing).
+          await createNotification(
+            fastify.prisma,
+            property.sellerId!,
+            "request_received",
+            "Nueva solicitud de contacto",
+            `${input.name} solicitó información de "${propertyTitle}". Tel: ${input.phone}`,
+            "request",
+            created.id,
+          );
+        }
 
         return reply.code(201).send({
           success: true,
@@ -134,9 +233,42 @@ const requestsRoutes: FastifyPluginAsync = async (fastify) => {
           orderBy: { createdAt: "desc" },
         });
 
+        const unlocked = requests.length
+          ? await fastify.prisma.creditTransaction.findMany({
+              where: {
+                userId: user.id,
+                type: "spend",
+                referenceId: { in: requests.map((r) => r.id) },
+              },
+              select: { referenceId: true },
+            })
+          : [];
+        const unlockedIds = new Set(
+          unlocked
+            .map((t) => t.referenceId)
+            .filter((id): id is string => Boolean(id)),
+        );
+
+        const data = requests.map((req) => {
+          if (
+            canSeeBuyerContact({
+              lead: req,
+              viewerId: user.id,
+              sellerId: user.id,
+              unlockedIds,
+            })
+          ) {
+            return req;
+          }
+          if (req.referringAgentId) {
+            return { ...req, name: null, phone: null };
+          }
+          return { ...req, phone: null };
+        });
+
         return reply.code(200).send({
           success: true,
-          data: requests,
+          data,
         });
       } catch (error: any) {
         fastify.log.error(error);

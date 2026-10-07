@@ -32,6 +32,7 @@ import creditsRoutes from "./routes/credits.js";
 import documentsRoutes from "./routes/documents.js";
 import negotiationsRoutes from "./routes/negotiations.js";
 import offersRoutes from "./routes/offers.js";
+import leadsRoutes from "./routes/leads.js";
 import notificationsRoutes from "./routes/notifications.js";
 import contractsRoutes from "./routes/contracts.js";
 import verificationRoutes from "./routes/verification.js";
@@ -408,6 +409,7 @@ export async function buildApp(
   await app.register(documentsRoutes);
   await app.register(negotiationsRoutes);
   await app.register(offersRoutes);
+  await app.register(leadsRoutes);
   await app.register(notificationsRoutes);
   await app.register(contractsRoutes);
   await app.register(verificationRoutes);
