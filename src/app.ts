@@ -8,6 +8,7 @@ import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import bcrypt from "bcrypt";
 import { env } from "./config/env.js";
+import { deriveCookieDomain } from "./utils/cookies.js";
 import prismaPlugin from "./plugins/prisma.js";
 import jwtPlugin from "./plugins/jwt.js";
 import setupLoggingMiddleware from "./plugins/logging.js";
@@ -204,6 +205,13 @@ export async function buildApp(
 
   await app.register(cookie);
   if (!disableSecurity) {
+    // Match the auth cookies' domain so the SPA (served from casa-mx.com) can
+    // READ the readable `csrfToken` cookie that the API (api.casa-mx.com) sets.
+    // Without a shared domain the cookie is host-only to the API, so
+    // `document.cookie` on the SPA can't see it -> no `x-csrf-token` header ->
+    // 403 on every cookie-authenticated POST.
+    const csrfCookieDomain = deriveCookieDomain(env.FRONTEND_URL);
+
     await app.register(csrfProtection, {
       // `_csrf` holds the secret and stays httpOnly; the derived token is
       // mirrored into the readable `csrfToken` cookie for the SPA.
@@ -213,6 +221,7 @@ export async function buildApp(
         sameSite: "lax",
         secure: true,
         path: "/",
+        ...(csrfCookieDomain ? { domain: csrfCookieDomain } : {}),
       },
     });
 
@@ -227,6 +236,7 @@ export async function buildApp(
             sameSite: "lax",
             secure: true,
             path: "/",
+            ...(csrfCookieDomain ? { domain: csrfCookieDomain } : {}),
           });
         }
       } catch {
