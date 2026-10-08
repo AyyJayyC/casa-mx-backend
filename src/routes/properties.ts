@@ -1206,7 +1206,7 @@ const propertiesPlugin: FastifyPluginAsync = async (app) => {
           }
         }
 
-        const RATES: Record<string, number> = { featured: 300, carousel: 2000 };
+        const RATES: Record<string, number> = { featured: 5, carousel: 20 };
         const cost = RATES[tier] * days;
         const featuredUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
