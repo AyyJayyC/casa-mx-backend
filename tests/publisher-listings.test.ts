@@ -114,6 +114,41 @@ describe("Publisher API listings", () => {
     expect(res.json().success).toBe(false);
   });
 
+  it("re-POSTing an existing externalId does not unpublish a live listing", async () => {
+    const created = await createListing(basePayload("ext-relist"));
+    const id = created.json().data.id;
+
+    await app.inject({
+      method: "PUT",
+      url: `/publisher/listings/${id}/images`,
+      headers: auth(),
+      payload: { imageUrls: ["https://files.catbox.moe/a.jpg"] },
+    });
+    const published = await app.inject({
+      method: "POST",
+      url: `/publisher/listings/${id}/publish`,
+      headers: auth(),
+    });
+    expect(published.json().data.status).toBe("disponible");
+    expect(published.json().data.visibility).toBe("public");
+
+    const rePosted = await createListing({
+      ...basePayload("ext-relist"),
+      title: "Depto Relisted",
+      price: 1_650_000,
+    });
+    expect(rePosted.statusCode).toBe(201);
+    expect(rePosted.json().data.id).toBe(id);
+    expect(rePosted.json().data.status).toBe("disponible");
+    expect(rePosted.json().data.visibility).toBe("public");
+
+    const row = await app.prisma.property.findUnique({ where: { id } });
+    expect(row?.status).toBe("disponible");
+    expect(row?.visibility).toBe("public");
+    expect(row?.title).toBe("Depto Relisted");
+    expect(Number(row?.price)).toBe(1_650_000);
+  });
+
   it("replaces images and rejects non-https URLs", async () => {
     const created = await createListing(basePayload("ext-images"));
     const id = created.json().data.id;
