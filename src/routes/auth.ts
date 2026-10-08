@@ -15,6 +15,7 @@ import {
 import { AuthService, CONSENT_VERSION } from "../services/auth.service.js";
 import { refreshTokenStoreService } from "../services/refreshTokenStore.service.js";
 import { verifyJWT } from "../utils/guards.js";
+import { deriveCookieDomain } from "../utils/cookies.js";
 import { env } from "../config/env.js";
 import {
   sendVerificationEmail,
@@ -35,11 +36,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     env.FRONTEND_URL.includes("localhost") ||
     env.FRONTEND_URL.includes("127.0.0.1") ||
     env.FRONTEND_URL.includes("0.0.0.0");
-  // Strip leading "www." so cookies work across all subdomains
-  // (casa-mx.com, www.casa-mx.com, api.casa-mx.com, etc.)
-  const cookieDomain = isLocalFrontend
-    ? undefined
-    : `.${new URL(env.FRONTEND_URL).hostname.replace(/^www\./, "")}`;
+  // Shared cookie domain (`.casa-mx.com`) so cookies work across the app and
+  // API subdomains; undefined for localhost. See utils/cookies.ts.
+  const cookieDomain = deriveCookieDomain(env.FRONTEND_URL);
   const cookieOptions = {
     httpOnly: true,
     // Lax blocks cookies on cross-site POSTs — the main CSRF mitigation now
