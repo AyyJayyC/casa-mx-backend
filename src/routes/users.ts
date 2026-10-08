@@ -1,9 +1,23 @@
 import { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { verifyJWT } from "../utils/guards.js";
+import { verifyJWT, requireAnyRole } from "../utils/guards.js";
 import { updateMeSchema, userIdParamSchema } from "../schemas/users.js";
 import { isClientError } from "../utils/errorClassification.js";
 import { refreshTokenStoreService } from "../services/refreshTokenStore.service.js";
+import { generatePublisherKey } from "../utils/publisherKey.js";
+import { env } from "../config/env.js";
+
+const createApiKeySchema = z.object({
+  label: z.string().min(1, "El nombre es obligatorio").max(60),
+});
+
+const apiKeyIdParamSchema = z.object({ id: z.string().uuid() });
+
+/** Per-user cap on key creation; overridable in tests via env. */
+function keyCreateMax(): number {
+  const n = Number(process.env.API_KEYS_RATE_CREATE);
+  return Number.isFinite(n) && n > 0 ? n : 10;
+}
 
 function hasAdminRole(roles: any[]): boolean {
   return roles.includes("admin") || roles.some((r: any) => r?.name === "admin");
@@ -362,6 +376,148 @@ const usersRoutes: FastifyPluginAsync = async (fastify) => {
           success: false,
           error: "Failed to fetch user",
         });
+      }
+    },
+  );
+  // ─── Self-serve API keys ──────────────────────────────────────────────────
+  // Browser/cookie-authenticated publisher API key management. Deliberately
+  // under /users/me (NOT /publisher/*) so it stays CSRF-protected. The raw key
+  // is returned exactly once at creation; only its sha256 hash is stored.
+  const canPublishRoles = requireAnyRole(["owner", "agent", "admin"]);
+
+  fastify.get(
+    "/users/me/api-keys",
+    { onRequest: [verifyJWT] },
+    async (request, reply) => {
+      try {
+        const keys = await fastify.prisma.publisherApiKey.findMany({
+          where: { userId: request.user.id },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            label: true,
+            keyPrefix: true,
+            active: true,
+            createdAt: true,
+            lastUsedAt: true,
+            revokedAt: true,
+          },
+        });
+        return reply.send({ success: true, data: keys });
+      } catch (error) {
+        fastify.log.error(error);
+        return reply
+          .code(500)
+          .send({ success: false, error: "Failed to list API keys" });
+      }
+    },
+  );
+
+  fastify.post(
+    "/users/me/api-keys",
+    {
+      onRequest: [verifyJWT, canPublishRoles],
+      config: {
+        rateLimit: {
+          max: keyCreateMax(),
+          timeWindow: "1 hour",
+          keyGenerator: (req) =>
+            "apikeys:create:" + ((req as any).user?.id || req.ip),
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const input = createApiKeySchema.parse(request.body ?? {});
+        const userId = request.user.id;
+        const { raw, keyHash, keyPrefix } = generatePublisherKey();
+
+        const key = await fastify.prisma.publisherApiKey.create({
+          data: { label: input.label, keyHash, keyPrefix, userId },
+        });
+
+        // Creation ≠ publishing: allow it, but flag accounts that still need an
+        // approved INE before the key can actually publish.
+        const requireIne =
+          process.env.PUBLISHER_REQUIRE_INE ?? env.PUBLISHER_REQUIRE_INE;
+        let warning: string | undefined;
+        if (requireIne !== "false") {
+          const ine = await fastify.prisma.userDocument.findFirst({
+            where: {
+              userId,
+              documentType: "official_id",
+              isVerified: true,
+            },
+            select: { id: true },
+          });
+          if (!ine) {
+            warning =
+              "Tu llave fue creada, pero para publicar necesitas tu INE verificada.";
+          }
+        }
+
+        return reply.code(201).send({
+          success: true,
+          data: {
+            id: key.id,
+            label: key.label,
+            key: raw,
+            prefix: keyPrefix,
+            ...(warning ? { warning } : {}),
+          },
+        });
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            success: false,
+            error: "Validation error",
+            details: error.errors,
+          });
+        }
+        fastify.log.error(error);
+        return reply
+          .code(500)
+          .send({ success: false, error: "Failed to create API key" });
+      }
+    },
+  );
+
+  fastify.delete(
+    "/users/me/api-keys/:id",
+    { onRequest: [verifyJWT] },
+    async (request, reply) => {
+      try {
+        const { id } = apiKeyIdParamSchema.parse(request.params);
+        const userId = request.user.id;
+
+        const key = await fastify.prisma.publisherApiKey.findUnique({
+          where: { id },
+        });
+        // Don't leak the existence of another user's key.
+        if (!key || key.userId !== userId) {
+          return reply
+            .code(404)
+            .send({ success: false, error: "API key not found" });
+        }
+
+        await fastify.prisma.publisherApiKey.update({
+          where: { id },
+          data: { active: false, revokedAt: key.revokedAt ?? new Date() },
+        });
+
+        return reply.send({ success: true });
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            success: false,
+            error: "Validation error",
+            details: error.errors,
+          });
+        }
+        fastify.log.error(error);
+        return reply
+          .code(500)
+          .send({ success: false, error: "Failed to revoke API key" });
       }
     },
   );

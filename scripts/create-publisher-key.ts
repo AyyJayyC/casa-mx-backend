@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { createHash, randomBytes } from "node:crypto";
+import { generatePublisherKey } from "../src/utils/publisherKey.js";
 
 /**
  * Create a Casa MX Publisher API key.
@@ -47,9 +47,7 @@ async function main() {
     process.exit(1);
   }
 
-  const raw = "cmx_pub_" + randomBytes(32).toString("base64url");
-  const keyHash = createHash("sha256").update(raw).digest("hex");
-  const keyPrefix = raw.slice(0, 12);
+  const { raw, keyHash, keyPrefix } = generatePublisherKey();
 
   const key = await prisma.publisherApiKey.create({
     data: {
