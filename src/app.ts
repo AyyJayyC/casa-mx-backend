@@ -32,6 +32,7 @@ import creditsRoutes from "./routes/credits.js";
 import documentsRoutes from "./routes/documents.js";
 import negotiationsRoutes from "./routes/negotiations.js";
 import offersRoutes from "./routes/offers.js";
+import leadsRoutes from "./routes/leads.js";
 import notificationsRoutes from "./routes/notifications.js";
 import contractsRoutes from "./routes/contracts.js";
 import verificationRoutes from "./routes/verification.js";
@@ -41,6 +42,8 @@ import buyersRoutes from "./routes/buyers.js";
 import carouselRoutes from "./routes/carousel.js";
 import tagsRoutes from "./routes/tags.js";
 import setupDebugRoutes from "./routes/debug.js";
+import publisherAuth from "./plugins/publisherAuth.js";
+import publisherRoutes from "./routes/publisher.js";
 
 import {
   normalizeError,
@@ -72,6 +75,11 @@ export async function buildApp(
     keepAliveTimeout: 10000,
     logger: {
       level: env.NODE_ENV === "production" ? "info" : "debug",
+      // Never log publisher API keys.
+      redact: {
+        paths: ['req.headers["x-api-key"]', "req.headers.x-api-key", "x-api-key"],
+        censor: "[REDACTED]",
+      },
       transport:
         env.NODE_ENV !== "production"
           ? {
@@ -153,6 +161,13 @@ export async function buildApp(
       crossOriginResourcePolicy: { policy: "cross-origin" },
       global: true,
     });
+  }
+
+  // Register the Publisher API auth hook BEFORE rate limiting so that
+  // request.publisher is set when the per-key rate-limit keyGenerator runs.
+  // The hook is inert on non-/publisher paths.
+  if (env.ENABLE_PUBLISHER_API === "true") {
+    await app.register(publisherAuth);
   }
 
   // Register rate limiting
@@ -244,6 +259,11 @@ export async function buildApp(
         }
         const path = request.url.split("?")[0];
         if (csrfExempt.has(`${method} ${path}`)) {
+          return done();
+        }
+        // Publisher API authenticates with X-API-Key (no cookies) — exempt the
+        // exact /publisher/ prefix from cookie-based CSRF enforcement.
+        if (path.startsWith("/publisher/")) {
           return done();
         }
         return (app as any).csrfProtection(request, reply, done);
@@ -389,6 +409,7 @@ export async function buildApp(
   await app.register(documentsRoutes);
   await app.register(negotiationsRoutes);
   await app.register(offersRoutes);
+  await app.register(leadsRoutes);
   await app.register(notificationsRoutes);
   await app.register(contractsRoutes);
   await app.register(verificationRoutes);
@@ -397,6 +418,11 @@ export async function buildApp(
   await app.register(buyersRoutes);
   await app.register(carouselRoutes);
   await app.register(tagsRoutes);
+
+  // Publisher API is opt-in via env.
+  if (env.ENABLE_PUBLISHER_API === "true") {
+    await app.register(publisherRoutes, { prefix: "/publisher" });
+  }
 
   // Global error handler for production logging
   app.setErrorHandler(async (error, request, reply) => {

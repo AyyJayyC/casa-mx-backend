@@ -291,6 +291,59 @@ export async function sendOfferReceivedEmail(opts: {
   await sendEmail(opts.sellerEmail, subject, html, text);
 }
 
+// ── Lead attribution ─────────────────────────────────────────────────────────
+
+/**
+ * Sent to the REFERRING agent when a lead arrives through their share link.
+ * This is the only party that receives the buyer's contact on a referred lead.
+ * The capturing agent gets NO email — only a neutral in-app heads-up.
+ */
+export async function sendReferredLeadEmail(opts: {
+  agentEmail: string;
+  agentName: string;
+  leadKind: "offer" | "request";
+  propertyTitle: string;
+  buyerName: string;
+  buyerEmail?: string | null;
+  buyerPhone?: string | null;
+  offeredAmount?: number | null;
+}) {
+  const kindLabel =
+    opts.leadKind === "offer" ? "oferta de compra" : "solicitud de contacto";
+  const subject = `🎯 Nueva ${kindLabel} referida — ${esc(opts.propertyTitle)}`;
+  const amountLine =
+    opts.offeredAmount != null
+      ? `<br><strong>Monto ofertado:</strong> $${opts.offeredAmount.toLocaleString("es-MX")} MXN`
+      : "";
+  const contactLines = [
+    opts.buyerPhone ? `Tel: ${esc(opts.buyerPhone)}` : null,
+    opts.buyerEmail ? `Email: ${esc(opts.buyerEmail)}` : null,
+  ]
+    .filter(Boolean)
+    .join("<br>");
+  const html = wrap(
+    subject,
+    `
+    <h2>Hola, ${esc(opts.agentName)}</h2>
+    <p><strong>${esc(opts.buyerName)}</strong> llegó por tu enlace y envió una ${kindLabel}.</p>
+    <div class="highlight">
+      <strong>Propiedad:</strong> ${esc(opts.propertyTitle)}${amountLine}
+    </div>
+    <p><strong>Contacto del interesado:</strong></p>
+    <div class="highlight">${contactLines || "—"}</div>
+    <p>Ingresa a tu panel de leads referidos para gestionarlo.</p>
+    <a class="btn" href="${env.FRONTEND_URL}/dashboard/leads">Ver leads referidos</a>
+  `,
+  );
+  const text = `${esc(opts.buyerName)} envió una ${kindLabel} para "${esc(opts.propertyTitle)}" por tu enlace. Contacto: ${[
+    opts.buyerPhone,
+    opts.buyerEmail,
+  ]
+    .filter(Boolean)
+    .join(" / ")}`;
+  await sendEmail(opts.agentEmail, subject, html, text);
+}
+
 // ── Rental application notifications ─────────────────────────────────────────
 
 export async function sendApplicationApprovedEmail(opts: {

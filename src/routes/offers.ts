@@ -19,7 +19,50 @@ import {
   sendOfferCounteredEmail,
   sendOfferReceivedEmail,
   sendOfferOutbidEmail,
+  sendReferredLeadEmail,
 } from "../services/email.service.js";
+import {
+  resolveRefCode,
+  resolveLeadRouting,
+  recordAttribution,
+  canSeeBuyerContact,
+} from "../services/attribution.service.js";
+
+/** Redact buyer PII the viewer isn't entitled to see. */
+function redactOffers<T extends { id: string; referringAgentId: string | null }>(
+  offers: T[],
+  viewerId: string,
+  sellerId: string,
+  unlockedIds: Set<string>,
+): T[] {
+  return offers.map((offer) => {
+    if (canSeeBuyerContact({ lead: offer, viewerId, sellerId, unlockedIds })) {
+      return offer;
+    }
+    if (offer.referringAgentId) {
+      return {
+        ...offer,
+        buyerName: null,
+        buyerEmail: null,
+        buyerPhone: null,
+      } as unknown as T;
+    }
+    return { ...offer, buyerEmail: null, buyerPhone: null } as unknown as T;
+  });
+}
+
+async function unlockedLeadIds(
+  prisma: any,
+  userId: string,
+  leadIds: string[],
+): Promise<Set<string>> {
+  if (leadIds.length === 0) return new Set();
+  const rows = await prisma.creditTransaction.findMany({
+    where: { userId, type: "spend", referenceId: { in: leadIds } },
+    select: { referenceId: true },
+  });
+  return new Set<string>(rows.map((r: any) => r.referenceId));
+}
 
 const offersRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -90,39 +133,110 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
           },
         });
 
-        // Notify seller of the new offer
-        const seller = await fastify.prisma.user.findUnique({
-          where: { id: property.sellerId! },
-          select: { email: true, name: true },
+        // Lead attribution: a valid ref makes this a referred lead.
+        const refCode = (request.cookies as any)?.cmx_ref ?? null;
+        const refAgentId = await resolveRefCode(
+          fastify.prisma,
+          refCode,
+          propertyId,
+        );
+        const routing = resolveLeadRouting({
+          sellerId: property.sellerId!,
+          buyerId,
+          refAgentId,
         });
+
+        if (refAgentId) {
+          await recordAttribution(fastify.prisma, {
+            leadType: "offer",
+            leadId: offer.id,
+            propertyId,
+            buyerId,
+            refAgentId,
+            code: refCode,
+          });
+        }
+
         const buyer = await fastify.prisma.user.findUnique({
           where: { id: buyerId },
           select: { name: true },
         });
-        if (seller) {
+
+        if (routing.captureHeadsUp && refAgentId) {
+          // Referred lead: ONLY the referring agent is notified with the buyer's
+          // contact. The capturing agent gets a neutral, PII-free in-app heads-up.
+          const agent = await fastify.prisma.user.findUnique({
+            where: { id: refAgentId },
+            select: { email: true, name: true },
+          });
           await createNotification(
             fastify.prisma,
-            property.sellerId!,
-            "offer_received",
-            "Nueva oferta recibida",
-            `${buyer?.name ?? "Un comprador"} hizo una oferta de $${Number(input.offerAmount).toLocaleString("es-MX")} MXN por "${property.title}".`,
+            refAgentId,
+            "lead_referred",
+            "Nuevo lead referido",
+            `${input.buyerName} hizo una oferta de $${Number(input.offerAmount).toLocaleString("es-MX")} MXN por "${property.title}". Contacto: ${input.buyerEmail} · ${input.buyerPhone}`,
             "offer",
             offer.id,
           );
-          // Email delivery must not fail the offer submission.
           try {
-            await sendOfferReceivedEmail({
-              sellerEmail: seller.email,
-              sellerName: seller.name,
-              propertyTitle: property.title,
-              offeredAmount: Number(input.offerAmount),
-              buyerName: buyer?.name ?? "Un comprador",
-            });
+            if (agent) {
+              await sendReferredLeadEmail({
+                agentEmail: agent.email,
+                agentName: agent.name,
+                leadKind: "offer",
+                propertyTitle: property.title,
+                buyerName: input.buyerName,
+                buyerEmail: input.buyerEmail,
+                buyerPhone: input.buyerPhone,
+                offeredAmount: Number(input.offerAmount),
+              });
+            }
           } catch (emailErr) {
             fastify.log.error(
               { err: emailErr },
-              "Failed to send offer received email",
+              "Failed to send referred lead email",
             );
+          }
+          await createNotification(
+            fastify.prisma,
+            property.sellerId!,
+            "lead_referred_received",
+            "Un agente hará una oferta por tu propiedad",
+            "Un agente hará una oferta por tu propiedad; el agente te contactará.",
+            "offer",
+            offer.id,
+          );
+        } else {
+          // Direct lead: the capturing agent is notified and pays.
+          const seller = await fastify.prisma.user.findUnique({
+            where: { id: property.sellerId! },
+            select: { email: true, name: true },
+          });
+          if (seller) {
+            await createNotification(
+              fastify.prisma,
+              property.sellerId!,
+              "offer_received",
+              "Nueva oferta recibida",
+              `${buyer?.name ?? "Un comprador"} hizo una oferta de $${Number(input.offerAmount).toLocaleString("es-MX")} MXN por "${property.title}".`,
+              "offer",
+              offer.id,
+            );
+            // Email delivery must not fail the offer submission.
+            try {
+              await sendOfferReceivedEmail({
+                sellerEmail: seller.email,
+                sellerName: seller.name,
+                propertyTitle: property.title,
+                offeredAmount: Number(input.offerAmount),
+                buyerName: buyer?.name ?? "Un comprador",
+              });
+            } catch (emailErr) {
+              fastify.log.error(
+                { err: emailErr },
+                "Failed to send offer received email",
+              );
+            }
           }
         }
 
@@ -174,10 +288,20 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
 
         const offers = await fastify.prisma.propertyOffer.findMany({
           where: { propertyId },
+          include: { referringAgent: { select: { name: true } } },
           orderBy: { createdAt: "desc" },
         });
 
-        return reply.send({ success: true, data: offers });
+        const unlockedIds = await unlockedLeadIds(
+          fastify.prisma,
+          userId,
+          offers.map((o) => o.id),
+        );
+
+        return reply.send({
+          success: true,
+          data: redactOffers(offers, userId, property.sellerId!, unlockedIds),
+        });
       } catch (error: any) {
         fastify.log.error(error);
         return reply
@@ -247,11 +371,21 @@ const offersRoutes: FastifyPluginAsync = async (fastify) => {
                 estado: true,
               },
             },
+            referringAgent: { select: { name: true } },
           },
           orderBy: { createdAt: "desc" },
         });
 
-        return reply.send({ success: true, data: offers });
+        const unlockedIds = await unlockedLeadIds(
+          fastify.prisma,
+          sellerId,
+          offers.map((o) => o.id),
+        );
+
+        return reply.send({
+          success: true,
+          data: redactOffers(offers, sellerId, sellerId, unlockedIds),
+        });
       } catch (error: any) {
         fastify.log.error(error);
         return reply

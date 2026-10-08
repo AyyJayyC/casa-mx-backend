@@ -20,6 +20,9 @@ export default defineConfig({
       // CSRF/helmet are enforced in app.ts unless disabled; app.inject tests
       // do not send CSRF tokens. The dedicated CSRF test forces security on.
       DISABLE_SECURITY: 'true',
+      // Exercise the Publisher API routes in tests. Auth/CSRF tests build
+      // their own app; the flag is read at buildApp() time.
+      ENABLE_PUBLISHER_API: 'true',
     },
     testTimeout: 30000,      // 30 second timeout per test
     hookTimeout: 30000,      // 30 second timeout for hooks

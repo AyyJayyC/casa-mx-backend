@@ -43,6 +43,11 @@ model User {
   listedProperties   Property[] @relation("PropertySeller")
   uploadedDocuments  PropertyDocument[] @relation("DocumentUploader")
   userDocuments      UserDocument[]     @relation("UserDocuments")
+  publisherApiKeys   PublisherApiKey[]  @relation("PublisherApiKeys")
+
+  // Lead attribution: offers/requests that arrived through this user's ref code
+  referredOffers     PropertyOffer[]    @relation("PropertyOfferReferringAgent")
+  referredRequests   PropertyRequest[]  @relation("PropertyRequestReferringAgent")
 
   // Referral system
   referralCode   String?  @unique
@@ -149,6 +154,9 @@ model Property {
   financeOptions String[] @default([])  // cash, bankLoan, INFONAVIT, FOVISSSTE, paymentPlan, other
   sellerId    String
   seller      User     @relation("PropertySeller", fields: [sellerId], references: [id])
+  // External id from the publisher pipeline; NULL for app-created listings.
+  // The compound unique lets the Publisher API upsert by (sellerId, externalId).
+  externalId  String?
   
   // Ownership verification
   verificationStatus String  @default("unverified") // unverified | docs_uploaded | verified | rejected
@@ -195,6 +203,7 @@ model Property {
   documents          PropertyDocument[]
   images             PropertyImage[]
 
+  @@unique([sellerId, externalId])
   @@index([sellerId])
   @@index([status])
   @@index([price])
@@ -245,21 +254,27 @@ model UserDocument {
 }
 
 model PropertyRequest {
-  id         String   @id @default(uuid())
-  propertyId String
-  buyerId    String
-  name       String?  // buyer's name for contact
-  phone      String?  // buyer's phone for contact
-  message    String?
-  status     String   @default("pending") // pending, contacted
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            String   @id @default(uuid())
+  propertyId    String
+  buyerId       String
+  name          String?  // buyer's name for contact
+  phone         String?  // buyer's phone for contact
+  message       String?
+  status        String   @default("pending") // pending, contacted
+  // Lead attribution (referred lead). Null = direct lead.
+  referringAgentId String?
+  attributionCode  String?
+  attributedAt     DateTime?
+  referringAgent   User?  @relation("PropertyRequestReferringAgent", fields: [referringAgentId], references: [id], onDelete: SetNull)
+  property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@unique([propertyId, buyerId])
   @@index([propertyId])
   @@index([buyerId])
   @@index([status])
+  @@index([referringAgentId])
 }
 
 model RentalApplication {
@@ -642,7 +657,13 @@ model PropertyOffer {
   // Seller response
   sellerNote     String?  @db.Text
   counterAmount  Float?   // set if seller counters
-  
+
+  // Lead attribution (referred lead). Null = direct lead.
+  referringAgentId String?
+  attributionCode  String?
+  attributedAt     DateTime?
+  referringAgent   User?  @relation("PropertyOfferReferringAgent", fields: [referringAgentId], references: [id], onDelete: SetNull)
+
   property       Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   
   createdAt      DateTime @default(now())
@@ -652,6 +673,7 @@ model PropertyOffer {
   @@index([buyerId])
   @@index([status])
   @@index([createdAt])
+  @@index([referringAgentId])
 }
 
 model PropertyImage {
@@ -698,6 +720,26 @@ model CarouselSlide {
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+// API keys for the Casa MX Publisher API (external listing pipelines).
+model PublisherApiKey {
+  id          String    @id @default(uuid())
+  label       String
+  keyHash     String    @unique          // sha256 hex of the raw key
+  keyPrefix   String                     // e.g. "cmx_pub_ab12"
+  userId      String
+  user        User      @relation("PublisherApiKeys", fields: [userId], references: [id], onDelete: Cascade)
+  scopes      String[]  @default(["listings:write"])
+  active      Boolean   @default(true)
+  skipIneVerification Boolean @default(false)
+  revokedAt   DateTime?
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  @@index([userId])
+  @@index([active])
 }
 
 model TagSubscription {

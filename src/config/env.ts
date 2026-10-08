@@ -74,6 +74,17 @@ const envSchema = z
     DISABLE_SECURITY: z.enum(["true", "false"]).default("false"),
     // Anonymous /debug/* write endpoints are off unless explicitly enabled.
     ENABLE_PUBLIC_DEBUG: z.enum(["true", "false"]).default("false"),
+    // Casa MX Publisher API (X-API-Key). Off unless explicitly enabled.
+    ENABLE_PUBLISHER_API: z.enum(["true", "false"]).default("false"),
+    // Require an approved INE (official_id) unless the key opts out.
+    PUBLISHER_REQUIRE_INE: z.enum(["true", "false"]).default("true"),
+    // Per-key rate limits (15 min window). Optional overrides.
+    PUBLISHER_RATE_CREATE: z.string().optional(),
+    PUBLISHER_RATE_IMAGES: z.string().optional(),
+    PUBLISHER_RATE_PUBLISH: z.string().optional(),
+    PUBLISHER_RATE_UNPUBLISH: z.string().optional(),
+    PUBLISHER_RATE_DELETE: z.string().optional(),
+    PUBLISHER_RATE_GET: z.string().optional(),
     // Optional error reporting. When unset, Sentry is a no-op (local/CI).
     SENTRY_DSN: z.string().optional(),
     SENTRY_ENVIRONMENT: z.string().optional(),
