@@ -180,6 +180,10 @@ const publisherRoutes: FastifyPluginAsync = async (app) => {
 
         const input = parsed.data;
         const data = toPropertyData(input);
+        // status/visibility are draft defaults for `create` only. A re-POST of
+        // an existing externalId is a metadata update and must not reset a
+        // published listing back to draft.
+        const { status: _status, visibility: _visibility, ...updateData } = data;
         const property = await app.prisma.property.upsert({
           where: {
             sellerId_externalId: {
@@ -188,7 +192,7 @@ const publisherRoutes: FastifyPluginAsync = async (app) => {
             },
           },
           create: { ...data, sellerId: userId, externalId: input.externalId },
-          update: { ...data, externalId: input.externalId },
+          update: { ...updateData, externalId: input.externalId },
         });
 
         await grantOwnerRole(userId);
