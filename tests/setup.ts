@@ -31,8 +31,12 @@ beforeAll(async () => {
       select: { id: true },
     });
 
+    // Always set the known test password. The seed creates the same accounts
+    // with different passwords, so create-if-missing left stale credentials
+    // and every seeded login returned 401.
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     if (!user) {
-      const hashedPassword = await bcrypt.hash(password, 10);
       user = await prisma.user.create({
         data: {
           email,
@@ -40,6 +44,18 @@ beforeAll(async () => {
           password: hashedPassword,
         },
         select: { id: true },
+      });
+    } else {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          // A previous run with stale seed credentials may have locked the
+          // account; clear the lockout so the known password works.
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          lastFailedLoginAt: null,
+        },
       });
     }
 
@@ -76,6 +92,12 @@ beforeAll(async () => {
     "Seed Owner",
     process.env.TEST_SELLER_PASSWORD || "seller123",
     ["owner"],
+  );
+  await ensureUserWithRoles(
+    "buyer@casamx.local",
+    "Seed Buyer",
+    process.env.TEST_CLIENT_PASSWORD || "buyer123",
+    ["client"],
   );
 });
 

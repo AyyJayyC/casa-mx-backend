@@ -152,9 +152,9 @@ describe("property image pipeline (R2)", () => {
     expect(uploadPublicImage).not.toHaveBeenCalled();
   });
 
-  it("rejects upload past the 10-image cap", async () => {
-    const ten = Array.from({ length: 10 }, (_, i) => `${R2_BASE}/p/${i}.webp`);
-    const id = await createProperty(ownerToken, ten);
+  it("rejects upload past the 25-image cap", async () => {
+    const full = Array.from({ length: 25 }, (_, i) => `${R2_BASE}/p/${i}.webp`);
+    const id = await createProperty(ownerToken, full);
     const res = await uploadImage(id, ownerToken, WEBP);
     expect(res.status).toBe(400);
     expect(uploadPublicImage).not.toHaveBeenCalled();
