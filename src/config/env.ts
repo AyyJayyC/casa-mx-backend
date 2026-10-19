@@ -52,6 +52,8 @@ const envSchema = z
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
+    // Environment-level kill switch for outbound email (staging).
+    EMAIL_DISABLED: z.enum(["true", "false"]).default("false"),
     RESEND_FROM_EMAIL: z
       .string()
       .email()
@@ -97,8 +99,9 @@ const envSchema = z
     // Production-required services
     if (env.NODE_ENV === "production") {
       if (
-        !env.RESEND_API_KEY ||
-        env.RESEND_API_KEY.startsWith("re_placeholder")
+        env.EMAIL_DISABLED !== "true" &&
+        (!env.RESEND_API_KEY ||
+          env.RESEND_API_KEY.startsWith("re_placeholder"))
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

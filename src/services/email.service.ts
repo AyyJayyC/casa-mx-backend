@@ -46,6 +46,7 @@ function withTimeout<T>(p: Promise<T>, label: string): Promise<T> {
 }
 
 export function isConfigured(): boolean {
+  if (env.EMAIL_DISABLED === "true") return false;
   return Boolean(
     env.RESEND_API_KEY && !env.RESEND_API_KEY.startsWith("re_placeholder"),
   );
@@ -122,8 +123,13 @@ async function sendEmail(
   html: string,
   text: string,
 ) {
-  const r = client();
   const maskedTo = maskEmail(to);
+  if (env.EMAIL_DISABLED === "true") {
+    console.log("[email] disabled (EMAIL_DISABLED=true) — skipped:", maskedTo);
+    return;
+  }
+
+  const r = client();
   if (!r) {
     console.error(
       "[email] RESEND_API_KEY not set — CRITICAL: email not sent to",
