@@ -21,9 +21,9 @@ describe("CSRF protection", () => {
 
   const analyticsPayload = { eventName: "csrf_probe" };
 
-  /** Obtain CSRF cookies from a GET, then log in as the seeded buyer. */
+  /** Obtain CSRF cookies from the bootstrap route, then log in as the buyer. */
   async function bootstrap() {
-    const seed = await app.inject({ method: "GET", url: "/health" });
+    const seed = await app.inject({ method: "GET", url: "/auth/csrf" });
     const seedSecret = getCookie(seed, "_csrf");
     const seedToken = getCookie(seed, "csrfToken");
 
@@ -42,6 +42,19 @@ describe("CSRF protection", () => {
       token: getCookie(login, "csrfToken") ?? seedToken,
     };
   }
+
+  it("does not set cookies on a public GET", async () => {
+    const res = await app.inject({ method: "GET", url: "/health" });
+    expect(res.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("issues both CSRF cookies from the bootstrap route, uncached", async () => {
+    const res = await app.inject({ method: "GET", url: "/auth/csrf" });
+    expect(res.statusCode).toBe(204);
+    expect(getCookie(res, "_csrf")).toBeTruthy();
+    expect(getCookie(res, "csrfToken")).toBeTruthy();
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
 
   it("rejects a mutating request without a token", async () => {
     const { accessToken } = await bootstrap();
