@@ -45,6 +45,13 @@ export function publicPropertyView<T extends object>(
   for (const key of PUBLIC_STRIP_KEYS) delete out[key];
   if ("lat" in out) out.lat = roundCoord(out.lat);
   if ("lng" in out) out.lng = roundCoord(out.lng);
+  // Hide expired promotions without writing to the DB on every read.
+  if (
+    "promotionTier" in out &&
+    !(out.featuredUntil && new Date(out.featuredUntil) > new Date())
+  ) {
+    out.promotionTier = null;
+  }
   return out;
 }
 
@@ -140,12 +147,6 @@ class PropertyService {
       limit,
       offset,
     } = filters;
-
-    // Expire stale promotions
-    await this.prisma.property.updateMany({
-      where: { featuredUntil: { lt: new Date() } },
-      data: { promotionTier: null, featuredUntil: null },
-    });
 
     const where: any = {
       visibility: "public",
