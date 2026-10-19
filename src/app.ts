@@ -6,6 +6,7 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
+import compressionPlugin from "./plugins/compression.js";
 import bcrypt from "bcrypt";
 import { env } from "./config/env.js";
 import { deriveCookieDomain } from "./utils/cookies.js";
@@ -181,6 +182,7 @@ export async function buildApp(
 
   // Register plugins
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } }); // 10 MB max
+  await app.register(compressionPlugin);
 
   // Preserve raw body for Stripe webhook signature verification
   if (!disableSecurity) {
