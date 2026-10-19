@@ -433,7 +433,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     {
       config: {
         rateLimit: {
-          max: 30,
+          // Hydrates the session on every page load. 30/15min logged real
+          // users out after ~30 navigations and broke the E2E suite.
+          max: env.NODE_ENV === "test" ? 500 : isLocalFrontend ? 1000 : 300,
           timeWindow: "15 minutes",
         },
       },
