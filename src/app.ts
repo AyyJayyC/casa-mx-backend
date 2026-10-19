@@ -7,6 +7,7 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import compressionPlugin from "./plugins/compression.js";
+import { issueCsrfToken, shouldIssueCsrf } from "./utils/csrf.js";
 import bcrypt from "bcrypt";
 import { env } from "./config/env.js";
 import { deriveCookieDomain } from "./utils/cookies.js";
@@ -227,22 +228,12 @@ export async function buildApp(
       },
     });
 
-    // Issue/refresh a double-submit token on every request so the SPA always
-    // has one before its first mutation.
-    app.addHook("onRequest", (_request, reply, done) => {
-      try {
-        const token = (reply as any).generateCsrf();
-        if (token) {
-          reply.setCookie("csrfToken", token, {
-            httpOnly: false,
-            sameSite: "lax",
-            secure: true,
-            path: "/",
-            ...(csrfCookieDomain ? { domain: csrfCookieDomain } : {}),
-          });
-        }
-      } catch {
-        // Ignore — the enforcement hook below decides what to do.
+    // Issue/refresh a double-submit token on mutations only. Issuing on GET
+    // made every public response uncacheable (Set-Cookie defeats s-maxage).
+    // Clients bootstrap through GET /auth/csrf when they have no token.
+    app.addHook("onRequest", (request, reply, done) => {
+      if (shouldIssueCsrf(request.method)) {
+        issueCsrfToken(reply, csrfCookieDomain);
       }
       done();
     });

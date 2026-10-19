@@ -16,6 +16,7 @@ import { AuthService, CONSENT_VERSION } from "../services/auth.service.js";
 import { refreshTokenStoreService } from "../services/refreshTokenStore.service.js";
 import { verifyJWT } from "../utils/guards.js";
 import { deriveCookieDomain } from "../utils/cookies.js";
+import { issueCsrfToken } from "../utils/csrf.js";
 import { env } from "../config/env.js";
 import {
   sendVerificationEmail,
@@ -48,6 +49,24 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     path: "/",
     ...(cookieDomain ? { domain: cookieDomain } : {}),
   };
+
+  // Double-submit bootstrap for clients that have no CSRF cookie yet.
+  // Public, no DB, never cached.
+  fastify.get(
+    "/auth/csrf",
+    {
+      config: {
+        rateLimit: {
+          max: env.NODE_ENV === "test" ? 500 : 120,
+          timeWindow: "1 minute",
+        },
+      },
+    },
+    async (_request, reply) => {
+      issueCsrfToken(reply, cookieDomain);
+      return reply.header("Cache-Control", "no-store").code(204).send();
+    },
+  );
 
   fastify.post<{ Body: Record<string, any> }>(
     "/auth/register",
