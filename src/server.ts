@@ -50,6 +50,9 @@ async function runStartupChecks() {
       console.log("[startup] Email service: OK");
       checks.push("Email: OK");
     }
+  } else if (env.EMAIL_DISABLED === "true") {
+    console.log("[startup] Email disabled (EMAIL_DISABLED=true) — skipped");
+    checks.push("Email: disabled");
   } else {
     if (env.NODE_ENV === "production") {
       console.error(
