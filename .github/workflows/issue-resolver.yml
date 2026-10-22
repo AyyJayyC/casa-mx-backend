@@ -27,7 +27,7 @@ jobs:
       LLM_MODEL: ${{ vars.LLM_MODEL || 'deepseek/deepseek-v4-flash' }}
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
