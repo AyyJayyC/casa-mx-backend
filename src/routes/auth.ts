@@ -478,6 +478,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
             email: user.email,
             name: user.name,
             referralCode: (user as any).referralCode ?? null,
+            avatarUrl: (user as any).avatarUrl ?? null,
+            paidSubscriber: (user as any).paidSubscriber ?? false,
+            subscriptionStatus: (user as any).subscriptionStatus ?? "inactive",
+            subscriptionCurrentPeriodEnd:
+              (user as any).subscriptionCurrentPeriodEnd ?? null,
             emailVerified: (user as any).emailVerified ?? false,
             phoneVerified: (user as any).phoneVerified ?? false,
             officialIdUploaded: !!officialIdDoc,

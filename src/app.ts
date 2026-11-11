@@ -175,7 +175,9 @@ export async function buildApp(
 
   // Register rate limiting
   await app.register(rateLimit, {
-    max: env.NODE_ENV === "test" ? 500 : isLocalFrontend ? 1000 : 100,
+    // A single page load makes several API calls. 100/15min logged real users
+    // out mid-session; per-route limits on auth still guard the sensitive paths.
+    max: env.NODE_ENV === "test" ? 500 : 1000,
     timeWindow: "15 minutes", // Per 15 minute window
     cache: 10000, // Cache size
     skipOnError: true, // Don't fail if Redis/cache unavailable

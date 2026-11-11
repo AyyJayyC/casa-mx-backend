@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from "fastify";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { verifyJWT, requireAnyRole } from "../utils/guards.js";
+import { publicPropertyView } from "../utils/publicProperty.js";
 import { cacheService } from "../services/cache.service.js";
 import { mapsService } from "../services/maps.service.js";
 import { notifyTagSubscribers } from "../services/notification.service.js";
@@ -18,42 +19,6 @@ import {
   type CreatePropertyInput,
   type UpdatePropertyInput,
 } from "../schemas/properties.js";
-
-// Fields that must never leave the server on a public property response.
-const PUBLIC_STRIP_KEYS = [
-  "address",
-  "mapsUrl",
-  "inventoryNotes",
-  "codigoPostal",
-  "sellerId",
-  "verificationNote",
-  "verificationStatus",
-] as const;
-
-const roundCoord = (v: unknown) =>
-  typeof v === "number" ? Math.round(v * 1000) / 1000 : v;
-
-/**
- * Public-safe projection of a property. Drops the exact address, maps link,
- * internal notes, postal code and seller identity, and rounds coordinates to
- * ~3 decimals (~110 m) so a listing cannot be triangulated to a doorstep.
- */
-export function publicPropertyView<T extends object>(
-  p: T,
-): Record<string, any> {
-  const out: Record<string, any> = { ...p };
-  for (const key of PUBLIC_STRIP_KEYS) delete out[key];
-  if ("lat" in out) out.lat = roundCoord(out.lat);
-  if ("lng" in out) out.lng = roundCoord(out.lng);
-  // Hide expired promotions without writing to the DB on every read.
-  if (
-    "promotionTier" in out &&
-    !(out.featuredUntil && new Date(out.featuredUntil) > new Date())
-  ) {
-    out.promotionTier = null;
-  }
-  return out;
-}
 
 class PropertyService {
   constructor(private prisma: PrismaClient) {}

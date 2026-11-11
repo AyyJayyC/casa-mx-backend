@@ -434,8 +434,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
   );
 
   // ─── Emergency recovery endpoints ─────────────────────────────────────────
-  // Never registered in production: they can reset the admin password and run
-  // `prisma db push --accept-data-loss`. Dev/staging only.
+  // Never registered in production: they can apply migrations and reset the
+  // admin password. Dev/staging only.
   if (process.env.NODE_ENV === "production") return;
 
   // POST /admin/run-migrations — apply pending database migrations
@@ -475,18 +475,6 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
           output.push("deploy: " + result.trim());
         } catch (e: any) {
           output.push("deploy: " + (e.stdout || e.stderr || e.message));
-        }
-
-        // Sync schema directly (catches all columns added via prisma db push locally)
-        try {
-          const result = execSync("npx prisma db push --accept-data-loss", {
-            cwd: "/app",
-            timeout: 60000,
-            encoding: "utf8",
-          });
-          output.push("push: " + result.trim());
-        } catch (e: any) {
-          output.push("push: " + (e.stdout || e.stderr || e.message));
         }
 
         // Grant admin role to ADMIN_EMAIL user (action: grant-admin)
