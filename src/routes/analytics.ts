@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from "fastify";
 import { AnalyticsEventSchema } from "../schemas/analytics.js";
 import { AnalyticsService } from "../services/analytics.service.js";
-import { requireAdmin, verifyJWT } from "../utils/guards.js";
+import { requireAdmin } from "../utils/guards.js";
 import {
   isZodError,
   createValidationErrorResponse,
@@ -11,14 +11,36 @@ import {
 const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
   const analyticsService = new AnalyticsService(fastify.prisma);
 
-  // POST /analytics/events — track an event (authenticated users)
+  // POST /analytics/events — track an event (authenticated or anonymous)
   fastify.post<{ Body: Record<string, any> }>(
     "/analytics/events",
-    { onRequest: [verifyJWT] },
+    {
+      config: {
+        rateLimit: { max: 120, timeWindow: "1 minute" },
+      },
+    },
     async (request, reply) => {
       try {
         const input = AnalyticsEventSchema.parse(request.body);
-        const userId = (request.user as any).id;
+
+        // Anonymous traffic is the majority of a marketplace. Attach the user
+        // when a valid token is present, otherwise record the event without one.
+        let userId: string | null = null;
+        const hasAuth = Boolean(
+          request.headers.authorization ||
+            (request as any).cookies?.accessToken,
+        );
+        if (hasAuth) {
+          try {
+            await request.jwtVerify({
+              onlyCookie: !request.headers.authorization,
+            });
+            userId = request.user.id;
+          } catch {
+            userId = null;
+          }
+        }
+
         const event = await analyticsService.trackEvent(userId, input);
         return reply.code(201).send({ success: true, data: event });
       } catch (error: any) {

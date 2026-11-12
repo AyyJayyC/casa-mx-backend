@@ -228,7 +228,7 @@ describe("Checkpoint 5: Backend Analytics API", () => {
       expect(data.success).toBe(false);
     });
 
-    it("non-authenticated user cannot post events (401)", async () => {
+    it("anonymous users can post events without a user id", async () => {
       const response = await app.inject({
         method: "POST",
         url: "/analytics/events",
@@ -237,10 +237,11 @@ describe("Checkpoint 5: Backend Analytics API", () => {
         },
       });
 
-      expect(response.statusCode).toBe(401);
+      expect(response.statusCode).toBe(201);
+      expect(JSON.parse(response.payload).data.userId).toBeNull();
     });
 
-    it("invalid token returns 401", async () => {
+    it("an invalid token is recorded as anonymous", async () => {
       const response = await app.inject({
         method: "POST",
         url: "/analytics/events",
@@ -252,7 +253,8 @@ describe("Checkpoint 5: Backend Analytics API", () => {
         },
       });
 
-      expect(response.statusCode).toBe(401);
+      expect(response.statusCode).toBe(201);
+      expect(JSON.parse(response.payload).data.userId).toBeNull();
     });
   });
 

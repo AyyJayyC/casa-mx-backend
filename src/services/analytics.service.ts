@@ -4,7 +4,7 @@ import { AnalyticsEventInput } from "../schemas/analytics.js";
 export class AnalyticsService {
   constructor(private prisma: PrismaClient) {}
 
-  async trackEvent(userId: string, event: AnalyticsEventInput) {
+  async trackEvent(userId: string | null, event: AnalyticsEventInput) {
     return this.prisma.analyticsEvent.create({
       data: {
         eventName: event.eventName,
