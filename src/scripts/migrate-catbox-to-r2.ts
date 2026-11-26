@@ -28,6 +28,7 @@ type Args = {
   dryRun: boolean;
   yes: boolean;
   restore: boolean;
+  stripDead: boolean;
   limit: number | null;
   propertyId: string | null;
   concurrency: number;
@@ -53,6 +54,7 @@ function parseArgs(argv: string[]): Args {
     dryRun: has("--dry-run"),
     yes: has("--yes"),
     restore: has("--restore"),
+    stripDead: has("--strip-dead"),
     limit: value("--limit") ? Number(value("--limit")) : null,
     propertyId: value("--property"),
     concurrency: value("--concurrency") ? Number(value("--concurrency")) : 3,
@@ -375,6 +377,74 @@ async function restore(prisma: PrismaClient, args: Args): Promise<number> {
   return 0;
 }
 
+/**
+ * Remove remaining catbox URLs that no longer resolve. Originals that are
+ * still reachable are left alone (they can be migrated later).
+ */
+async function stripDead(prisma: PrismaClient, args: Args): Promise<number> {
+  const apply = args.yes;
+  const properties = await loadProperties(prisma, args);
+  if (properties.length === 0) {
+    console.log("[strip] no catbox images left. nothing to do.");
+    return 0;
+  }
+
+  const strippedLog = args.logPath.replace(/\.ndjson$/i, "") + "-stripped.ndjson";
+  let removed = 0;
+  let alive = 0;
+  let touched = 0;
+
+  for (const property of properties) {
+    const kept: string[] = [];
+    const dropped: string[] = [];
+
+    for (const url of property.imageUrls) {
+      if (!isCatbox(url)) {
+        kept.push(url);
+        continue;
+      }
+      try {
+        await downloadImage(url);
+        kept.push(url);
+        alive++;
+        console.log(`  alive ${property.id} ${url}`);
+      } catch (err: any) {
+        dropped.push(url);
+        console.log(`  dead  ${property.id} ${url} (${err?.message ?? err})`);
+      }
+    }
+
+    if (dropped.length === 0) continue;
+    touched++;
+
+    if (apply) {
+      await prisma.$transaction(async (tx) => {
+        await tx.property.update({
+          where: { id: property.id },
+          data: { imageUrls: kept },
+        });
+        await tx.propertyImage.deleteMany({
+          where: { propertyId: property.id, imageUrl: { in: dropped } },
+        });
+      });
+      for (const url of dropped) {
+        await appendFile(
+          strippedLog,
+          JSON.stringify({ at: new Date().toISOString(), propertyId: property.id, from: url }) + "\n",
+          "utf8",
+        );
+      }
+    }
+    removed += dropped.length;
+  }
+
+  console.log(
+    `[strip] ${apply ? "removed" : "would remove"} ${removed} dead URLs across ${touched} properties; ${alive} still reachable`,
+  );
+  if (apply) console.log(`[strip] log: ${strippedLog}`);
+  return 0;
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
 
@@ -394,6 +464,8 @@ async function main(): Promise<number> {
         return 0;
       }
       code = await restore(prisma, args);
+    } else if (args.stripDead) {
+      code = await stripDead(prisma, args);
     } else if (args.dryRun) {
       code = await dryRun(prisma, args);
     } else if (!args.yes) {
