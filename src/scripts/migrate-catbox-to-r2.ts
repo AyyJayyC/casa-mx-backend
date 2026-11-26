@@ -88,6 +88,34 @@ function mimeFromUrl(url: string): string | null {
   return null;
 }
 
+/**
+ * Catbox serves images with whatever extension the uploader used, so the
+ * declared content type lies for a small share of them. Trust the bytes.
+ */
+function sniffImageType(buffer: Buffer): string | null {
+  if (buffer.length > 2 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    buffer.length > 3 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+  ) {
+    return "image/png";
+  }
+  if (
+    buffer.length > 11 &&
+    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buffer.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+
 function normalizeMime(contentType: string | null, url: string): string | null {
   const raw = (contentType ?? "").split(";")[0].trim().toLowerCase();
   if (raw === "image/jpeg" || raw === "image/png" || raw === "image/webp") {
@@ -124,7 +152,14 @@ async function downloadImage(
     );
   }
 
-  return { buffer, mimeType };
+  // The bytes win over the declared type: uploading a WebP as .jpg would store
+  // a file whose magic bytes contradict its ContentType.
+  const sniffed = sniffImageType(buffer);
+  if (!sniffed) {
+    throw new Error(`unrecognised image content (declared ${mimeType})`);
+  }
+
+  return { buffer, mimeType: sniffed };
 }
 
 /** Probe size without downloading the whole object. */
