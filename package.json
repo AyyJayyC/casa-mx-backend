@@ -14,11 +14,12 @@
     "test": "vitest run",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:watch": "vitest",
-    "check-env": "tsx scripts/check-env.ts",
-    "prisma:migrate": "prisma migrate dev",
+    "check-env": "tsx scripts/check-env.ts",    "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
     "prisma:seed": "tsx prisma/seed.ts",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "migrate:catbox": "tsx src/scripts/migrate-catbox-to-r2.ts",
+    "migrate:catbox:built": "node dist/scripts/migrate-catbox-to-r2.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
